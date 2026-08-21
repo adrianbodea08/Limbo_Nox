@@ -549,6 +549,7 @@ database. Nothing here touches `notes.db`.
 | Dynamic field admin UI | done — define a field, and set which types ask for it | `field_defs`, `field_usage` |
 | Asks, and the four notifications | done — confirm / explain / discuss / present | `nox/asks.py`, `nox/notify.py`, [docs](ASKS.md) |
 | Labels | done — created by use, folded on the way in, filtered by EXISTS | `nox/labels.py`, [docs](LABELS.md) |
+| Text editor | done — Markdown rendered at last, to elements rather than HTML | `Markdown.tsx`, [docs](EDITOR.md) |
 | Insights | done — flow, waiting, automation share | `nox/insights.py`, [docs](ANALYTICS.md) |
 | Saved views as first-class UI | seeded, board uses ad-hoc filters | `views` |
 

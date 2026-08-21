@@ -18,6 +18,7 @@ import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { ago, trackerApi } from "./model";
 import { MentionBox } from "./Mentions";
+import { Markdown } from "./Markdown";
 import type { Ask, AskKind, TrackerUser } from "./model";
 
 const KINDS: {
@@ -136,7 +137,11 @@ function AskCard({ ask, me, users, onChanged }: {
           : <span className="tk-dim tka-settled-when">{ask.state} · {ago(ask.answered_at ?? ask.asked_at)}</span>}
       </header>
 
-      <p className="tka-question">{ask.question}</p>
+      {/* Rendered, so a name typed in the question shows as the person it
+          reached — and so a question with a list in it reads as a list. */}
+      <div className="tka-question">
+        <Markdown text={ask.question} people={users} />
+      </div>
 
       <div className="tka-who">
         <Person size={18} name={ask.asked_by_name ?? undefined}
@@ -148,9 +153,10 @@ function AskCard({ ask, me, users, onChanged }: {
       </div>
 
       {ask.answer && (
-        <p className="tka-answer">
-          <span className="tk-dim">{ask.answered_by_name ?? "Answered"}:</span> {ask.answer}
-        </p>
+        <div className="tka-answer">
+          <span className="tk-dim">{ask.answered_by_name ?? "Answered"}:</span>
+          <Markdown text={ask.answer} people={users} />
+        </div>
       )}
 
       {error && <p className="tk-error tka-error">{error}</p>}

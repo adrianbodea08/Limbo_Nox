@@ -11,6 +11,7 @@ import { Face as PersonFace } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { TypeGlyph } from "./TypeGlyph";
 import { LabelChips } from "./Labels";
+import { plain } from "./Markdown";
 import {
   PRIORITY_COLOUR, ago, parentColour,
   type BoardColumn, type BoardData, type TrackerIssue, type TrackerStatus,
@@ -37,7 +38,9 @@ function preview(issue: TrackerIssue): string {
   const withoutTitle = body.startsWith(summary)
     ? body.slice(summary.length).replace(/^[.\s]+/, "")
     : body;
-  return withoutTitle.replace(/\s+/g, " ").trim();
+  // One line with no room to render anything, so the markup comes off rather
+  // than showing as asterisks and hyphens.
+  return plain(withoutTitle);
 }
 
 /** The row along the bottom of a card: what is true about this issue that you

@@ -20,7 +20,7 @@ const SHAPE = { 4: "xs", 8: "s", 12: "m", 16: "l", 28: "xl" };
 // The type scale from DESIGN_M3.md section 1.
 const TYPE = new Set([11, 12, 14, 16, 22, 24, 28, 32, 36, 45, 57]);
 
-const findings = { radius: [], shadow: [], easing: [], type: [], colour: [], hit: [] };
+const findings = { radius: [], shadow: [], easing: [], type: [], colour: [], hit: [], ghost: [] };
 // Wrappers around a checkbox or radio, collected on the way past and checked
 // afterwards: each one has to give the small box a 40px target to sit in.
 const wrappersToCheck = new Set();
@@ -135,6 +135,24 @@ for (const wrapper of wrappersToCheck) {
   }
 }
 
+// A token that is used but never defined. Every other check here asks "did you
+// reach for a token?" and answers yes for `var(--m3-font-title-small)` — which
+// does not exist, silently falls back to whatever the browser felt like, and
+// looks compliant in every report. Asking the second question costs one pass.
+{
+  const defined = new Set();
+  root.walkDecls((d) => { if (d.prop.startsWith("--")) defined.add(d.prop); });
+  root.walkDecls((d) => {
+    for (const m of d.value.matchAll(/var\(\s*(--[\w-]+)\s*(,|\))/g)) {
+      // Only ours: a bare `var(--x)` with no fallback and no definition is a
+      // hole. One with a fallback is a deliberate choice and left alone.
+      if (!m[1].startsWith("--m3-") && !m[1].startsWith("--tk-")) continue;
+      if (m[2] === ",") continue;
+      if (!defined.has(m[1])) findings.ghost.push(`${where(d)}  — ${m[1]} is never defined`);
+    }
+  });
+}
+
 const titles = {
   radius: "Radius not from the shape scale",
   shadow: "Shadow not from an elevation token",
@@ -142,6 +160,7 @@ const titles = {
   type: "Font size off the type scale",
   colour: "Hard-coded colour (themes cannot follow it)",
   hit: "Hit area under the minimum",
+  ghost: "Token used but never defined",
 };
 
 let total = 0;

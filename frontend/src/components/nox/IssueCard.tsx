@@ -22,6 +22,7 @@ import { M3Select } from "../M3Select";
 import { AsksOnIssue } from "./Asks";
 import { LabelEditor } from "./Labels";
 import { MentionBox } from "./Mentions";
+import { Markdown } from "./Markdown";
 import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
@@ -61,6 +62,10 @@ export function IssueCard({
   );
   const [summary, setSummary] = useState(issue?.summary ?? "");
   const [description, setDescription] = useState(issue?.description ?? "");
+  // Reading an issue happens far more often than editing one, so a description
+  // that has something in it opens rendered. An empty one opens ready to type,
+  // because there is nothing to read.
+  const [writing, setWriting] = useState(!(issue?.description ?? "").trim());
   const [priority, setPriority] = useState(issue?.priority ?? "medium");
   const [assignee, setAssignee] = useState<number | null>(issue?.assignee_id ?? null);
   const [tester, setTester] = useState<number | null>(issue?.tester_id ?? null);
@@ -218,24 +223,72 @@ export function IssueCard({
           <Field label="Description">
             <div className="tkc-desc">
               <div className="tkc-toolbar">
-                <button type="button" className="tkc-tb tk-layer" title="Bold" onClick={() => md("**")}><b>B</b></button>
-                <button type="button" className="tkc-tb tk-layer" title="Italic" onClick={() => md("*")}><i>I</i></button>
-                <button type="button" className="tkc-tb tk-layer" title="Strikethrough" onClick={() => md("~~")}><s>S</s></button>
-                <span className="tkc-tb-div" />
-                <button type="button" className="tkc-tb tk-layer" title="Bullet list" onClick={() => md("- ", "", true)}>•</button>
-                <button type="button" className="tkc-tb tk-layer" title="Numbered list" onClick={() => md("1. ", "", true)}>1.</button>
-                <span className="tkc-tb-div" />
-                <button type="button" className="tkc-tb tk-layer" title="Quote" onClick={() => md("> ", "", true)}>&rdquo;</button>
-                <button type="button" className="tkc-tb tk-layer" title="Code" onClick={() => md("`")}>&lt;/&gt;</button>
+                {/* Write and Read, not Edit and Preview: "preview" suggests a
+                    lesser version of the real thing, and the rendered side is
+                    the real thing — it is what everybody else will see. */}
+                <div className="tkc-modes" role="tablist" aria-label="Description">
+                  <button type="button" role="tab" aria-selected={writing}
+                          className={`tkc-mode tk-layer${writing ? " on" : ""}`}
+                          onClick={() => setWriting(true)}>Write</button>
+                  <button type="button" role="tab" aria-selected={!writing}
+                          className={`tkc-mode tk-layer${!writing ? " on" : ""}`}
+                          onClick={() => setWriting(false)}>Read</button>
+                </div>
+                {writing && (
+                  <>
+                    <span className="tkc-tb-div" />
+                    <button type="button" className="tkc-tb tk-layer" title="Heading" onClick={() => md("## ", "", true)}>H</button>
+                    <button type="button" className="tkc-tb tk-layer" title="Bold" onClick={() => md("**")}><b>B</b></button>
+                    <button type="button" className="tkc-tb tk-layer" title="Italic" onClick={() => md("*")}><i>I</i></button>
+                    <button type="button" className="tkc-tb tk-layer" title="Strikethrough" onClick={() => md("~~")}><s>S</s></button>
+                    <span className="tkc-tb-div" />
+                    <button type="button" className="tkc-tb tk-layer" title="Bullet list" onClick={() => md("- ", "", true)}>•</button>
+                    <button type="button" className="tkc-tb tk-layer" title="Numbered list" onClick={() => md("1. ", "", true)}>1.</button>
+                    <button type="button" className="tkc-tb tk-layer" title="Checklist" onClick={() => md("- [ ] ", "", true)}>&#9744;</button>
+                    <span className="tkc-tb-div" />
+                    <button type="button" className="tkc-tb tk-layer" title="Link" onClick={() => md("[", "](url)")}>&#128279;</button>
+                    <button type="button" className="tkc-tb tk-layer" title="Quote" onClick={() => md("> ", "", true)}>&rdquo;</button>
+                    <button type="button" className="tkc-tb tk-layer" title="Code" onClick={() => md("`")}>&lt;/&gt;</button>
+                  </>
+                )}
               </div>
-              <MentionBox
-                ref={bodyRef}
-                className="tkc-ta"
-                people={users}
-                value={description}
-                placeholder="Describe the work, acceptance criteria, links…"
-                onChange={setDescription}
-              />
+              {writing ? (
+                <MentionBox
+                  ref={bodyRef}
+                  className="tkc-ta"
+                  people={users}
+                  value={description}
+                  placeholder="Describe the work, acceptance criteria, links…"
+                  onChange={setDescription}
+                />
+              ) : (
+                // Clicking the text puts you in it, the way a document does.
+                // Not a button: this has links and issue keys inside it, and
+                // nesting those in a button is both invalid and unusable.
+                <div
+                  className="tkc-read"
+                  role="button"
+                  tabIndex={0}
+                  title="Click to write"
+                  onClick={(e) => {
+                    // A link inside the text is a link, not a way in.
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    setWriting(true);
+                    requestAnimationFrame(() => bodyRef.current?.focus());
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setWriting(true);
+                      requestAnimationFrame(() => bodyRef.current?.focus());
+                    }
+                  }}
+                >
+                  {description.trim()
+                    ? <Markdown text={description} people={users} />
+                    : <p className="tk-dim">Describe the work, acceptance criteria, links…</p>}
+                </div>
+              )}
             </div>
           </Field>
 
@@ -355,7 +408,7 @@ export function IssueCard({
                         <Person size={20} name={c.author_name ?? "Someone"} avatar={c.author_avatar} />
                         <span className="tk-dim">{ago(c.created_at)}</span>
                       </header>
-                      <p>{c.body}</p>
+                      <Markdown text={c.body} people={users} />
                     </article>
                   ))}
                   {!(full.comments ?? []).length && <p className="tk-dim">No comments yet.</p>}
