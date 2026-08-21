@@ -18,6 +18,7 @@ import { GitSettings } from "./GitSettings";
 import { Insights } from "./Insights";
 import { Releases } from "./Releases";
 import { TrackerRail } from "./TrackerRail";
+import { M3Segmented } from "../M3Segmented";
 import {
   PRIORITY_COLOUR, trackerApi,
   type BoardColumn, type FilterNode, type BoardData, type TrackerIssue,
@@ -341,24 +342,7 @@ export function TrackerPage({ shell }: Props) {
           projects={meta?.projects}
           onProject={(key) =>
             morph(() => setParam({ project: key, section: null, release: null, issue: null }))}
-        >
-          {project && section === "issues" && (
-            <>
-              <h2 className="tk-rail-title tk-rail-title-2">Layout</h2>
-              {RENDERERS.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  title={r.hint}
-                  className={`tk-rail-item tk-layer tk-rail-sub${renderer === r.id ? " tk-rail-on" : ""}`}
-                  onClick={() => morph(() => setParam({ view: r.id }))}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </>
-          )}
-        </TrackerRail>
+        />
 
         <main className="tk-main">
           {section !== "issues" && meta ? (
@@ -386,6 +370,15 @@ export function TrackerPage({ shell }: Props) {
               {project?.description && <span className="tk-dim">{project.description}</span>}
             </div>
             <div className="tk-bar-right">
+              {/* How to show it, beside what to show. This lived in the left
+                  column until the column went; a view control belongs on the
+                  view's own bar anyway. */}
+              <M3Segmented
+                label="How to show the board"
+                value={renderer}
+                options={RENDERERS.map((r) => ({ value: r.id, label: r.label }))}
+                onChange={(next) => morph(() => setParam({ view: next }))}
+              />
               <M3MultiSelect
                 values={who}
                 width={190}
