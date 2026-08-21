@@ -1,6 +1,11 @@
-// Client-side theme preference. Themes are pure CSS (see [data-theme] blocks
-// in styles.css); we just toggle the attribute on <html> and remember the
-// choice in localStorage. Default is the Light theme.
+// Which palette Nox wears.
+//
+// Themes are pure CSS — [data-theme] blocks in styles.css. This only flips the
+// attribute on <html> and remembers the choice.
+//
+// Midnight is the default, and it is the one Nox was named for: a blue-black
+// ground rather than the pure black of Dark, so panels, cards and borders
+// separate from the page by tone instead of by outline.
 
 export type ThemeId = "light" | "dark" | "midnight";
 
@@ -17,9 +22,11 @@ export const THEMES: ThemeDef[] = [
   { id: "midnight", label: "Midnight", swatch: { bg: "#0e1116", fg: "#5b8cff" } },
 ];
 
-export const DEFAULT_THEME: ThemeId = "dark";
+export const DEFAULT_THEME: ThemeId = "midnight";
 
-const STORAGE_KEY = "drc-theme";
+// Nox's own key. Sharing the old one would mean a preference set in a
+// different product silently deciding how this one looks.
+const STORAGE_KEY = "nox-theme";
 
 export function getTheme(): ThemeId {
   try {

@@ -260,7 +260,7 @@ export function TrackerPage({ shell }: Props) {
 
   const top = (
     <TopBar
-      title="Tracker"
+      title="Nox"
       user={shell.user}
         isAdmin={shell.isAdmin}
       onOpenSettings={shell.onOpenSettings}

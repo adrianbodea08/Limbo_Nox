@@ -66,7 +66,7 @@ export function AuthPage({ onAuthenticated }: Props) {
   }
 
   return (
-    <div className="auth">
+    <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
         <div className="auth-brand">
           <LogoMark size={34} />
@@ -77,7 +77,7 @@ export function AuthPage({ onAuthenticated }: Props) {
         </div>
 
         {first && (
-          <p className="auth-note">
+          <p className="auth-hint auth-first">
             Nobody has an account yet. The first one is approved straight away
             and becomes the admin — everyone after it needs approving.
           </p>
@@ -88,7 +88,7 @@ export function AuthPage({ onAuthenticated }: Props) {
             <button
               key={m}
               type="button"
-              className={`auth-tab tk-layer${mode === m ? " on" : ""}`}
+              className={mode === m ? "active" : undefined}
               onClick={() => { setMode(m); setError(""); setInfo(""); }}
             >
               {m === "login" ? "Sign in" : first ? "Create the first account" : "Request access"}
@@ -96,6 +96,7 @@ export function AuthPage({ onAuthenticated }: Props) {
           ))}
         </div>
 
+        <div className="auth-form">
         <label className="auth-field">
           <span>Username</span>
           <input value={username} onChange={(e) => setUsername(e.target.value)}
@@ -116,6 +117,7 @@ export function AuthPage({ onAuthenticated }: Props) {
                  autoComplete={mode === "login" ? "current-password" : "new-password"}
                  minLength={mode === "register" ? 6 : undefined} required />
         </label>
+        </div>
 
         {error && <p className="auth-error">{error}</p>}
         {info && <p className="auth-info">{info}</p>}
@@ -127,7 +129,7 @@ export function AuthPage({ onAuthenticated }: Props) {
         </button>
 
         {mode === "register" && !first && (
-          <p className="tk-dim auth-small">
+          <p className="auth-hint">
             An admin approves new accounts. You will not be able to sign in
             until one does.
           </p>
