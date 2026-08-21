@@ -1,0 +1,72 @@
+name: nox
+
+services:
+  # The API. Not published — nginx is the only way in, and it proxies /api here
+  # over the internal network.
+  api:
+    build: ./backend
+    image: nox-api:latest
+    env_file:
+      # Optional, both of them. Nox starts without either and says what is
+      # missing rather than failing to boot.
+      - path: ./backend/.env
+        required: false
+      - path: ./secrets/github.env
+        required: false
+    environment:
+      NOX_AUTH_DB_PATH: /data/nox.db
+      NOX_DATABASE_URL: postgresql://nox:nox@db:5432/nox
+      # The GitHub App's private key is a file, not a variable: a PEM is
+      # multi-line and env files turn that into one mangled line.
+      TRACKER_GITHUB_APP_KEY_FILE: /run/nox/github-app.pem
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - nox-data:/data                 # accounts
+      - ./secrets:/run/nox:ro          # the GitHub App key, if there is one
+    expose:
+      - "8200"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8200/api/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+  # Everything Nox tracks: projects, issues, releases, git refs, the event log.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nox
+      POSTGRES_PASSWORD: nox        # local only; a real deployment supplies its own
+      POSTGRES_DB: nox
+    volumes:
+      - nox-db-data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    ports:
+      # Handy for psql or a GUI client. Windows reserves chunks of the high
+      # ports, so keep this low or override the variable.
+      - "${NOX_DB_PORT:-5434}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nox -d nox"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # nginx: serves the built SPA and reverse-proxies /api to the API.
+  web:
+    build: ./frontend
+    image: nox-web:latest
+    depends_on:
+      - api
+    ports:
+      - "${NOX_PORT:-8090}:80"
+    restart: unless-stopped
+
+volumes:
+  nox-data:
+  nox-db-data:

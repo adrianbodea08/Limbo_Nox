@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+myenv/
+
+# Secrets & local data (never commit)
+.env
+.env.*
+backend/.env
+*.zip
+*.tar
+*.tar.gz
+*.db
+*.db-wal
+*.db-shm
+
+# Node
+node_modules/
+frontend/dist/
+*.log
+
+# Local tooling (preview/launch config)
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+# Local design reference (not versioned)
+DESIGN_SYSTEM.md
+
+# Local project notes / working memory (not versioned)
+PROJECT_NOTES.md
+
+# Local GitHub App key. Never committed.
+/secrets/*
+!/secrets/README.md
+!/secrets/github.env.example
+
+# Nox
+/secrets/*
+!/secrets/README.md
+!/secrets/github.env.example
