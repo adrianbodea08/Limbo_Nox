@@ -192,6 +192,11 @@ CD-3 start:             To Do
 | GitHub API key | The existing `api_keys.github`, used only by the fallback sync. |
 | Repositories | From the installation when an app is connected; from `components.repo` otherwise. |
 
+> Changing any of these means `docker compose up -d api`, not
+> `docker compose restart api`. Restart reuses the container's original
+> environment, so the new values are not read and Nox goes on reporting that no
+> App is registered — with nothing to say why.
+
 **Registering the app** (an org owner, once): Settings → Developer settings →
 GitHub Apps → New GitHub App. Permissions **Contents: read**, **Pull requests:
 read**, **Checks: read** — nothing needs write, this only ever reads. Subscribe

@@ -32,6 +32,16 @@ and `docs/GIT.md` explains why it works that way.
 Settings go in `secrets/github.env`; the private key is a file at
 `secrets/github-app.pem`. Neither is committed.
 
+After changing either, recreate the container rather than restarting it:
+
+```bash
+docker compose up -d api      # re-reads env_file
+docker compose restart api    # does NOT — it reuses the old config
+```
+
+`restart` keeps the container's original environment, so a new app id or secret
+will not be picked up and Nox will still report that no App is registered.
+
 ## Documentation
 
 | | |
