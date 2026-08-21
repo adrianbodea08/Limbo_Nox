@@ -991,9 +991,9 @@ body {
 .tk-shell {
   flex: 1;
   display: grid;
-  /* The rail, then everything else. There is no second navigation column —
-     the projects are a dropdown off the Projects room. */
-  grid-template-columns: 76px 1fr;
+  /* The nav, then everything else. One column: the projects expand inside it
+     under the Projects room rather than living in a second one. */
+  grid-template-columns: 248px 1fr;
   min-height: 0;
 }
 
@@ -1005,70 +1005,48 @@ body {
 .tk-rail {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 12px 6px;
+  gap: 2px;
+  padding: 12px 10px;
   border-right: 1px solid var(--border);
   background: var(--bg-elev);
-  /* The rooms do not scroll — they are the fixed point the rest moves under. */
-  overflow: hidden;
+  min-height: 0;
+  /* Scrolls only when a workspace has enough projects to need it. */
+  overflow-y: auto;
 }
 .tk-nav-item {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 4px 2px 6px;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
   border: 0;
-  border-radius: var(--m3-shape-m);
+  /* The selected state is a full-round indicator behind the whole row — the
+     spec's own anatomy for a drawer item, not a background colour change on
+     something square. */
+  border-radius: var(--m3-shape-full);
   background: transparent;
   color: var(--text-dim);
   font: inherit;
+  font-size: var(--m3-font-body-medium);
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  text-align: left;
   cursor: pointer;
-}
-.tk-nav-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 32px;
-  border-radius: var(--m3-shape-full);
   transition: background var(--m3-dur-short) var(--m3-ease-standard),
               color var(--m3-dur-short) var(--m3-ease-standard);
 }
-.tk-nav-label {
-  font-size: var(--m3-font-label-small);
-  font-weight: 500;
-  letter-spacing: 0.3px;
-  text-align: center;
-  /* "Automations" is eleven characters in seventy-two pixels. It wraps rather
-     than being abbreviated into a word the rest of the product does not use. */
-  line-height: 1.2;
-}
-.tk-nav-item:hover { color: var(--text); }
-.tk-nav-item.on { color: var(--accent); }
-.tk-nav-item.on .tk-nav-pill { background: var(--accent-soft); }
+.tk-nav-item svg { flex: 0 0 auto; }
+.tk-nav-label { flex: 1; min-width: 0; }
+.tk-nav-item:hover { color: var(--text); background: var(--m3-state-hover); }
+.tk-nav-item.on { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
 
-/* The projects, hanging off the Projects room. Portalled and fixed, so the
-   rail's own overflow cannot clip it. */
-.tk-projects {
-  position: fixed;
-  z-index: 251;
-  width: 248px;
-  max-height: 360px;
-  overflow-y: auto;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--m3-shape-l);
-  box-shadow: var(--m3-elev-3);
-  animation: tk-dialog var(--m3-dur-short) var(--m3-ease-decel);
-}
-.tk-projects-row { display: flex; align-items: center; gap: 2px; }
-.tk-projects-row .tk-rail-item { flex: 1; min-width: 0; }
-.tk-projects-cog {
+/* Projects is a room and a disclosure. The row navigates, the twist opens —
+   two jobs that would fight if one control did both, because "show me the
+   list" and "take me to the board" are different wants. */
+.tk-rail-group { display: flex; align-items: center; gap: 2px; }
+.tk-rail-group .tk-nav-item { flex: 1; min-width: 0; }
+.tk-rail-twist {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1081,17 +1059,53 @@ body {
   color: var(--text-faint);
   cursor: pointer;
 }
-.tk-projects-cog:hover { color: var(--text); }
-.tk-projects-none { padding: 16px 8px; }
+.tk-rail-twist:hover { color: var(--text); }
+.tk-rail-twist svg { transition: transform var(--m3-dur-short) var(--m3-ease-standard); }
+.tk-twisted { transform: rotate(90deg); }
 
-.tk-rail-title {
-  font-size: var(--m3-font-label-small);
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  margin: 0 0 8px 12px;
+/* The projects, indented under the room they belong to. */
+.tk-rail-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Enough indent to read as containment, not so much that "AI First
+     Development" has nowhere to go. */
+  margin: 2px 0 6px 8px;
+  padding-left: 8px;
+  /* A hairline down the group, so the indent reads as containment rather than
+     as an arbitrary margin. */
+  border-left: 1px solid var(--border);
 }
+.tk-rail-line { display: flex; align-items: center; gap: 2px; }
+.tk-rail-line .tk-rail-item {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 10px;
+  gap: 8px;
+}
+.tk-rail-cog {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--m3-dur-short) var(--m3-ease-standard),
+              color var(--m3-dur-short) var(--m3-ease-standard);
+}
+/* Shown on approach, and always once focused — a control that only appears on
+   hover is a control a keyboard cannot reach. */
+.tk-rail-line:hover .tk-rail-cog,
+.tk-rail-line:focus-within .tk-rail-cog { opacity: 1; }
+.tk-rail-cog:hover { color: var(--text); }
+.tk-rail-none { padding: 8px 12px; font-size: var(--m3-font-label-medium); }
 /* The sidebar's own headings sit above a list, not between two of them. */
 
 /* M3 navigation item: the selected state is a full-round indicator behind the

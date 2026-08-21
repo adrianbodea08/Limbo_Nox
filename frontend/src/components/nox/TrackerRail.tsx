@@ -1,28 +1,28 @@
 // The tracker's left navigation.
 //
-// One narrow rail of rooms — the product's destinations, always visible, never
-// scrolling, one tap from anywhere. No second column: the projects hang off the
-// Projects room as a dropdown, so somebody who is not looking for a project is
-// not looking at a list of them either, and the board gets the width back.
+// One column of rooms — the product's destinations — with the projects
+// expanding underneath the Projects room rather than floating beside it. A
+// dropdown was the wrong shape for this: the project you are in is part of
+// where you are, and a menu that closes hides that the moment you look away.
+// A disclosure keeps it on screen.
 //
-// This replaced a 232px column holding five destinations, three headings, every
-// project and the board's layout switch — one list mixing "where in the product
-// am I" with "which board am I on". Those are different questions. The first is
-// the rail, the second is this dropdown, and the third moved to the board's own
-// bar, which is where a view control belongs.
+// This is M3's navigation *drawer* rather than its rail: at rail width the
+// labels had to sit under the icons and "Automations" barely fit across
+// seventy-six pixels. A drawer item is the same anatomy laid out sideways —
+// icon, label, and a full-round indicator behind the whole row for the
+// selected one.
 //
-// The rail is M3's navigation rail: icon over a short label, and the selected
-// state is a full-round indicator behind the icon — the spec's own anatomy, not
-// a background colour on the row.
+// The board's layout switch is not here. It decides how the thing beside the
+// filters is drawn, so it lives on the board's own bar.
 //
 // It fetches what it needs itself. One small request per page beats threading
 // projects and teams through every screen that renders navigation.
 
 import {
-  Activity, FolderKanban, GitBranch, Rocket, Settings2, Users, Workflow, Zap,
+  Activity, ChevronRight, FolderKanban, GitBranch, Rocket, Settings2, Users,
+  Workflow, Zap,
 } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trackerApi } from "./model";
 import type { TrackerProject, TrackerTeam } from "./model";
@@ -42,7 +42,6 @@ export interface RailProps {
  *  somebody moves through a week: what am I doing, what is the team carrying,
  *  what is going out, what runs itself, what git says, what it adds up to. */
 const DESTINATIONS = [
-  { id: "projects", Icon: FolderKanban, label: "Projects", to: "" },
   { id: "my-work", Icon: Workflow, label: "My work", to: "/my-work" },
   { id: "teams", Icon: Users, label: "Teams", to: "/teams", needsTeams: true },
   { id: "releases", Icon: Rocket, label: "Releases", to: "/?section=releases" },
@@ -51,9 +50,7 @@ const DESTINATIONS = [
   { id: "insights", Icon: Activity, label: "Insights", to: "/?section=insights" },
 ] as const;
 
-/** Tall enough to hold a realistic project list; used only to decide whether
- *  the menu has room to hang from the button or has to lift. */
-const MENU_HEIGHT = 360;
+const REMEMBER = "nox-projects-open";
 
 export function TrackerRail({
   active = "", isAdmin = false, projects, onProject,
@@ -61,120 +58,113 @@ export function TrackerRail({
   const nav = useNavigate();
   const [teams, setTeams] = useState<TrackerTeam[]>([]);
   const [own, setOwn] = useState<TrackerProject[]>([]);
-  const [open, setOpen] = useState(false);
-  const [box, setBox] = useState<{ top: number; left: number } | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const inProjects = active.startsWith("project:") || active === "projects";
+  // Open until somebody says otherwise, and then closed until they say
+  // otherwise again — including while a project is open. Forcing it open
+  // "because you are inside one" was the first version, and it made the
+  // control refuse to do the one thing it says it does, which is worse than
+  // the confusion it was guarding against. The page's own title says which
+  // project this is.
+  const [expanded, setExpanded] = useState(() => {
+    const saved = localStorage.getItem(REMEMBER);
+    return saved === null ? true : saved === "1";
+  });
 
   useEffect(() => {
     trackerApi.teams().then(setTeams).catch(() => {});
     if (!projects) trackerApi.meta().then((m) => setOwn(m.projects)).catch(() => {});
   }, [projects]);
 
-  // Measured before paint so the menu never appears in the wrong place first,
-  // and portalled so the rail's own overflow cannot clip it.
-  useLayoutEffect(() => {
-    if (!open) { setBox(null); return; }
-    const place = () => {
-      const r = btnRef.current?.getBoundingClientRect();
-      if (!r) return;
-      setBox({
-        left: r.right + 8,
-        top: Math.max(8, Math.min(r.top, window.innerHeight - MENU_HEIGHT - 8)),
-      });
-    };
-    place();
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
-    const key = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("keydown", key);
-    return () => {
-      window.removeEventListener("scroll", place, true);
-      window.removeEventListener("resize", place);
-      document.removeEventListener("keydown", key);
-    };
-  }, [open]);
-
   const list = projects ?? own;
-  const inProjects = active.startsWith("project:") || active === "projects";
   const current = active.startsWith("project:") ? active.slice("project:".length) : "";
 
-  function go(key: string) {
-    setOpen(false);
-    if (onProject) onProject(key);
-    else nav(`/?project=${key}`);
+  function toggle() {
+    const next = !expanded;
+    setExpanded(next);
+    localStorage.setItem(REMEMBER, next ? "1" : "0");
   }
 
   return (
     <nav className="tk-rail" aria-label="Sections">
+      {/* Projects: a room and a disclosure. The row navigates, the chevron
+          opens — two jobs that would fight if one control did both, because
+          "show me the list" and "take me to the board" are different wants. */}
+      <div className="tk-rail-group">
+        <button
+          type="button"
+          className={`tk-nav-item${inProjects ? " on" : ""}`}
+          aria-current={inProjects || undefined}
+          onClick={() => nav("/")}
+        >
+          <FolderKanban size={20} strokeWidth={2} aria-hidden />
+          <span className="tk-nav-label">Projects</span>
+        </button>
+        <button
+          type="button"
+          className="tk-rail-twist tk-layer"
+          aria-expanded={expanded}
+          aria-label={expanded ? "Hide the projects" : "Show the projects"}
+          title={expanded ? "Hide the projects" : "Show the projects"}
+          onClick={toggle}
+        >
+          <ChevronRight size={16} className={expanded ? "tk-twisted" : undefined} aria-hidden />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="tk-rail-sub">
+          {list.map((p) => (
+            <div key={p.id} className="tk-rail-line">
+              <button
+                type="button"
+                className={`tk-rail-item tk-layer${p.key === current ? " tk-rail-on" : ""}`}
+                // The name is truncated at this width; the full one is a hover
+                // away rather than gone.
+                title={p.name}
+                onClick={() => (onProject ? onProject(p.key) : nav(`/?project=${p.key}`))}
+              >
+                <span className="tk-rail-key">{p.key}</span>
+                <span className="tk-rail-name">{p.name}</span>
+              </button>
+              {/* Settings are an admin's business, so the affordance only
+                  exists for one. */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="tk-rail-cog tk-layer"
+                  title={`${p.name} settings`}
+                  aria-label={`${p.name} settings`}
+                  onClick={() => nav(`/project/${p.key}/settings`)}
+                >
+                  <Settings2 size={15} aria-hidden />
+                </button>
+              )}
+            </div>
+          ))}
+          {!list.length && <p className="tk-dim tk-rail-none">No projects yet.</p>}
+        </div>
+      )}
+
       {DESTINATIONS.map((d) => {
         // One entry for teams, because it is one page: the teams are tabs
         // inside it. Two rail items for two teams made "compare them" a
         // navigation problem.
         if ("needsTeams" in d && d.needsTeams && teams.length === 0) return null;
-
-        // A board, an issue and a project's settings are all *in* Projects. A
-        // rail where nothing is lit on the page people spend the day on reads
-        // as broken, and "which room am I in" has an answer here.
-        const isProjects = d.id === "projects";
-        const on = isProjects ? inProjects : active === d.id;
-
+        const on = active === d.id;
         return (
           <button
             key={d.id}
-            ref={isProjects ? btnRef : undefined}
             type="button"
             className={`tk-nav-item${on ? " on" : ""}`}
-            title={d.label}
             aria-current={on || undefined}
-            aria-haspopup={isProjects || undefined}
-            aria-expanded={isProjects ? open : undefined}
-            onClick={() => (isProjects ? setOpen((o) => !o) : nav(d.to))}
+            onClick={() => nav(d.to)}
           >
-            <span className="tk-nav-pill tk-layer">
-              <d.Icon size={20} strokeWidth={2} aria-hidden />
-            </span>
+            <d.Icon size={20} strokeWidth={2} aria-hidden />
             <span className="tk-nav-label">{d.label}</span>
           </button>
         );
       })}
-
-      {open && box && createPortal(
-        <>
-          <div className="tkc-pop-back" onClick={() => setOpen(false)} />
-          <div className="tk-projects" style={{ top: box.top, left: box.left }}
-               role="menu" aria-label="Projects">
-            <h2 className="tk-rail-title">Projects</h2>
-            {list.map((p) => (
-              <div key={p.id} className="tk-projects-row">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={`tk-rail-item tk-layer${p.key === current ? " tk-rail-on" : ""}`}
-                  onClick={() => go(p.key)}
-                >
-                  <span className="tk-rail-key">{p.key}</span>
-                  <span className="tk-rail-name">{p.name}</span>
-                </button>
-                {/* Settings are an admin's business, so the affordance only
-                    exists for one. */}
-                {isAdmin && (
-                  <button
-                    type="button"
-                    className="tk-projects-cog tk-layer"
-                    title={`${p.name} settings`}
-                    aria-label={`${p.name} settings`}
-                    onClick={() => { setOpen(false); nav(`/project/${p.key}/settings`); }}
-                  >
-                    <Settings2 size={15} aria-hidden />
-                  </button>
-                )}
-              </div>
-            ))}
-            {!list.length && <p className="tk-dim tk-projects-none">No projects yet.</p>}
-          </div>
-        </>,
-        document.body,
-      )}
     </nav>
   );
 }
