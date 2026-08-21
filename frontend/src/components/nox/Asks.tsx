@@ -17,7 +17,7 @@ import { M3Select } from "../M3Select";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { ago, trackerApi } from "./model";
-import { MentionBox } from "./Mentions";
+import { Composer } from "./Composer";
 import { Markdown } from "./Markdown";
 import type { Ask, AskKind, TrackerUser } from "./model";
 
@@ -164,8 +164,8 @@ function AskCard({ ask, me, users, onChanged }: {
       {ask.state === "open" && (mine || asked) && (
         replying ? (
           <div className="tka-reply">
-            <MentionBox
-              className="tk-input tka-ta"
+            <Composer
+              compact
               autoFocus
               people={users}
               value={text}
@@ -283,8 +283,8 @@ function AskComposer({
           itself is the other thing people do — "@Ana, is this the same as the
           one you fixed?" — and it has to reach them, so the box completes the
           name rather than trusting the speller. */}
-      <MentionBox
-        className="tk-input tka-ta"
+      <Composer
+        compact
         people={users}
         value={question}
         placeholder={chosen.hint}

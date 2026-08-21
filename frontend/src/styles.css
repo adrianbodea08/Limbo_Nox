@@ -174,6 +174,35 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Every icon in the product is an <svg>, and an <svg> is an inline box by
+   default: it sits on the text baseline with the font's descender space still
+   underneath it. So a 16px chevron inside a 19px line box draws 1.5px above the
+   centre of the row that was asked to centre it, and the row-height rule that
+   was supposed to do the centring never gets a say. It cost the dropdown caret
+   1.5px, the back arrow 2px and every button in the prose toolbar 2px, each in
+   a different rule, none of them wrong on its own.
+
+   Block takes the icon off the baseline: its box is exactly its own size, and
+   whoever centres the row centres the icon with it. Nothing here is ever a
+   glyph inside a sentence — icons live in flex rows or alone in a button — so
+   this is the right default rather than an exception, and it means the next
+   icon wrapper somebody writes is correct without being told. */
+svg {
+  display: block;
+}
+
+/* The other half of the same idea: a control whose whole content is an icon has
+   to be the box that centres it. Most of ours already say so; the ones that
+   never did — the month arrows in the date picker, the × on a scope chip — were
+   being centred by the line box the icon used to make, which the rule above
+   takes away. At no specificity, so any control that does declare its own box
+   keeps it, and one that does not is centred rather than left-aligned. */
+:where(button, a, label):has(> svg:only-child) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ---- Topbar ---- */
 .topbar {
   display: flex;
@@ -1455,12 +1484,17 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* A fixed box, because the glyphs are text and text has its own opinions about
    width: ▫ measures 5px and ▲ measures 12.1, so a bare span left every label
    starting at a different x — 292 to 299 across one menu. Centred in 16px, they
-   all agree, here and on every card and link that draws one. */
+   all agree, here and on every card and link that draws one.
+   Square, because the box was only ever fixed across: its height still came
+   from whatever it held — 13px on a board card, 14px in a menu, 16px in
+   settings, a whole line box when the type still wears a character — and a row
+   centring four different boxes puts the mark in four different places. */
 .tk-type {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
+  height: 16px;
   flex: 0 0 16px;
   font-size: var(--m3-font-body-medium);
   line-height: 1;
@@ -2140,13 +2174,15 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    off the top of it. */
 .tkc-as-page .tkc-side { position: sticky; top: 0; align-self: start; }
 
-/* Room to actually write. The dialog keeps its 168px; the page gives the
-   description most of the window.
-   Written as a descendant rather than its own class: .tkc-ta is declared
-   further down this file, and a single class would lose on source order. */
-/* Doubled: a description is the part of an issue people actually write, and
-   the page exists to give it room. The page scrolls; the dialog keeps 168px. */
-.tkc-as-page .tkc-ta { min-height: clamp(640px, 92vh, 1280px); font-size: var(--m3-font-body-medium); }
+/* Room to actually write. A description is the part of an issue people
+   actually write, and the full-page view exists to give it room — the dialog
+   keeps its 168px, the page takes most of the window. Not the compact comment
+   box, which is a reply and not a document.
+   A descendant selector rather than its own class: the editor's own rules are
+   declared further down this file and a single class would lose on order. */
+.tkc-as-page .tk-rt:not(.tk-rt-compact) .tk-rt-body {
+  min-height: clamp(640px, 92vh, 1280px);
+}
 .tkc-as-page .tkc-activity { max-height: none; }
 .tkc-as-page .tkc-comments { max-height: none; }
 
@@ -2172,7 +2208,15 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkc-title { margin: 0; font-size: var(--m3-font-title-large); font-weight: 600; letter-spacing: 0; }
 .tkc-key { font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
 
+/* The message and the × that dismisses it are a row, not a sentence with a
+   picture at the end of it. They were the latter, which put the × on the
+   baseline of whichever line the message happened to finish on; a row centres
+   it against the message however many lines that turns out to be. The gap is
+   the space that used to sit between them in the markup — a flex row drops it. */
 .tkc-err {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 12px 24px 0;
   padding: 12px 16px;
   border: 1px solid var(--err);
@@ -2227,22 +2271,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 /* Description: toolbar and textarea share one outlined container, so it reads
    as a single field rather than two stacked controls. */
-.tkc-desc {
-  border: 1px solid var(--border);
-  border-radius: var(--m3-shape-m);
-  background: var(--bg-col);
-  overflow: hidden;
-  transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
-}
-.tkc-desc:focus-within { border-color: var(--accent); }
-.tkc-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-}
+/* The toolbar mixes buttons that say H1 with buttons that draw a bullet list,
+   and a <button> only centres either of them by way of the line box it makes
+   for them. Now that an icon is a block that line box is gone, so the button
+   has to be the box that does the centring. */
 .tkc-tb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 30px;
   height: 30px;
   padding: 0 7px;
@@ -2255,20 +2291,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   cursor: pointer;
 }
 .tkc-tb-div { width: 1px; height: 18px; background: var(--border); margin: 0 5px; }
-.tkc-ta {
-  width: 100%;
-  min-height: 168px;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--m3-font-body-medium);
-  line-height: 1.6;
-  letter-spacing: 0.25px;
-  padding: 14px 16px;
-  resize: vertical;
-}
-.tkc-ta:focus { outline: none; }
 
 /* --- dropdowns ------------------------------------------------------------ */
 
@@ -5216,29 +5238,41 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   font-size: var(--m3-font-label-small);
 }
 
-/* --- rendered prose ------------------------------------------------------
-   Descriptions, comments and asks, once the Markdown people have been writing
-   for months finally shows as what it meant. Measured against the type scale
-   like everything else — an issue description is body copy, not a document,
-   so nothing here goes above title-small. */
-/* min-width: 0 on the column and on every block in it. A flex item defaults
-   to min-width: auto, which means a code block or a long identifier refuses to
-   shrink below its own content and quietly widens the whole panel instead of
-   scrolling inside it. */
-.tk-md { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.tk-md > * { min-width: 0; max-width: 100%; }
-.tk-md > :first-child { margin-top: 0; }
-.tk-md > :last-child { margin-bottom: 0; }
-.tk-md-p {
-  margin: 0;
+/* --- prose -----------------------------------------------------------------
+   ONE set of rules for both the editor and the read-only renderer.
+   `RichText` puts `tk-md` on the ProseMirror surface and `Markdown.tsx` puts it
+   on its output, so what you type looks like what everybody else reads. That is
+   the whole promise of the editor, and it only holds if there is one stylesheet
+   behind both — two would drift within a week.
+
+   Element selectors, not classes: ProseMirror renders bare <h1>, <ul>, <p>, and
+   it owns that DOM. The class hooks that remain are for the things HTML has no
+   element for. */
+
+.tk-md {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   font-size: var(--m3-font-body-medium);
   line-height: 1.6;
   letter-spacing: 0.25px;
+  /* A code block or a long identifier must scroll inside itself rather than
+     widen the panel: a flex item defaults to min-width: auto, which means it
+     refuses to shrink below its own content. */
+  min-width: 0;
+}
+.tk-md > * { min-width: 0; max-width: 100%; }
+.tk-md > :first-child { margin-top: 0; }
+.tk-md > :last-child { margin-bottom: 0; }
+
+.tk-md p {
+  margin: 0;
   /* Prose people paste from elsewhere is full of long identifiers and URLs,
      and one of them must not widen the panel it sits in. */
   overflow-wrap: anywhere;
 }
-.tk-md-h {
+
+.tk-md h1, .tk-md h2, .tk-md h3, .tk-md h4 {
   margin: 6px 0 0;
   font-size: var(--m3-font-title-medium);
   font-weight: 600;
@@ -5247,33 +5281,55 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 /* The second level is smaller and quieter but still unmistakably a heading —
    a description that needs sections needs them to be findable. */
-.tk-md h4.tk-md-h {
+.tk-md h3, .tk-md h4 {
   font-size: var(--m3-font-body-medium);
   letter-spacing: 0.4px;
   color: var(--text-dim);
 }
-.tk-md-ul, .tk-md-ol {
+
+.tk-md ul, .tk-md ol {
   margin: 0;
   padding-left: 22px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: var(--m3-font-body-medium);
   line-height: 1.55;
 }
-/* A checklist is a checklist, not a bullet list with square brackets in it. */
-.tk-md-tasks { list-style: none; padding-left: 2px; }
-.tk-md-tasks li { display: flex; align-items: baseline; gap: 8px; }
+.tk-md li > p { margin: 0; }
+/* Nested lists sit under their parent item, not beside it. */
+.tk-md li > ul, .tk-md li > ol { margin-top: 4px; }
+
+/* A checklist is a checklist, not a bullet list with square brackets in it.
+   Two shapes to cover: what the renderer emits, and what ProseMirror does. */
+.tk-md ul[data-type="taskList"], .tk-md-tasks { list-style: none; padding-left: 2px; }
+.tk-md ul[data-type="taskList"] > li, .tk-md-tasks > li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.tk-md ul[data-type="taskList"] > li > label { flex: 0 0 auto; }
+.tk-md ul[data-type="taskList"] > li > div, .tk-md-task { flex: 1; min-width: 0; }
+.tk-md ul[data-type="taskList"] input[type="checkbox"] {
+  /* Big enough to hit, and it sits on the text's own line rather than on the
+     line box, which is a couple of pixels lower. */
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  transform: translateY(2px);
+}
 .tk-md-box { flex: 0 0 auto; color: var(--text-dim); }
-.tk-md-task { flex: 1; min-width: 0; }
-.tk-md-done { color: var(--text-dim); text-decoration: line-through; }
-.tk-md-quote {
+.tk-md-done, .tk-md li[data-checked="true"] > div { color: var(--text-dim); text-decoration: line-through; }
+
+.tk-md blockquote {
   margin: 0;
   padding: 2px 0 2px 12px;
   border-left: 3px solid var(--border-strong);
   color: var(--text-dim);
 }
-.tk-md-code {
+
+.tk-md code {
   padding: 1px 5px;
   border-radius: var(--m3-shape-xs);
   background: var(--bg-col);
@@ -5281,7 +5337,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   font-size: var(--m3-font-label-medium);
 }
-.tk-md-pre {
+.tk-md pre {
   margin: 0;
   padding: 12px 14px;
   border: 1px solid var(--border);
@@ -5290,14 +5346,29 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   /* Its own scroller, so a wide line scrolls here and not the whole dialog. */
   overflow-x: auto;
 }
-.tk-md-pre code {
-  font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
-  font-size: var(--m3-font-label-medium);
+.tk-md pre code {
+  padding: 0;
+  border: 0;
+  background: none;
   line-height: 1.55;
   white-space: pre;
 }
-.tk-md-hr { height: 1px; border: 0; background: var(--border); margin: 2px 0; }
-.tk-md-a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+.tk-md hr {
+  height: 1px;
+  border: 0;
+  background: var(--border-strong);
+  margin: 4px 0;
+}
+/* Selected in the editor, a divider needs to show it is selected — there is no
+   text in it to highlight. */
+.tk-md hr.ProseMirror-selectednode { background: var(--accent); height: 2px; }
+
+.tk-md a, .tk-md-a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 /* A name that resolved to a person. It reads as a chip because the rule is
    binary: this one reaches somebody, and a name spelled almost right is left
    as plain text so you can see that it will not. */
@@ -5310,30 +5381,42 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   white-space: nowrap;
 }
 
-/* --- write / read --------------------------------------------------------- */
+/* --- the editor ------------------------------------------------------------
+   Tiptap is headless: it hands back a contenteditable div and nothing else, so
+   everything visible here is ours and the M3 audit still applies. */
 
-/* Named `tkc-mode`, not `tkc-side`: `.tkc-side` is already the dialog's
-   right-hand column, and a second meaning for it silently applied a 30px-tall
-   tab button's metrics to the whole sidebar. */
-.tkc-modes { display: flex; gap: 2px; margin-right: 2px; }
-.tkc-mode {
-  height: 30px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: var(--m3-shape-s);
-  background: transparent;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: var(--m3-font-label-medium);
-  font-weight: 600;
-  cursor: pointer;
+.tk-rt {
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-col);
+  overflow: hidden;
+  transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
 }
-.tkc-mode.on { background: var(--accent-soft); color: var(--accent); }
-/* The rendered side keeps the written side's metrics, so switching between
-   them does not move the panel underneath. */
-.tkc-read {
-  min-height: 168px;
+.tk-rt:focus-within { border-color: var(--accent); }
+.tk-rt-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.tk-rt-slot { display: inline-flex; align-items: center; }
+/* The pressed state has to be unmistakable: this toolbar reports what the
+   caret is sitting in, so a button that is on is telling you something. */
+.tkc-tb.on { background: var(--accent-soft); color: var(--accent); }
+
+.tk-rt-body {
   padding: 14px 16px;
-  cursor: text;
+  min-height: 168px;
+  color: var(--text);
+  outline: none;
 }
-.tkc-read:hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
+.tk-rt-compact .tk-rt-body { min-height: 74px; padding: 10px 12px; }
+.tk-rt-body p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--text-faint);
+  pointer-events: none;
+}

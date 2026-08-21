@@ -1,10 +1,10 @@
 # The text editor
 
-> **Status:** built and running, 2026-08-21.
+> **Status:** built and running. WYSIWYG since 2026-08-22.
 >
-> `frontend/src/components/nox/Markdown.tsx` renders it,
-> `IssueCard.tsx` holds the Write/Read pair and the toolbar,
-> `Mentions.tsx` completes the `@names` inside it (see [ASKS.md](ASKS.md) §5).
+> `RichText.tsx` is the editor, `Composer.tsx` is the lazy boundary in front of
+> it, `Markdown.tsx` renders the read-only places (comments, asks, board cards).
+> Section 7 is the comparison that chose Tiptap.
 
 ---
 
@@ -52,30 +52,49 @@ Verified against a description containing all four:
 
 ---
 
-## 3. Write and Read
+## 3. There is no second mode
 
-Two tabs on the toolbar, not "Edit" and "Preview".
+The first version of this had **Write** and **Read** tabs. They are gone,
+because the editor *is* the rendered view now: what you type already looks like
+what everybody else will read, so there is nothing to switch to.
 
-*Preview* suggests a lesser version of the real thing. The rendered side **is**
-the real thing — it is what everybody else will see — so it gets the name that
-says so.
+That only holds because both are driven by **one stylesheet**. `RichText` puts
+`tk-md` on the ProseMirror surface and `Markdown.tsx` puts it on its output, and
+every rule in the prose block is an element selector under `.tk-md`. Two
+stylesheets would have drifted within a week and the promise would be a lie.
 
-**A description that has something in it opens on Read.** Reading an issue
-happens far more often than editing one, and a description that is only ever a
-raw textarea is a description nobody ever sees rendered. An empty one opens on
-Write, because there is nothing to read.
+### Typing is the formatting
 
-**Clicking the text puts you in it**, the way a document does. Two details make
-that work rather than annoy:
+Everything below happens as you type, and the toolbar does the same things to
+the same document:
 
-- A link inside the text is a link. The handler bails when the click landed on
-  an `<a>`, so an issue key or a runbook URL opens instead of switching modes.
-- Read and Write have the same metrics, so switching does not move the panel
-  underneath or shift what is below it.
+| You type | You get |
+|---|---|
+| `# ` `## ` `### ` | headings |
+| `- ` `* ` | a bullet list |
+| `1. ` | a numbered list |
+| `[] ` | a checklist |
+| `> ` | a quote |
+| ` ``` ` | a code block |
+| `---` | a divider |
+| `**x**` `*x*` `~~x~~` `` `x` `` | bold, italic, strike, code |
+| `->` `<-` `--` `...` `(c)` | → ← — … © *(and 18 more)* |
 
-It is a `div` with `role="button"`, not a `button` — there are links and issue
-keys inside it, and nesting those in a button is both invalid and unusable with
-a keyboard.
+The last row is `@tiptap/extension-typography`, and it is the reason the
+arrow example in the original request works without anything custom.
+
+### Pasting is the same thing
+
+Paste a page of Markdown from a wiki and it arrives formatted, by the same
+parser that reads the stored value.
+
+It is guarded, because parsing *every* paste as Markdown turns `5 * 3 * 2 = 30`
+into italics: a paste is parsed as Markdown only when it carries a construct
+that only Markdown has — a heading, a list, a fence, a rule, a table, or an
+inline pair like `**x**`. Everything else pastes as text. **Ctrl/Cmd+Shift+V
+always pastes as text**, which is the escape hatch for the times the guess is
+wrong. And when the clipboard carries real HTML, that wins: the source
+application already said what it meant.
 
 ---
 
@@ -108,7 +127,7 @@ Plus the two things this product knows about that Markdown does not:
 
 ---
 
-## 5. Two bugs worth remembering
+## 5. Three bugs worth remembering
 
 **A shared `/g/` regex cannot be used by a function that recurses.** The inline
 scanner walks one combined expression and calls itself for the inside of `**…**`.
@@ -123,8 +142,13 @@ it became its own flex item, which laid `The \`price_list_legacy\` table is
 dropped` out in columns instead of wrapping it. The row's text is one element
 now.
 
-Both were found by looking at the thing, not by any check — `tsc`, the M3 audit
-and the CSS pruner all passed while the page was hanging.
+**A class name that already meant something else.** The Write/Read tabs were
+called `.tkc-side` — which is the dialog's right-hand column. A 30px tab
+button's metrics were silently applying to the whole sidebar. Renamed
+`.tkc-mode`.
+
+All three were found by looking at the thing, not by any check — `tsc`, the M3
+audit and the CSS pruner all passed while the page was hanging.
 
 ---
 
@@ -132,8 +156,89 @@ and the CSS pruner all passed while the page was hanging.
 
 | Place | Treatment |
 |---|---|
-| Issue description | Write/Read, full toolbar |
-| Comments | Rendered |
-| Asks — question and answer | Rendered |
+| Issue description | `Composer`, full toolbar |
+| Comments — composing | `Composer`, compact toolbar |
+| Comments — reading | `Markdown.tsx` |
+| Asks — asking and answering | `Composer`, compact toolbar |
+| Asks — reading | `Markdown.tsx` |
 | Board card, table row | `plain()`, one line, markup stripped |
 | Release notes | Plain box — notifications are keyed by issue, so a mention there could not reach anybody |
+
+
+---
+
+## 7. Why Tiptap
+
+The brief was explicit: *"if I copy paste a markdown it works, if I write it
+there I can do the same"* — and *"how does Plane do it?"*
+
+Plane uses **Tiptap** (`@tiptap/core` + `starter-kit` + `tiptap-markdown` +
+Yjs). Worth knowing before copying them: the `tiptap-markdown` they depend on is
+**no longer maintained** — its author now points people at Tiptap's own official
+`@tiptap/markdown`, which landed in 3.7.0. So we use the official one and are
+slightly ahead of the thing we were asked to match.
+
+### Scored
+
+Weights come from the brief, not from a generic editor shootout. Storage format
+and typing rules carry the most because that is what was asked for.
+
+| Weight | Criterion | **Tiptap** | Milkdown | Lexical | Plate | BlockNote | Hand-rolled |
+|---|---|---|---|---|---|---|---|
+| 20 | Markdown is the stored format, both ways | 8 | **10** | 7 | 7 | 2 | **10** |
+| 20 | Typing rules (`1. `, `---`, `# `, `**`, `->`) | **10** | 8 | 8 | 8 | 9 | 7 |
+| 12 | Paste Markdown → formatted | 9 | 9 | 7 | 8 | 8 | 6 |
+| 12 | Headless — M3 keeps every pixel | **10** | 9 | **10** | 6 | 4 | **10** |
+| 12 | Health and momentum | **10** | 6 | **10** | 7 | 7 | 4 |
+| 8 | Licence | 9 | **10** | **10** | **10** | 6 | — |
+| 8 | Fits what Nox already has | **10** | 7 | 6 | 5 | 4 | 9 |
+| 8 | Cost to carry | 6 | 7 | 6 | 5 | 7 | 2 |
+| | **Total** | **90.8** | 84.0 | 80.0 | 71.2 | 58.4 | 74.8 |
+
+### What decided it
+
+- **`->` → `→` is a shipped feature.** `@tiptap/extension-typography` does the
+  exact example in the request plus 22 more substitutions. Nothing else has it
+  built in.
+- **BlockNote is out on the requirement, not on taste.** Its export function is
+  named `blocksToMarkdownLossy()` and its documentation tells you not to use
+  Markdown as your storage format. Nox stores Markdown and full-text-searches
+  it.
+- **Milkdown is the purest fit and the biggest risk.** Markdown genuinely *is*
+  its document model (remark). But 321K weekly downloads and 4 releases in 90
+  days, against Tiptap's 14.7M and 17.
+- **Hand-rolling loses on cost, not on principle.** The moment you transform
+  text programmatically the browser's native undo stack breaks, which means
+  writing your own undo, selection mapping and paste sanitising. That is
+  rebuilding a small ProseMirror.
+
+Measured, not recalled — from the npm registry on 2026-08-22:
+
+| Package | Version | Licence | Weekly downloads | Releases / 90 days |
+|---|---|---|---|---|
+| `@tiptap/core` | 3.30.2 | MIT | 14,668,394 | 17 |
+| `lexical` | 0.49.0 | MIT | 4,109,604 | 68 |
+| `slate` | 0.126.2 | MIT | 2,544,538 | 7 |
+| `@blocknote/core` | 0.54.0 | **MPL-2.0** | 437,675 | 8 |
+| `@milkdown/core` | 7.22.1 | MIT | 320,907 | 4 |
+| `quill` | — | BSD | 6,872,746 | last published Jan 2025 |
+
+### The caveat
+
+`@tiptap/markdown` is marked **early release**, with known gaps around tables
+and comments. Neither is in the toolbar or in this database. If it turns out to
+lose something on round-trip, the fallback is a serialiser of our own against
+the same ProseMirror schema — not a change of editor.
+
+### What it costs
+
+The editor is behind a lazy import (`Composer.tsx`), so nothing that does not
+write a word pays for it:
+
+| | before | after |
+|---|---|---|
+| Main bundle | 122.89 kB gzip | **121.11 kB gzip** |
+| Editor chunk | — | 155.51 kB gzip, on first dialog |
+
+The main bundle got *smaller*, because the textarea-with-completion it replaced
+was deleted. 56 packages were added; `npm audit` reports 0 vulnerabilities.

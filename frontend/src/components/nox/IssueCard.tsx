@@ -21,8 +21,8 @@ import { M3DatePicker } from "../M3DatePicker";
 import { M3Select } from "../M3Select";
 import { AsksOnIssue } from "./Asks";
 import { LabelEditor } from "./Labels";
-import { MentionBox } from "./Mentions";
 import { Markdown } from "./Markdown";
+import { Composer } from "./Composer";
 import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
@@ -62,10 +62,6 @@ export function IssueCard({
   );
   const [summary, setSummary] = useState(issue?.summary ?? "");
   const [description, setDescription] = useState(issue?.description ?? "");
-  // Reading an issue happens far more often than editing one, so a description
-  // that has something in it opens rendered. An empty one opens ready to type,
-  // because there is nothing to read.
-  const [writing, setWriting] = useState(!(issue?.description ?? "").trim());
   const [priority, setPriority] = useState(issue?.priority ?? "medium");
   const [assignee, setAssignee] = useState<number | null>(issue?.assignee_id ?? null);
   const [tester, setTester] = useState<number | null>(issue?.tester_id ?? null);
@@ -93,7 +89,6 @@ export function IssueCard({
   const [menu, setMenu] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (mode !== "edit" || !issue) return;
@@ -134,23 +129,6 @@ export function IssueCard({
     } finally {
       setBusy(false);
     }
-  }
-
-  // Markdown helpers, same as the My Board card — people already know them.
-  function md(before: string, after = before, line = false) {
-    const ta = bodyRef.current;
-    if (!ta) return;
-    const { selectionStart: s, selectionEnd: e, value } = ta;
-    let next: string;
-    if (line) {
-      const ls = value.lastIndexOf("\n", s - 1) + 1;
-      const block = value.slice(ls, e) || before.trim();
-      next = value.slice(0, ls) + block.split("\n").map((l) => before + l).join("\n") + value.slice(e);
-    } else {
-      next = value.slice(0, s) + before + value.slice(s, e) + after + value.slice(e);
-    }
-    setDescription(next);
-    requestAnimationFrame(() => ta.focus());
   }
 
   async function save() {
@@ -221,75 +199,15 @@ export function IssueCard({
           </Field>
 
           <Field label="Description">
-            <div className="tkc-desc">
-              <div className="tkc-toolbar">
-                {/* Write and Read, not Edit and Preview: "preview" suggests a
-                    lesser version of the real thing, and the rendered side is
-                    the real thing — it is what everybody else will see. */}
-                <div className="tkc-modes" role="tablist" aria-label="Description">
-                  <button type="button" role="tab" aria-selected={writing}
-                          className={`tkc-mode tk-layer${writing ? " on" : ""}`}
-                          onClick={() => setWriting(true)}>Write</button>
-                  <button type="button" role="tab" aria-selected={!writing}
-                          className={`tkc-mode tk-layer${!writing ? " on" : ""}`}
-                          onClick={() => setWriting(false)}>Read</button>
-                </div>
-                {writing && (
-                  <>
-                    <span className="tkc-tb-div" />
-                    <button type="button" className="tkc-tb tk-layer" title="Heading" onClick={() => md("## ", "", true)}>H</button>
-                    <button type="button" className="tkc-tb tk-layer" title="Bold" onClick={() => md("**")}><b>B</b></button>
-                    <button type="button" className="tkc-tb tk-layer" title="Italic" onClick={() => md("*")}><i>I</i></button>
-                    <button type="button" className="tkc-tb tk-layer" title="Strikethrough" onClick={() => md("~~")}><s>S</s></button>
-                    <span className="tkc-tb-div" />
-                    <button type="button" className="tkc-tb tk-layer" title="Bullet list" onClick={() => md("- ", "", true)}>•</button>
-                    <button type="button" className="tkc-tb tk-layer" title="Numbered list" onClick={() => md("1. ", "", true)}>1.</button>
-                    <button type="button" className="tkc-tb tk-layer" title="Checklist" onClick={() => md("- [ ] ", "", true)}>&#9744;</button>
-                    <span className="tkc-tb-div" />
-                    <button type="button" className="tkc-tb tk-layer" title="Link" onClick={() => md("[", "](url)")}>&#128279;</button>
-                    <button type="button" className="tkc-tb tk-layer" title="Quote" onClick={() => md("> ", "", true)}>&rdquo;</button>
-                    <button type="button" className="tkc-tb tk-layer" title="Code" onClick={() => md("`")}>&lt;/&gt;</button>
-                  </>
-                )}
-              </div>
-              {writing ? (
-                <MentionBox
-                  ref={bodyRef}
-                  className="tkc-ta"
-                  people={users}
-                  value={description}
-                  placeholder="Describe the work, acceptance criteria, links…"
-                  onChange={setDescription}
-                />
-              ) : (
-                // Clicking the text puts you in it, the way a document does.
-                // Not a button: this has links and issue keys inside it, and
-                // nesting those in a button is both invalid and unusable.
-                <div
-                  className="tkc-read"
-                  role="button"
-                  tabIndex={0}
-                  title="Click to write"
-                  onClick={(e) => {
-                    // A link inside the text is a link, not a way in.
-                    if ((e.target as HTMLElement).closest("a")) return;
-                    setWriting(true);
-                    requestAnimationFrame(() => bodyRef.current?.focus());
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setWriting(true);
-                      requestAnimationFrame(() => bodyRef.current?.focus());
-                    }
-                  }}
-                >
-                  {description.trim()
-                    ? <Markdown text={description} people={users} />
-                    : <p className="tk-dim">Describe the work, acceptance criteria, links…</p>}
-                </div>
-              )}
-            </div>
+            {/* The editor is the rendered view — there is no second mode to
+                switch to, because what you type already looks like what
+                everybody else will read. */}
+            <Composer
+              value={description}
+              onChange={setDescription}
+              people={users}
+              placeholder="Describe the work, acceptance criteria, links…"
+            />
           </Field>
 
           {mode === "edit" && full && (
@@ -413,8 +331,8 @@ export function IssueCard({
                   ))}
                   {!(full.comments ?? []).length && <p className="tk-dim">No comments yet.</p>}
                   <div className="tk-comment-new">
-                    <MentionBox
-                      rows={2}
+                    <Composer
+                      compact
                       people={users}
                       placeholder="Add a comment…"
                       value={comment}

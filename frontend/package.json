@@ -5,11 +5,22 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node roundtrip.mjs && tsc && vite build",
     "preview": "vite preview",
-    "prune-css": "node prune-css.mjs src"
+    "prune-css": "node prune_css.mjs src",
+    "roundtrip": "node roundtrip.mjs",
+    "audit": "node m3_audit.mjs src"
   },
   "dependencies": {
+    "@tiptap/core": "^3.30.2",
+    "@tiptap/extension-list": "^3.30.2",
+    "@tiptap/extension-typography": "^3.30.2",
+    "@tiptap/extensions": "^3.30.2",
+    "@tiptap/markdown": "^3.30.2",
+    "@tiptap/pm": "^3.30.2",
+    "@tiptap/react": "^3.30.2",
+    "@tiptap/starter-kit": "^3.30.2",
+    "@tiptap/suggestion": "^3.30.2",
     "lucide-react": "^1.33.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

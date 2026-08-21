@@ -88,9 +88,16 @@ for (const lit of haystack.matchAll(STRING)) {
 // Class names finished at runtime keep their whole family:
 //   `tkd-s-${state}`      -> prefix tkd-s-
 //   "tk-badge-" + tone    -> prefix tk-badge-
+// Classes another library puts on the DOM. They appear in no source file here
+// and never will, so without this the pruner deletes the rules that style them
+// — the editor's placeholder and its selected-divider highlight both went on
+// the first run after Tiptap landed.
+const FROM_LIBRARIES = ["ProseMirror", "is-editor-", "is-empty", "tippy-"];
+
 const prefixes = new Set([
   ...[...haystack.matchAll(/([A-Za-z][A-Za-z0-9_-]*-)\$\{/g)].map((m) => m[1]),
   ...[...haystack.matchAll(/["'`]([A-Za-z][A-Za-z0-9_-]*-)["'`]\s*\+/g)].map((m) => m[1]),
+  ...FROM_LIBRARIES,
 ]);
 
 const decided = new Map();
@@ -98,7 +105,7 @@ function inUse(cls) {
   if (decided.has(cls)) return decided.get(cls);
   const hit = tokens.has(cls)
     || (cls.includes("-") && hyphenated.has(cls))
-    || [...prefixes].some((p) => cls.startsWith(p) && cls !== p);
+    || [...prefixes].some((p) => cls.startsWith(p) && (cls !== p || FROM_LIBRARIES.includes(p)));
   decided.set(cls, hit);
   return hit;
 }

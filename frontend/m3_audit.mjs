@@ -106,7 +106,13 @@ root.walkDecls((decl) => {
     })();
     const isBox = square
       || /input\[type="?(checkbox|radio)"?\]|::(before|after)|\.tk-chip/.test(sel);
-    const interactive = /button|\.tk-btn|\.tk-tab|\.tk-x|input|select|\[role="button"\]/i.test(sel);
+    // Word-bounded on purpose. A bare /select/ also matches
+    // `.ProseMirror-selectednode`, and a bare /input/ matches anything ending
+    // in "input" — the same substring trap that once had prune_css keeping
+    // `.btn` alive because `.tk-btn` contained it.
+    const interactive =
+      /\bbutton\b|\.tk-btn\b|\.tk-tab\b|\.tk-x\b|\binput\b|\bselect\b|\btextarea\b|\[role="button"\]/i
+        .test(sel);
     if (interactive && !isBox && n < 40) {
       findings.hit.push(`${where(decl)}   (interactive, under 40px)`);
     }
@@ -115,7 +121,13 @@ root.walkDecls((decl) => {
   // 6b. Anything wrapping a checkbox or radio has to be the touch target.
   if (/input\[type="?(checkbox|radio)"?\]/.test(decl.parent.selector || "")
       && (prop === "width" || prop === "height")) {
-    const wrapper = (decl.parent.selector || "").split(/\s+/)[0];
+    // The wrapper is the token immediately *before* the checkbox, not the
+    // first token of the selector. Taking the first blamed `.tk-md` — a whole
+    // prose block, which was never going to be a 40px target — for a checkbox
+    // nested four levels inside it.
+    const parts = (decl.parent.selector || "").split(/\s+|\s*>\s*/).filter(Boolean);
+    const at = parts.findIndex((p) => /input\[type="?(checkbox|radio)"?\]/.test(p));
+    const wrapper = at > 0 ? parts[at - 1] : "";
     if (wrapper.startsWith(".")) wrappersToCheck.add(wrapper);
   }
 });
