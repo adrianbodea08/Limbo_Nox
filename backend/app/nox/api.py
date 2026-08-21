@@ -22,7 +22,7 @@ from .. import db
 from . import (
     admin, asks as asks_mod, automation, git, github_app, insights,
     labels as labels_mod, links, mock, notify, query, releases as rel, repo,
-    seed, work,
+    seed, views as views_mod, work,
 )
 from .admin import SettingsError
 from .links import LinkError
@@ -467,6 +467,51 @@ async def git_sync(request: Request, repo_name: str | None = None,
 
 
 # -------------------------------------------------------------------- labels --
+
+# ------------------------------------------------------------------ views --
+
+@router.get("/views")
+async def list_views(request: Request, project_id: int | None = None) -> list[dict]:
+    """Yours first, then the team's."""
+    actor = _actor(request)
+    with _engine().connect() as conn:
+        return views_mod.for_user(conn, actor, request.state.user, project_id)
+
+
+@router.post("/views")
+async def create_view(request: Request, body: dict) -> dict:
+    """Keep the board the way it is set up right now."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return views_mod.create(conn, actor, body)
+        except views_mod.ViewError as e:
+            raise HTTPException(400, str(e)) from e
+
+
+@router.patch("/views/{view_id}")
+async def patch_view(view_id: int, request: Request, body: dict) -> dict:
+    """Rename it, re-point it at what the board shows now, or share it."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return views_mod.update(conn, actor, request.state.user, view_id, body)
+        except views_mod.ViewError as e:
+            raise HTTPException(404, str(e)) from e
+
+
+@router.delete("/views/{view_id}")
+async def delete_view(view_id: int, request: Request) -> dict:
+    """Really delete. A view is an arrangement, not a record of anything — there
+    is no history to keep and nothing points at it."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            views_mod.remove(conn, actor, request.state.user, view_id)
+        except views_mod.ViewError as e:
+            raise HTTPException(404, str(e)) from e
+    return {"ok": True}
+
 
 @router.get("/labels")
 async def list_labels(request: Request) -> list[dict]:

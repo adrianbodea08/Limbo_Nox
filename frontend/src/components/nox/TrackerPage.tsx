@@ -19,11 +19,62 @@ import { Insights } from "./Insights";
 import { Releases } from "./Releases";
 import { TrackerRail } from "./TrackerRail";
 import { M3Segmented } from "../M3Segmented";
+import { ViewBar } from "./Views";
 import {
   PRIORITY_COLOUR, trackerApi,
   type BoardColumn, type FilterNode, type BoardData, type TrackerIssue,
   type TrackerMeta, type TrackerStatusInfo, type TrackerUser, type Label,
+  type SavedView,
 } from "./model";
+
+/** Put a saved filter back on the bar.
+ *
+ *  The other direction — bar to filter — is the `filter` memo below. This one
+ *  has to exist because a view stores the compiled filter, and the bar is five
+ *  dropdowns: picking a view has to *set* those dropdowns, not just send a
+ *  filter the bar then disagrees with. Anything the bar cannot express is
+ *  ignored rather than guessed at. */
+function barFromFilter(node: FilterNode | null) {
+  const bar = {
+    who: [] as string[], tester: [] as string[],
+    priority: [] as string[], kinds: [] as string[], tags: [] as string[],
+  };
+  const walk = (n: FilterNode | null) => {
+    if (!n) return;
+    if ("all" in n) { n.all.forEach(walk); return; }
+    // An `any` group is how "somebody, or nobody" is written — the same shape
+    // the memo below produces for people.
+    if ("any" in n) { n.any.forEach(walk); return; }
+    const value = Array.isArray(n.value) ? n.value.map(String) : [];
+    switch (n.field) {
+      case "assignee_id":
+        bar.who.push(...(n.op === "is_empty" ? [UNASSIGNED] : value)); break;
+      case "tester_id":
+        bar.tester.push(...(n.op === "is_empty" ? [UNASSIGNED] : value)); break;
+      case "priority": bar.priority.push(...value); break;
+      case "issue_type_id": bar.kinds.push(...value); break;
+      case "label_id": bar.tags.push(...value); break;
+      default: break; // project_id is set by the rail, not by the view
+    }
+  };
+  walk(node);
+  return bar;
+}
+
+/** JSON with the keys in a settled order.
+ *
+ *  A filter goes to Postgres as `jsonb`, which does not keep key order — it is
+ *  handed `{field, op, value}` and gives back `{op, field, value}`. Comparing
+ *  the two as plain JSON made a view read as *changed* the instant it was
+ *  applied, so the board offered to save what it had just loaded. Comparing
+ *  arrangements means comparing what they say, not how they were typed. */
+function canon(value: unknown): string {
+  return JSON.stringify(value, (_k, v) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(
+          ([a], [b]) => a.localeCompare(b)))
+      : v);
+}
 
 interface Props {
   shell: ShellProps;
@@ -58,6 +109,9 @@ export function TrackerPage({ shell }: Props) {
   const [priority, setPriority] = useState<string[]>([]);
   const [kinds, setKinds] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
+  const [views, setViews] = useState<SavedView[]>([]);
+  const [viewId, setViewId] = useState<number | null>(null);
+  const [savingView, setSavingView] = useState(false);
   const [labels, setLabels] = useState<Label[]>([]);
   const [sortBy, setSortBy] = useState("updated_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -99,6 +153,15 @@ export function TrackerPage({ shell }: Props) {
     trackerApi.labels().then(setLabels).catch(() => {});
 
   }, []);
+
+  // Re-asked per project: a view pinned to one project is not offered on
+  // another, and the server is the only thing that knows which are shared.
+  const loadViews = useCallback(() => {
+    if (!project) return;
+    trackerApi.views(project.id).then(setViews).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
+  useEffect(() => { loadViews(); }, [loadViews]);
 
   useEffect(() => {
     (async () => {
@@ -161,6 +224,54 @@ export function TrackerPage({ shell }: Props) {
   }, [project, who, tester, priority, kinds, tags]);
 
   const filterCount = who.length + tester.length + priority.length + kinds.length + tags.length;
+
+  // ------------------------------------------------------------------ views --
+
+  const current = views.find((v) => v.id === viewId) ?? null;
+
+  /** The board exactly as it stands, in the shape a view is stored in. */
+  function arrangement() {
+    return {
+      filter, renderer, group_by: groupBy,
+      sort: [{ field: sortBy, dir: sortDir }],
+    };
+  }
+
+  // Compared as JSON rather than field by field: a view is one arrangement, and
+  // "has anything about it changed" is the only question worth asking. With no
+  // view picked, any filter at all counts as something worth offering to keep.
+  const changed = current
+    ? canon(arrangement()) !== canon({
+        filter: current.filter, renderer: current.renderer,
+        group_by: current.group_by, sort: current.sort,
+      })
+    : filterCount > 0;
+
+  function applyView(v: SavedView | null) {
+    setViewId(v?.id ?? null);
+    if (!v) { clearFilters(); return; }
+    const bar = barFromFilter(v.filter);
+    setWho(bar.who);
+    setTester(bar.tester);
+    setPriority(bar.priority);
+    setKinds(bar.kinds);
+    setTags(bar.tags);
+    setSortBy(v.sort?.[0]?.field ?? "updated_at");
+    setSortDir(v.sort?.[0]?.dir ?? "desc");
+    setParam({ view: v.renderer, group: v.group_by });
+  }
+
+  async function onView(fn: () => Promise<unknown>) {
+    setSavingView(true);
+    try {
+      await fn();
+      loadViews();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingView(false);
+    }
+  }
 
   function clearFilters() {
     setWho([]); setTester([]); setPriority([]); setKinds([]); setTags([]);
@@ -384,6 +495,29 @@ export function TrackerPage({ shell }: Props) {
           <div className="tk-bar">
             <div className="tk-bar-left">
               <h1 className="tk-title">{project?.name ?? "All issues"}</h1>
+              {/* The view sits with the project, not among the filters: it is
+                  what you are looking at, and the filters are how you got
+                  there. Picking one sets all of them. */}
+              <ViewBar
+                views={views}
+                current={current}
+                changed={changed}
+                busy={savingView}
+                onPick={(v) => morph(() => applyView(v))}
+                onCreate={(name) => onView(async () => {
+                  const made = await trackerApi.createView({
+                    name, project_id: project?.id ?? null, ...arrangement(),
+                  });
+                  setViewId(made.id);
+                })}
+                onUpdate={(v) => onView(() => trackerApi.patchView(v.id, arrangement()))}
+                onRename={(v, name) => onView(() => trackerApi.patchView(v.id, { name }))}
+                onShare={(v, shared) => onView(() => trackerApi.patchView(v.id, { shared }))}
+                onDelete={(v) => onView(async () => {
+                  await trackerApi.deleteView(v.id);
+                  if (viewId === v.id) setViewId(null);
+                })}
+              />
               {project?.description && <span className="tk-dim">{project.description}</span>}
             </div>
             <div className="tk-bar-right">

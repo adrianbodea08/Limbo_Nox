@@ -778,6 +778,29 @@ export interface Label {
   count?: number;
 }
 
+/** A board arrangement somebody kept: what to show, and how to show it.
+ *
+ *  Private to whoever made it unless `shared` — see docs/VIEWS.md. */
+export interface SavedView {
+  id: number;
+  /** NULL means it works on any project. */
+  project_id: number | null;
+  name: string;
+  owner_id: number | null;
+  shared: boolean;
+  /** True when this one is yours. Decided by the server, not by comparing ids
+   *  here — the server is the only place that knows who is asking. */
+  mine: boolean;
+  owner_name?: string | null;
+  filter: FilterNode | null;
+  group_by: string;
+  renderer: string;
+  columns: string[];
+  sort: SortSpec[];
+  wip_limits: Record<string, number>;
+  position: number;
+}
+
 export const trackerApi = {
   status: () => request<TrackerStatusInfo>("/api/nox/status"),
 
@@ -790,6 +813,21 @@ export const trackerApi = {
   meta: () => request<TrackerMeta>("/api/nox/meta"),
 
   labels: () => request<Label[]>("/api/nox/labels"),
+
+  views: (projectId?: number) =>
+    request<SavedView[]>(
+      `/api/nox/views${projectId ? `?project_id=${projectId}` : ""}`),
+
+  createView: (body: Partial<SavedView>) =>
+    request<SavedView>("/api/nox/views",
+      { method: "POST", body: JSON.stringify(body) }),
+
+  patchView: (id: number, body: Partial<SavedView>) =>
+    request<SavedView>(`/api/nox/views/${id}`,
+      { method: "PATCH", body: JSON.stringify(body) }),
+
+  deleteView: (id: number) =>
+    request<{ ok: boolean }>(`/api/nox/views/${id}`, { method: "DELETE" }),
 
   /** Makes the label if nobody has used the word yet. */
   addLabel: (issueId: number, name: string) =>
