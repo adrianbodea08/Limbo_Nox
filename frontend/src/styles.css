@@ -1250,7 +1250,37 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-card:hover { box-shadow: var(--m3-elev-2); border-color: var(--border-strong); }
 .tk-card-on { border-color: var(--accent); box-shadow: var(--m3-elev-2), 0 0 0 1px var(--accent); }
 .tk-card-dragging { opacity: var(--m3-state-drag); box-shadow: var(--m3-elev-4); }
-.tk-card-top { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; min-width: 0; }
+/* The band sits in the card's own corner — outside its padding, clipped by the
+   radius the card already has (it sets overflow: hidden). Rounded on the inner
+   corner only, so it reads as a band laid into the corner rather than a square
+   stuck on top of it. */
+.tk-card-corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 24px;
+  border-radius: var(--m3-shape-m) 0 var(--m3-shape-m) 0;
+  color: var(--m3-on-accent);
+  font-size: var(--m3-font-label-medium);
+  line-height: 1;
+  /* It labels the card; it is not a second thing to click. */
+  pointer-events: none;
+}
+
+/* The key row starts clear of the band. Only this row — the summary and the
+   description below it use the card's full width. */
+.tk-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-left: 22px;
+}
 /* Only the parent pill gives up width on this row. The type, the key and the
    face are how a card is identified at a glance and must not be squeezed. */
 .tk-card-top > .tk-type,
@@ -1289,7 +1319,19 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   overflow: hidden;
 }
 
-.tk-type { font-size: var(--m3-font-body-medium); line-height: 1; }
+/* A fixed box, because the glyphs are text and text has its own opinions about
+   width: ▫ measures 5px and ▲ measures 12.1, so a bare span left every label
+   starting at a different x — 292 to 299 across one menu. Centred in 16px, they
+   all agree, here and on every card and link that draws one. */
+.tk-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  flex: 0 0 16px;
+  font-size: var(--m3-font-body-medium);
+  line-height: 1;
+}
 .tk-key {
   font-size: var(--m3-font-label-small);
   font-weight: 600;
@@ -1354,7 +1396,13 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-table tbody tr:hover { background: var(--bg-card-hover); }
 .tk-row-on { background: var(--accent-soft) !important; }
 .tk-table td { padding: 0 16px; letter-spacing: 0.25px; }
-.tk-cell-key { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+/* The cell stays a table cell. Making it `display: flex` — which it was —
+   takes it out of table layout: it loses `vertical-align: middle`, so on a 52px
+   row the key sat eighteen pixels above the summary beside it, and it dropped
+   out of the table's column sizing too. The line inside it does the flexing.
+   TeamQueue already worked this out and has its own copy of the pattern. */
+.tk-cell-key { white-space: nowrap; }
+.tk-keyline { display: inline-flex; align-items: center; gap: 8px; }
 .tk-cell-sum { max-width: 460px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tk-num { font-variant-numeric: tabular-nums; }
 .tk-empty-row { text-align: center; color: var(--text-faint); padding: 40px 0 !important; }

@@ -114,6 +114,23 @@ function TypeIcon({ issue }: { issue: TrackerIssue }) {
   );
 }
 
+/** The type, as a band across the card's top-left corner.
+ *
+ *  On a row — a table or a list — the glyph in line with the key is right,
+ *  because a row is read left to right. A column of cards is scanned, and what
+ *  a scan finds is a block of colour in a place that never moves. */
+function TypeCorner({ issue }: { issue: TrackerIssue }) {
+  return (
+    <span
+      className="tk-card-corner"
+      style={{ background: issue.type_colour }}
+      title={issue.type_name}
+    >
+      {issue.type_icon}
+    </span>
+  );
+}
+
 function Priority({ value }: { value: string }) {
   return (
     <span
@@ -230,13 +247,14 @@ export function ColumnsBoard({
                   className={`tk-card tk-layer${selectedId === issue.id ? " tk-card-on" : ""}${
                     dragging?.id === issue.id ? " tk-card-dragging" : ""
                   }`}
+
                   {...band.rowProps(issue, String(col.key), col.issues, index)}
                   onDragStart={(e) => start(issue, String(col.key), e)}
                   onDragEnd={end}
                   onClick={() => onOpen(issue)}
                 >
+                  <TypeCorner issue={issue} />
                   <div className="tk-card-top">
-                    <TypeIcon issue={issue} />
                     <IssueKey issueKey={issue.key} />
                     {/* What this is part of, alongside what it is called. It
                         gives up its width first — the priority and the face
@@ -316,8 +334,10 @@ export function TableBoard({ issues, selectedId, onOpen, sortBy, sortDir, onSort
               onClick={() => onOpen(issue)}
             >
               <td className="tk-cell-key">
-                <TypeIcon issue={issue} />
-                <IssueKey issueKey={issue.key} />
+                <span className="tk-keyline">
+                  <TypeIcon issue={issue} />
+                  <IssueKey issueKey={issue.key} />
+                </span>
               </td>
               <td className="tk-cell-sum">{issue.summary}</td>
               <td>

@@ -384,10 +384,12 @@ function ReleaseDetailView({
               {release.issues.map((i) => (
                 <tr key={i.id}>
                   <td className="tk-cell-key">
-                    <span className="tk-type" style={{ color: i.type_colour }}>
-                      {i.type_icon}
+                    <span className="tk-keyline">
+                      <span className="tk-type" style={{ color: i.type_colour }}>
+                        {i.type_icon}
+                      </span>
+                      <IssueKey issueKey={i.key} />
                     </span>
-                    <IssueKey issueKey={i.key} />
                   </td>
                   <td className="tk-cell-sum">{i.summary}</td>
                   <td>
