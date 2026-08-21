@@ -11,9 +11,11 @@
 
 import { AtSign, Bell, MessageCircleQuestion, Reply, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Person } from "./Face";
 import { ago, trackerApi } from "./model";
+import { badgeIcon, badgeTitle, showDesktop } from "./reach";
 import type { Notification } from "./model";
 
 const LOOK: Record<string, { Icon: typeof Bell; tone: string }> = {
@@ -35,18 +37,45 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Notification[]>([]);
   const [busy, setBusy] = useState(false);
+  // What landed while you were looking at something else. Shown once, briefly,
+  // and never again — a toast is a tap on the shoulder, and the bell is where
+  // it lives afterwards.
+  const [landed, setLanded] = useState<Notification[]>([]);
+  // The count as of the previous poll, so "three unread" and "one new one just
+  // arrived" stay different events.
+  const seen = useRef<number | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const nav = useNavigate();
 
   const load = useCallback(async () => {
     try {
       const r = await trackerApi.notifications();
+      // Only what is genuinely new since the last look. On the first poll of a
+      // session there is no "since", so nothing is announced — arriving to
+      // eleven toasts for things that happened last week is not news.
+      const before = seen.current;
+      if (before !== null && r.unread > before) {
+        const fresh = r.items.filter((n) => !n.read).slice(0, r.unread - before);
+        setLanded(fresh);
+        window.setTimeout(() => setLanded([]), 6000);
+        for (const n of fresh) {
+          showDesktop(n.text, n.issue_summary ?? "", () => nav(`/issue/${n.issue_key}`));
+        }
+      }
+      seen.current = r.unread;
       setUnread(r.unread);
       setItems(r.items);
     } catch {
       // A bell that cannot reach the server says nothing rather than shouting.
     }
-  }, []);
+  }, [nav]);
+
+  // The tab and the icon, which are the only two things a backgrounded window
+  // can still say — and the only ones that work on every origin.
+  useEffect(() => {
+    badgeTitle(unread);
+    badgeIcon(unread);
+  }, [unread]);
 
   useEffect(() => {
     load();
@@ -99,6 +128,25 @@ export function NotificationBell() {
 
   return (
     <div className="tkn" ref={wrap}>
+      {/* Away from the bell on purpose: it announces something that has just
+          happened, and putting it under the button would mean it is only seen
+          by somebody already looking there. */}
+      {!!landed.length && createPortal(
+        <div className="tkn-toasts" role="status" aria-live="polite">
+          {landed.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              className="tkn-toast tk-layer"
+              onClick={() => { setLanded([]); go(n); }}
+            >
+              <span className="tkn-toast-text">{n.text}</span>
+              <span className="tkn-toast-sub">{n.issue_summary}</span>
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
       <button
         type="button"
         className={`tkn-bell tk-layer${unread ? " has" : ""}`}

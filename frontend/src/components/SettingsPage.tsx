@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { trackerApi } from "./nox/model";
+import { askDesktop, desktopState } from "./nox/reach";
 import type { NotificationPrefs } from "./nox/model";
 import { TopBar, type ShellProps } from "./TopBar";
 import { TrackerRail } from "./nox/TrackerRail";
@@ -20,6 +21,7 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
   const [next, setNext] = useState("");
   const [theme, setThemeState] = useState<ThemeId>(getTheme());
   const [prefs, setPrefs] = useState<NotificationPrefs>({});
+  const [desk, setDesk] = useState(desktopState());
 
   useEffect(() => {
     trackerApi.notificationPrefs().then(setPrefs).catch(() => {});
@@ -128,6 +130,48 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
               </label>
             ))}
             {!Object.keys(prefs).length && <p className="tk-dim">Loading…</p>}
+          </div>
+
+          {/* Where a notification reaches you, as opposed to which ones exist.
+              The tab title and the icon are always on: they need no permission
+              and cost nothing. This is the one that has to be asked for. */}
+          <div className="tkn-desktop">
+            <h4>Outside the tab</h4>
+            {desk === "impossible" ? (
+              <p className="tk-dim">
+                The tab title and the icon always carry the count. Desktop
+                notifications need a secure connection — over plain{" "}
+                <code>http://</code> the browser will not offer them at all, so
+                they arrive when Nox does, on <code>https://</code>.
+              </p>
+            ) : desk === "blocked" ? (
+              <p className="tk-dim">
+                Your browser is blocking notifications for this site. It has to
+                be undone in the browser’s own site settings — a page cannot ask
+                again once it has been refused.
+              </p>
+            ) : (
+              <label className="tkn-pref">
+                <span className="tk-toggle">
+                  <input
+                    type="checkbox"
+                    checked={desk === "on"}
+                    // Asked from a click, never on load: a prompt somebody did
+                    // not expect is the reason people press Block without
+                    // reading, and Block cannot be undone from here.
+                    onChange={async () => {
+                      if (desk === "on") return;
+                      await askDesktop();
+                      setDesk(desktopState());
+                    }}
+                  />
+                </span>
+                <span className="tkn-pref-label">
+                  Also show them on the desktop
+                  {desk === "on" && <span className="tk-dim"> · on</span>}
+                </span>
+              </label>
+            )}
           </div>
         </section>
 

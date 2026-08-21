@@ -203,6 +203,40 @@ description is nowhere near it. Ranking is whole-name, then any word of the
 name, then anywhere — somebody typing "mi" means Mihalache far more often than
 they mean Du*mi*tru.
 
+### Getting past the bell
+
+The bell is only seen by somebody already looking at Nox. An ask that stops
+somebody's work is worth more reach than that, and **none of it is email**.
+
+| | Works where | Permission |
+|---|---|---|
+| The tab's title — `(3) Nox by Limbo` | everywhere | none |
+| A dot on the favicon | everywhere | none |
+| A toast, when something lands while you are looking | everywhere | none |
+| A desktop notification | secure origins only | asked for, once, from a click |
+
+The first three are the ones that reach the whole team today, which is why they
+are on for everybody and cannot be turned off: they cost nothing and interrupt
+nobody.
+
+**Real push is not possible yet, and it is worth knowing why.** The Push API
+needs a service worker, a service worker needs a secure context, and the team
+reaches Nox at `http://<machine>:8090`. Checked rather than assumed — at that
+origin `isSecureContext` is `false` and `navigator.serviceWorker` is not merely
+unusable, it is **absent**. Localhost is exempt from the rule, which is exactly
+the trap: it works perfectly for whoever is running the server and for nobody
+else. Push arrives with HTTPS and not before.
+
+Two smaller decisions inside that:
+
+- **Nothing is announced on the first poll of a session.** There is no "since"
+  yet, and arriving to eleven toasts for things that happened last week is not
+  news. Only a count that has gone up since the previous look produces anything.
+- **The desktop permission is only ever asked for from a click.** A prompt
+  somebody did not expect is the reason people press Block without reading, and
+  Block cannot be undone from inside the page — so the setting says that
+  plainly rather than offering a switch that silently does nothing.
+
 **Four switches** in Settings, defaulting to on. The list is short enough that
 the setting exists to turn one off, not to opt in.
 

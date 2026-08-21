@@ -5670,3 +5670,66 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   color: var(--text-dim);
 }
 .tk-acc-name { white-space: nowrap; }
+
+/* --- past the bell --------------------------------------------------------
+   A toast is a tap on the shoulder for something that has just landed. It sits
+   away from the bell on purpose: under the button it would only be seen by
+   somebody already looking there, which is the case the bell already covers. */
+.tkn-toasts {
+  position: fixed;
+  z-index: 300;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 32px));
+}
+.tkn-toast {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-elev);
+  box-shadow: var(--m3-elev-3);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: tkn-toast-in var(--m3-dur-medium) var(--m3-ease-decel);
+}
+.tkn-toast-text { font-size: var(--m3-font-body-medium); font-weight: 600; }
+.tkn-toast-sub {
+  font-size: var(--m3-font-label-medium);
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@keyframes tkn-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tkn-toast { animation: none; }
+}
+
+.tkn-desktop { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.tkn-desktop h4 {
+  margin: 0 0 8px;
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.tkn-desktop p { margin: 0; font-size: var(--m3-font-label-medium); line-height: 1.55; }
+.tkn-desktop code {
+  padding: 1px 4px;
+  border-radius: var(--m3-shape-xs);
+  background: var(--bg-col);
+  font-size: var(--m3-font-label-small);
+}
