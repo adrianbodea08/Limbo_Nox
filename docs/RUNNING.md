@@ -38,6 +38,47 @@ again after new defaults are added.
 > The port default is `5433` rather than something higher because Windows
 > reserves ranges (`55396–55495` among them) that a bind will silently fail on.
 
+### The demo people have accounts
+
+`mock.py` invents seventeen colleagues and gives them sixty-six issues and eight
+hundred events. They used to be *ghosts* — names on work that nobody could ever
+be — so every screen that reasons about people rather than rows had a hole in
+it. They have accounts now:
+
+```
+POST   /api/admin/placeholder-accounts     make them
+DELETE /api/admin/placeholder-accounts     take them away again
+```
+
+**No merge was needed, because the ids already agree.** An account is projected
+into the tracker keyed on its own id, so an account created at 900016 *is* the
+person the demo data calls Ana Mihalache. Nothing moves — which is why this is
+thirty lines rather than the two hundred that repointing twenty-six columns
+would have taken, and why removing them again leaves the tracker exactly as it
+was.
+
+**Nobody can sign in as them.** The password is a random secret that is hashed
+and then thrown away: not stored, not printed, not known to whoever ran it.
+Creating accounts for people who never asked for one is only reasonable if
+there is no way into them, and the way to guarantee that is to have no password
+rather than a weak one. Verified — login refuses a guess and refuses an empty
+one.
+
+They are *approved*, not *pending*, so seventeen fictional people do not bury
+the one real person standing in the approval queue, and their email is
+`@mock.local` so which rows are placeholders is visible at a glance.
+
+**One consequence worth knowing.** SQLite takes the next id from `max(rowid)`,
+so once an account exists at 900016 the next person who registers gets 900017.
+Resetting `sqlite_sequence` does not change that — it was tried. Nothing depends
+on the range and no id is ever shown to anybody, so this is cosmetic; it is
+written down because it is surprising.
+
+**When the real person arrives**, they register like anybody else and an admin
+approves them. The placeholder is then a historical record of invented work, and
+can be suspended or removed. Nobody inherits the demo history, because the demo
+history was invented.
+
 ## Demo data
 
 The tracker starts empty. To fill it with something to look at — sixteen people

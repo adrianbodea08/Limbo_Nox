@@ -187,6 +187,45 @@ class AuthStore:
             ).fetchone()
         return self._public(row)
 
+    def create_at_id(self, user_id: int, username: str, email: str, *,
+                     nickname: str, avatar: str, role: str = "member",
+                     status: str = "approved") -> dict:
+        """An account at a chosen id, with **no usable password**.
+
+        The id is the point. The tracker projects an account into its own
+        `users` table keyed on the same id, so an account created at 900016 *is*
+        the person the demo data has been calling Ana Mihalache — her issues,
+        comments and eight hundred events need not move an inch.
+
+        The password is a random secret that is hashed and then dropped on the
+        floor. Nobody has it, including whoever ran this, so the account cannot
+        be signed into by anyone — which is what makes it safe to create
+        accounts for people who have not asked for one.
+        """
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                """INSERT INTO users (id, username, email, password_hash, salt,
+                                      role, status, created_at, nickname, avatar)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (user_id, username, email, _hash(secrets.token_urlsafe(48)), "",
+                 role, status, now, nickname, avatar),
+            )
+            self._conn.commit()
+            row = self._conn.execute(
+                "SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return self._public(row)
+
+    def delete_user(self, user_id: int) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            self._conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            self._conn.commit()
+
+    def all_rows(self) -> list[sqlite3.Row]:
+        with self._lock:
+            return self._conn.execute("SELECT * FROM users ORDER BY id").fetchall()
+
     def _by(self, field: str, value) -> sqlite3.Row | None:
         with self._lock:
             return self._conn.execute(

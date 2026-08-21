@@ -138,6 +138,25 @@ def require_admin(request: Request) -> dict:
     return user
 
 
+@app.post("/api/admin/placeholder-accounts")
+async def make_placeholder_accounts(request: Request) -> dict:
+    """Give the seeded demo people accounts, so the app behaves like a real one.
+
+    Lives with the accounts rather than with the tracker because that is what it
+    creates. Nobody can sign in as them — see `placeholders.py`.
+    """
+    require_admin(request)
+    from .nox import placeholders
+    return placeholders.create(auth)
+
+
+@app.delete("/api/admin/placeholder-accounts")
+async def drop_placeholder_accounts(request: Request) -> dict:
+    require_admin(request)
+    from .nox import placeholders
+    return placeholders.remove(auth)
+
+
 @app.post("/api/auth/register")
 async def register(req: RegisterRequest) -> dict:
     username = req.username.strip()
