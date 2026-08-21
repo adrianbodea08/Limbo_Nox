@@ -584,6 +584,30 @@ applied looked exactly like one that had.
 
 ---
 
+## Accounts and passwords
+
+Accounts live in SQLite beside the app — `users` and `sessions` — not in
+Postgres. Postgres has a `users` table, but it is the tracker's people
+directory: id, display name, avatar. **No password, no email, no session.** A
+dump of the tracker database contains no credentials at all.
+
+Passwords are hashed with **Argon2id** at OWASP's floor — 19 MiB of memory, two
+passes, one lane — which costs about 19 ms a login here and costs an attacker
+roughly a thousand times what the PBKDF2 scheme did. The memory is the point: it
+is what a GPU or ASIC farm cannot cheaply parallelise.
+
+Accounts made before the change used PBKDF2-HMAC-SHA256 at 120,000 iterations.
+Those hashes are still accepted, and are **replaced with an Argon2id one the
+next time that person signs in** — the only moment the plaintext exists to
+rehash from. No downtime, no reset emails, no migration script; the old hashes
+drain away as people use the app. A row that never signs in again keeps its
+PBKDF2 hash, which is exactly as safe as it was before. The `salt` column is
+what tells the two apart: Argon2 carries its own salt, so the column is empty
+for anything hashed the new way.
+
+`check_needs_rehash` runs on every Argon2 login too, so raising the parameters
+later migrates everyone the same way.
+
 ## 12. Decision log
 
 | Date | Decision |

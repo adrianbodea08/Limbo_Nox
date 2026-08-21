@@ -1,7 +1,20 @@
-"""Local user accounts, sessions, and registration approval. SQLite, stdlib only."""
+"""Local user accounts, sessions, and registration approval.
+
+Passwords are hashed with **Argon2id**, which is what you want for a password:
+it is deliberately expensive in *memory* as well as time, so the GPU and ASIC
+farms that make short work of PBKDF2 get no leverage.
+
+Accounts made before this used PBKDF2-HMAC-SHA256. Those hashes are still
+accepted — and quietly replaced with an Argon2id one the next time the person
+signs in, because that is the only moment the plaintext exists to rehash from.
+Nobody is locked out and nobody is asked to reset anything; the old hashes drain
+away as people use the app. A row that never logs in again keeps its PBKDF2
+hash, which is exactly as safe as it was yesterday.
+"""
 from __future__ import annotations
 
 import hashlib
+import logging
 import random
 import re
 import secrets
@@ -12,7 +25,30 @@ from pathlib import Path
 from threading import Lock
 
 SESSION_TTL = 60 * 60 * 24 * 30  # 30 days
-_ITER = 120_000
+
+# The old scheme. Kept only to verify hashes made before the change.
+_LEGACY_ITER = 120_000
+
+log = logging.getLogger("nox.auth")
+
+# OWASP's floor for Argon2id: 19 MiB of memory, two passes, one lane. The memory
+# is the point — it is what a cracking rig cannot cheaply parallelise. Two
+# passes over 19 MiB costs a login tens of milliseconds and costs an attacker
+# roughly a thousand times what PBKDF2 did.
+_ARGON = None
+
+
+def _hasher():
+    """The Argon2 hasher, built once and only if the library is there."""
+    global _ARGON
+    if _ARGON is None:
+        from argon2 import PasswordHasher
+
+        _ARGON = PasswordHasher(
+            time_cost=2, memory_cost=19_456, parallelism=1,
+            hash_len=32, salt_len=16,
+        )
+    return _ARGON
 
 
 def _gen_code(name: str, taken: set[str]) -> str:
@@ -41,10 +77,17 @@ def _gen_code(name: str, taken: set[str]) -> str:
             return c
 
 
-def _hash(password: str, salt: str) -> str:
+def _legacy_hash(password: str, salt: str) -> str:
+    """PBKDF2-HMAC-SHA256, as accounts were hashed before Argon2id."""
     return hashlib.pbkdf2_hmac(
-        "sha256", password.encode(), bytes.fromhex(salt), _ITER
+        "sha256", password.encode(), bytes.fromhex(salt), _LEGACY_ITER
     ).hex()
+
+
+def _hash(password: str) -> str:
+    """An Argon2id hash. Self-describing — it carries its own parameters and
+    salt — so the `salt` column is left empty for anything hashed this way."""
+    return _hasher().hash(password)
 
 
 class AuthStore:
@@ -121,13 +164,14 @@ class AuthStore:
         role: str = "user",
         status: str = "pending",
     ) -> dict:
-        salt = secrets.token_hex(16)
         now = time.time()
         with self._lock:
             cur = self._conn.execute(
                 """INSERT INTO users (username, email, password_hash, salt, role, status, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (username, email, _hash(password, salt), salt, role, status, now),
+                # Argon2 embeds its own salt, so the column stays empty. Its
+                # presence is what marks a row as the old scheme.
+                (username, email, _hash(password), "", role, status, now),
             )
             self._conn.commit()
             row = self._conn.execute(
@@ -155,7 +199,41 @@ class AuthStore:
         return self._by("id", user_id)
 
     def verify(self, row: sqlite3.Row, password: str) -> bool:
-        return _hash(password, row["salt"]) == row["password_hash"]
+        """Check a password, and quietly modernise the hash while we can.
+
+        A correct password is the only moment the plaintext exists, so it is the
+        only moment an old hash can be replaced. Doing it here means the
+        migration needs no downtime, no reset emails and no migration script —
+        it happens as people sign in.
+        """
+        stored = row["password_hash"] or ""
+
+        if stored.startswith("$argon2"):
+            from argon2.exceptions import InvalidHashError, VerifyMismatchError
+
+            try:
+                _hasher().verify(stored, password)
+            except (VerifyMismatchError, InvalidHashError):
+                return False
+            except Exception:  # noqa: BLE001 - a broken hash is a failed login
+                log.exception("argon2 verify failed for user %s", row["id"])
+                return False
+            # Parameters get raised over time; when they are, this rehashes.
+            if _hasher().check_needs_rehash(stored):
+                self.set_password(row["id"], password)
+            return True
+
+        # Pre-Argon2id. Constant-time compare, then upgrade in place.
+        if not row["salt"]:
+            return False
+        if not secrets.compare_digest(_legacy_hash(password, row["salt"]), stored):
+            return False
+        try:
+            self.set_password(row["id"], password)
+            log.info("rehashed user %s from pbkdf2 to argon2id", row["id"])
+        except Exception:  # noqa: BLE001 - never fail a good login over this
+            log.exception("could not rehash user %s", row["id"])
+        return True
 
     def list_users(self) -> list[dict]:
         with self._lock:
@@ -167,11 +245,11 @@ class AuthStore:
     def set_password(
         self, user_id: int, password: str, revoke_sessions: bool = False
     ) -> None:
-        salt = secrets.token_hex(16)
         with self._lock:
             self._conn.execute(
                 "UPDATE users SET password_hash = ?, salt = ? WHERE id = ?",
-                (_hash(password, salt), salt, user_id),
+                # Clearing the salt is what retires the row from the old scheme.
+                (_hash(password), "", user_id),
             )
             if revoke_sessions:
                 self._conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))

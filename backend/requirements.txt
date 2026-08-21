@@ -3,6 +3,10 @@ uvicorn[standard]==0.34.0
 httpx==0.28.1
 python-dotenv==1.2.2
 
+# Password hashing. Argon2id: expensive in memory as well as time, which is
+# what denies a cracking rig its advantage.
+argon2-cffi==23.1.0
+
 # Nox's own database.
 psycopg[binary,pool]==3.2.3
 SQLAlchemy==2.0.36
