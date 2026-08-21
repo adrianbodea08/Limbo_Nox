@@ -336,7 +336,7 @@ export function TrackerPage({ shell }: Props) {
       <div className="tk-shell">
         <TrackerRail
           active={section !== "issues" ? section
-            : projectKey ? `project:${projectKey}` : ""}
+            : projectKey ? `project:${projectKey}` : "projects"}
           isAdmin={shell.isAdmin}
           projects={meta?.projects}
           onProject={(key) =>

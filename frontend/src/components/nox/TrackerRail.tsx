@@ -9,8 +9,13 @@
 //
 //   * a narrow **rail** of destinations — the product's rooms, always visible,
 //     never scrolling, one tap from anywhere
-//   * a **sidebar** of what is inside the room you are in — the projects, and
-//     whatever the page hangs underneath them
+//   * a **sidebar** of what is inside the room you are in
+//
+// The second half of that was a lie in the first version: the sidebar showed the
+// project list in every room, including Releases, Git and Insights, none of
+// which are about one project. So a person on the Insights page was looking at a
+// list of projects that did nothing. The sidebar now belongs to Projects, and
+// every other room gets the width back for its own content.
 //
 // Borrowed from Plane, which is right about this, along with its icon set — the
 // unicode glyphs this used to draw (◉ ▲ ◇ ⚡ ⑂) are text characters, so they
@@ -24,7 +29,7 @@
 // projects and teams through every screen that happens to render a sidebar.
 
 import {
-  Activity, GitBranch, LayoutGrid, MoreVertical, Rocket, Users, Workflow, Zap,
+  Activity, FolderKanban, GitBranch, MoreVertical, Rocket, Users, Workflow, Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -49,7 +54,7 @@ export interface RailProps {
  *  the order somebody moves through a week: what am I doing, what is the team
  *  carrying, what is going out, what runs itself, what git says about it all. */
 const DESTINATIONS = [
-  { id: "boards", Icon: LayoutGrid, label: "Boards", to: "/" },
+  { id: "projects", Icon: FolderKanban, label: "Projects", to: "/" },
   { id: "my-work", Icon: Workflow, label: "My work", to: "/my-work" },
   { id: "teams", Icon: Users, label: "Teams", to: "/teams", needsTeams: true },
   { id: "releases", Icon: Rocket, label: "Releases", to: "/?section=releases" },
@@ -72,21 +77,22 @@ export function TrackerRail({
   }, [projects]);
 
   const list = projects ?? own;
+  // The sidebar is the Projects room's own content. Anywhere else there is
+  // nothing for it to hold, and an empty 212px column is worse than no column.
+  const inProjects = active.startsWith("project:") || active === "projects";
 
   return (
-    <div className="tk-nav">
+    <div className={`tk-nav${inProjects ? "" : " tk-nav-bare"}`}>
       <nav className="tk-rail" aria-label="Sections">
         {DESTINATIONS.map((d) => {
           // One entry for teams, because it is one page: the teams are tabs
           // inside it. Two rail items for two teams made "compare them" a
           // navigation problem.
           if ("needsTeams" in d && d.needsTeams && teams.length === 0) return null;
-          // A board, an issue and a project's settings are all *in* Boards.
+          // A board, an issue and a project's settings are all *in* Projects.
           // A rail where nothing is lit on the page people spend the day on
           // reads as broken, and "which room am I in" has an answer here.
-          const on = d.id === "boards"
-            ? active.startsWith("project:")
-            : active === d.id;
+          const on = d.id === "projects" ? inProjects : active === d.id;
           return (
             <button
               key={d.id}
@@ -105,6 +111,7 @@ export function TrackerRail({
         })}
       </nav>
 
+      {inProjects && (
       <aside className="tk-side" aria-label="Projects">
         <h2 className="tk-rail-title">Projects</h2>
         {list.map((p) => (
@@ -154,6 +161,7 @@ export function TrackerRail({
 
         {children}
       </aside>
+      )}
     </div>
   );
 }

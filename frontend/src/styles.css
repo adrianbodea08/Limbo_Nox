@@ -991,10 +991,9 @@ body {
 .tk-shell {
   flex: 1;
   display: grid;
-  /* 76 for the rail of rooms + 212 for what is in the room. Wider than the
-     232px single column it replaces, and worth it: one column was mixing
-     "where in the product am I" with "which board am I on". */
-  grid-template-columns: 288px 1fr;
+  /* The nav sizes itself — 76 for the rail of rooms, plus 212 for the sidebar
+     in the one room that has one. Everywhere else the content gets the width. */
+  grid-template-columns: auto 1fr;
   min-height: 0;
 }
 
@@ -1002,11 +1001,15 @@ body {
 
 .tk-nav {
   display: grid;
-  grid-template-columns: 76px 1fr;
+  grid-template-columns: 76px 212px;
   border-right: 1px solid var(--border);
   background: var(--bg-elev);
   min-height: 0;
 }
+
+/* Only Projects has a sidebar. In every other room the rail is the whole nav. */
+.tk-nav-bare { grid-template-columns: 76px; }
+.tk-nav-bare .tk-rail { border-right: 0; }
 
 /* The rooms. An M3 navigation rail: icon over a short label, and the selected
    state is a full-round indicator behind the icon — the spec's own anatomy, not
