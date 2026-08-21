@@ -11,6 +11,7 @@ import { M3Select } from "./M3Select";
 import { TopBar, type ShellProps } from "./TopBar";
 import { TrackerRail } from "./nox/TrackerRail";
 import type { User } from "../types";
+import type { Invite } from "../api";
 
 const STATUSES = ["approved", "pending", "suspended", "banned"] as const;
 const ROLES = ["member", "admin"] as const;
@@ -20,6 +21,12 @@ const asOptions = (values: readonly string[]) =>
 
 export function AccountsPage({ shell }: { shell: ShellProps }) {
   const [users, setUsers] = useState<User[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [people, setPeople] = useState<{ id: number; display_name: string; issues: number }[]>([]);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("member");
+  const [claims, setClaims] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [, setBusy] = useState(false);
 
@@ -27,6 +34,17 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
     api.users().then(setUsers).catch((e) => setError(String(e.message ?? e)));
   }, []);
   useEffect(load, [load]);
+
+  useEffect(() => {
+    api.invites().then(setInvites).catch(() => {});
+    // The seeded people, so "joins as" is a pick from a list rather than an id
+    // somebody has to go and look up.
+    api.unclaimed().then(setPeople).catch(() => {});
+  }, [users]);
+
+  function link(token: string) {
+    return `${window.location.origin}/join?token=${token}`;
+  }
 
   async function act(what: () => Promise<unknown>) {
     setBusy(true);
@@ -68,6 +86,110 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
         </header>
 
         {error && <p className="tk-error">{error}</p>}
+
+        {/* Inviting somebody, rather than making them an account.
+            The difference is the password: this way it is chosen by the person
+            it belongs to and nobody else ever knows it. They also arrive
+            approved, because saying who may join *is* the approval. */}
+        <section className="tk-inv">
+          <h2>Invite somebody</h2>
+          <div className="tk-inv-form">
+            <label className="tk-inv-field">
+              <span>Email</span>
+              <input
+                className="tkc-input"
+                value={email}
+                placeholder="them@example.com"
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+            <label className="tk-inv-field">
+              <span>Role</span>
+              <M3Select
+                value={role}
+                width={150}
+                options={[{ value: "member", label: "Member" },
+                          { value: "admin", label: "Admin" }]}
+                onChange={setRole}
+              />
+            </label>
+            {/* The whole point of Phase 1: the tracker was populated before
+                anybody could sign in, so most people joining already have work
+                under their name. */}
+            {!!people.length && (
+              <label className="tk-inv-field tk-inv-wide">
+                <span>They are already in here as</span>
+                <M3Select
+                  value={claims}
+                  width={280}
+                  placeholder="Somebody new"
+                  options={[
+                    { value: "", label: "Somebody new" },
+                    ...people.map((p) => ({
+                      value: String(p.id),
+                      label: p.display_name,
+                      hint: `${p.issues} ${p.issues === 1 ? "issue" : "issues"} assigned`,
+                    })),
+                  ]}
+                  onChange={setClaims}
+                />
+              </label>
+            )}
+            <button
+              type="button"
+              className="tk-btn tk-btn-primary tk-layer"
+              disabled={!email.includes("@")}
+              onClick={() => act(async () => {
+                const made = await api.invite({
+                  email: email.trim(), role,
+                  claims: claims ? Number(claims) : null,
+                  note: "",
+                });
+                setEmail("");
+                setClaims("");
+                setInvites(await api.invites());
+                navigator.clipboard?.writeText(link(made.token));
+                setCopied(made.token);
+              })}
+            >
+              Make a link
+            </button>
+          </div>
+
+          {invites.filter((i) => !i.used_at).length > 0 && (
+            <ul className="tk-inv-list">
+              {invites.filter((i) => !i.used_at).map((i) => (
+                <li key={i.token} className="tk-inv-row">
+                  <span className="tk-inv-who">
+                    {i.email}
+                    {i.claims != null && (
+                      <span className="tk-dim">
+                        {" · as "}
+                        {people.find((p) => p.id === i.claims)?.display_name ?? "somebody here"}
+                      </span>
+                    )}
+                  </span>
+                  <button type="button" className="tk-link tk-layer"
+                          onClick={() => {
+                            navigator.clipboard?.writeText(link(i.token));
+                            setCopied(i.token);
+                            window.setTimeout(
+                              () => setCopied((c) => (c === i.token ? null : c)), 1600);
+                          }}>
+                    {copied === i.token ? "Copied" : "Copy link"}
+                  </button>
+                  <button type="button" className="tk-link tk-layer"
+                          onClick={() => act(async () => {
+                            await api.revokeInvite(i.token);
+                            setInvites(await api.invites());
+                          })}>
+                    Revoke
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         {/* Anybody waiting comes first. A request nobody sees is a person who
             thinks the tool is broken. */}

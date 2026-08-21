@@ -115,6 +115,30 @@ class AuthStore:
                 user_id    INTEGER NOT NULL,
                 expires_at REAL NOT NULL
             );
+            -- An invitation to join, so nobody has to be told a password.
+            --
+            -- The alternative is an admin creating accounts and handing out
+            -- credentials, which means one person knows everybody's password
+            -- and says them out loud. Here the admin says who may join; the
+            -- person chooses their own secret and arrives already approved,
+            -- so there is no waiting queue either.
+            CREATE TABLE IF NOT EXISTS invites (
+                token      TEXT PRIMARY KEY,
+                email      TEXT NOT NULL,
+                role       TEXT NOT NULL DEFAULT 'member',
+                -- Which tracker person this account should become, if it is
+                -- somebody the demo data already knows about. NULL means a
+                -- brand new person.
+                claims     INTEGER,
+                note       TEXT NOT NULL DEFAULT '',
+                created_by INTEGER NOT NULL,
+                created_at REAL NOT NULL,
+                expires_at REAL NOT NULL,
+                -- Set when it is used, so a link works exactly once and the
+                -- record of who invited whom survives.
+                used_at    REAL,
+                used_by    INTEGER
+            );
             """
         )
         # Profile fields added later — migrate existing databases in place.
@@ -139,6 +163,59 @@ class AuthStore:
         # the rest of the system already speaks.
         self._conn.execute("UPDATE users SET role = 'member' WHERE role = 'user'")
         self._conn.commit()
+
+    # --- invitations -----------------------------------------------------
+
+    def create_invite(self, *, email: str, role: str, claims: int | None,
+                      note: str, created_by: int, days: int = 14) -> dict:
+        """A single-use link. Fourteen days because an invitation nobody acted
+        on in a fortnight is one somebody forgot to send."""
+        now = time.time()
+        token = secrets.token_urlsafe(32)
+        with self._lock:
+            self._conn.execute(
+                """INSERT INTO invites
+                     (token, email, role, claims, note, created_by, created_at, expires_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (token, email.strip().lower(), role, claims, note, created_by,
+                 now, now + days * 86400),
+            )
+            self._conn.commit()
+        return self.invite(token) or {}
+
+    def invite(self, token: str | None) -> dict | None:
+        """The invitation, whatever state it is in. Callers decide what a used
+        or expired one means — the reason has to reach the person holding the
+        link, and "invalid" tells them nothing they can act on."""
+        if not token:
+            return None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM invites WHERE token = ?", (token,)).fetchone()
+        return dict(row) if row else None
+
+    def invites(self) -> list[dict]:
+        """Newest first. Used ones stay: who invited whom is worth keeping."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM invites ORDER BY created_at DESC").fetchall()
+        return [dict(r) for r in rows]
+
+    def spend_invite(self, token: str, user_id: int) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE invites SET used_at = ?, used_by = ? WHERE token = ?",
+                (time.time(), user_id, token))
+            self._conn.commit()
+
+    def revoke_invite(self, token: str) -> None:
+        """Really deleted. An invitation is not a record of anything until it
+        is used, and a revoked one that lingers invites a second look at
+        whether it still works."""
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM invites WHERE token = ? AND used_at IS NULL", (token,))
+            self._conn.commit()
 
     # --- users -----------------------------------------------------------
 
