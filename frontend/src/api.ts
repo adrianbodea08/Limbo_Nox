@@ -27,14 +27,57 @@ export function setUnauthorizedHandler(fn: () => void) {
   onUnauthorized = fn;
 }
 
+/** What went wrong, in a form the caller can act on.
+ *
+ *  Everything used to arrive as a bare `Error`, which made "the server said no"
+ *  and "there was no server" the same event. They are opposite answers to the
+ *  question that matters at boot — *does the server still believe our session?*
+ *  — and a caller that cannot tell them apart has to guess. Guessing wrong the
+ *  safe-looking way threw away a session that was good for another 29 days
+ *  because the api container happened to be restarting.
+ *
+ *  `status` is what the server answered. `offline` means it never answered:
+ *  the connection dropped, DNS failed, the container is coming back up. */
+export class ApiError extends Error {
+  readonly status: number;
+  /** Whatever fetch threw, kept for the console. Held as a field rather than
+   *  passed to `super` because this project's TS target predates
+   *  `new Error(msg, { cause })`. */
+  readonly reason?: unknown;
+
+  constructor(message: string, status: number, reason?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.reason = reason;
+  }
+
+  /** Nothing was heard back, so nothing has been decided. */
+  get offline() {
+    return this.status === 0;
+  }
+
+  /** The server is up but broken. Also not a verdict on our session. */
+  get serverFault() {
+    return this.status >= 500;
+  }
+}
+
 async function http<T>(url: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-    },
-    ...init,
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      ...init,
+    });
+  } catch (cause) {
+    // fetch rejects only when the request never completed at all. Status 0 is
+    // the honest answer here: there is no status, because nobody replied.
+    throw new ApiError("Cannot reach Nox.", 0, cause);
+  }
   if (!resp.ok) {
     // A 401 on the sign-in call is "wrong password", not "your session died" —
     // bouncing the user to the login page they are already on would lose the
@@ -46,7 +89,7 @@ async function http<T>(url: string, init?: RequestInit): Promise<T> {
     } catch {
       /* the body was not JSON; the status text will have to do */
     }
-    throw new Error(detail);
+    throw new ApiError(detail, resp.status);
   }
   return resp.status === 204 ? (undefined as T) : ((await resp.json()) as T);
 }

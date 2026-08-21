@@ -52,16 +52,54 @@ Verified against a description containing all four:
 
 ---
 
-## 3. There is no second mode
+## 3. Write and Read are two documents
 
-The first version of this had **Write** and **Read** tabs. They are gone,
-because the editor *is* the rendered view now: what you type already looks like
-what everybody else will read, so there is nothing to switch to.
+The tabs are back, and they are **not** editor-and-preview — the editor already
+renders what you type, so a preview would show the same thing twice. They are
+two versions of the same field that stop being identical the moment somebody
+types without saving:
 
-That only holds because both are driven by **one stylesheet**. `RichText` puts
-`tk-md` on the ProseMirror surface and `Markdown.tsx` puts it on its output, and
-every rule in the prose block is an element selector under `.tk-md`. Two
-stylesheets would have drifted within a week and the promise would be a lie.
+| | |
+|---|---|
+| **Read** | what the team can see. Straight from the server, always. |
+| **Write** | what *you* have written, saved or not. |
+
+**An unsaved edit is kept.** Type, click away, close the tab, come back
+tomorrow — Write still has it, and the issue opens on Write because that is the
+whole point of having kept it. Read never moves until you save. Once you save,
+the two agree and there is nothing left to keep.
+
+Nobody else sees it. Not in their Read, not in their Write, not on the board
+card, not in search.
+
+### Where the draft lives
+
+`drafts.ts`, in `localStorage`, keyed by person **and** issue.
+
+That is the requirement rather than a shortcut: a draft must not reach another
+account, and **text that never leaves the browser cannot**. There is no endpoint
+to get wrong, no row to accidentally join, nothing to redact. Verified by
+looking: with a draft open, `issues`, `comments` and `events` all contain zero
+rows matching it.
+
+Keyed by person too, because two accounts do share a browser sometimes, and one
+reading the other's unsaved words would be the same failure by a shorter route.
+
+The cost is real and worth saying plainly: **a draft does not follow you to
+another computer.** If it should, that is a `drafts` table and an endpoint, and
+the privacy rule stops being structural and starts being something the server
+has to remember to enforce on every query.
+
+Two housekeeping rules so this cannot grow forever: drafts expire after 30 days,
+and past 50 of them the oldest goes. Failing to save silently is worse than
+dropping text nobody has touched in a month.
+
+### "There is a draft" is derived, never stored
+
+It means exactly *what I have differs from what is saved*. A second copy of that
+fact would eventually disagree with the first, and the disagreement would be
+invisible — a dot claiming unsaved work that is not there, or worse, no dot over
+work that is.
 
 ### Typing is the formatting
 
@@ -76,7 +114,7 @@ the same document:
 | `[] ` | a checklist |
 | `> ` | a quote |
 | ` ``` ` | a code block |
-| `---` | a divider |
+| `---` | a divider, full width of the panel |
 | `**x**` `*x*` `~~x~~` `` `x` `` | bold, italic, strike, code |
 | `->` `<-` `--` `...` `(c)` | → ← — … © *(and 18 more)* |
 
@@ -156,7 +194,7 @@ audit and the CSS pruner all passed while the page was hanging.
 
 | Place | Treatment |
 |---|---|
-| Issue description | `Composer`, full toolbar |
+| Issue description | Write / Read, `Composer`, full toolbar, draft kept |
 | Comments — composing | `Composer`, compact toolbar |
 | Comments — reading | `Markdown.tsx` |
 | Asks — asking and answering | `Composer`, compact toolbar |

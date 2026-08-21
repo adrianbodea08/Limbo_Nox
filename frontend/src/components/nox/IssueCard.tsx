@@ -22,6 +22,7 @@ import { M3Select } from "../M3Select";
 import { AsksOnIssue } from "./Asks";
 import { LabelEditor } from "./Labels";
 import { Markdown } from "./Markdown";
+import { clearDraft, readDraft, saveDraft } from "./drafts";
 import { Composer } from "./Composer";
 import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
@@ -62,6 +63,14 @@ export function IssueCard({
   );
   const [summary, setSummary] = useState(issue?.summary ?? "");
   const [description, setDescription] = useState(issue?.description ?? "");
+  // Two versions of the same field, and the tabs are how you see both:
+  //   Read  — what the team can see, straight from the server.
+  //   Write — what you have written, saved or not.
+  // A new issue has nothing to read, so it starts on Write.
+  const [writing, setWriting] = useState(mode === "create");
+  // Whose drafts these are. Kept out of the render so a draft cannot be written
+  // under the wrong person if `meta` arrives late.
+  const me = meta.me ?? 0;
   const [priority, setPriority] = useState(issue?.priority ?? "medium");
   const [assignee, setAssignee] = useState<number | null>(issue?.assignee_id ?? null);
   const [tester, setTester] = useState<number | null>(issue?.tester_id ?? null);
@@ -98,6 +107,13 @@ export function IssueCard({
         if (!live) return;
         setFull(detail);
         setMoves(transitions);
+        // Pick up where this person left off. Opening on Write when there is
+        // something to continue is the point of keeping it — landing on Read
+        // would hide the very thing that was saved for you.
+        const kept = me ? readDraft(me, detail.id) : null;
+        const saved = detail.description ?? "";
+        setDescription(kept ?? saved);
+        setWriting(kept != null && kept !== saved);
         setCustom(detail.custom ?? {});
       })
       .catch((e) => live && setError(String(e)));
@@ -105,6 +121,18 @@ export function IssueCard({
       live = false;
     };
   }, [mode, issue?.id, issue?.key]);
+
+  // Not on every keystroke: the editor already serialises markdown on each
+  // one, and localStorage is synchronous. A pause is what "I have written
+  // something" actually means anyway.
+  useEffect(() => {
+    if (mode !== "edit" || !full || !me) return;
+    const t = window.setTimeout(
+      () => saveDraft(me, full.id, description, full.description ?? ""),
+      400,
+    );
+    return () => window.clearTimeout(t);
+  }, [description, full, me, mode]);
 
   async function refresh() {
     if (!issue) return;
@@ -157,9 +185,17 @@ export function IssueCard({
           issue_type_id: typeId,
           custom,
         });
+        // Saved is saved: the two versions are the same again, so the private
+        // one has nothing left to hold.
+        if (me) clearDraft(me, issue.id);
       }
     });
   }
+
+  // Derived rather than stored: "there is a draft" means exactly "what I have
+  // differs from what is saved", and a second copy of that fact would sooner or
+  // later disagree with the first.
+  const hasDraft = mode === "edit" && !!full && description !== (full.description ?? "");
 
   const type = meta.issueTypes.find((t) => t.id === typeId);
   // Whether any type sits above this one. Asked of the types rather than
@@ -199,15 +235,56 @@ export function IssueCard({
           </Field>
 
           <Field label="Description">
-            {/* The editor is the rendered view — there is no second mode to
-                switch to, because what you type already looks like what
-                everybody else will read. */}
-            <Composer
-              value={description}
-              onChange={setDescription}
-              people={users}
-              placeholder="Describe the work, acceptance criteria, links…"
-            />
+            {/* Write and Read are not editor-and-preview — the editor already
+                renders what you type. They are *your* version and *the team's*
+                version, which stop being the same thing the moment you type
+                without saving. Read is what anybody else opening this issue
+                sees; Write is what you were in the middle of. */}
+            <div className="tk-two">
+              <div className="tk-two-bar" role="tablist" aria-label="Description">
+                <button type="button" role="tab" aria-selected={writing}
+                        className={`tkc-mode tk-layer${writing ? " on" : ""}`}
+                        onClick={() => setWriting(true)}>
+                  Write
+                  {/* Marks that the two differ, so an unsaved draft is never a
+                      surprise you find later. */}
+                  {hasDraft && <span className="tk-two-dot" aria-hidden />}
+                </button>
+                <button type="button" role="tab" aria-selected={!writing}
+                        className={`tkc-mode tk-layer${!writing ? " on" : ""}`}
+                        onClick={() => setWriting(false)}>
+                  Read
+                </button>
+                {hasDraft && (
+                  <span className="tk-two-note">
+                    Unsaved · kept on this computer
+                    <button type="button" className="tk-link tk-layer"
+                            onClick={() => {
+                              if (!full) return;
+                              clearDraft(me, full.id);
+                              setDescription(full.description ?? "");
+                            }}>
+                      Discard
+                    </button>
+                  </span>
+                )}
+              </div>
+
+              {writing ? (
+                <Composer
+                  value={description}
+                  onChange={setDescription}
+                  people={users}
+                  placeholder="Describe the work, acceptance criteria, links…"
+                />
+              ) : (
+                <div className="tk-two-read">
+                  {(full?.description ?? "").trim()
+                    ? <Markdown text={full?.description ?? ""} people={users} />
+                    : <p className="tk-dim">Nothing saved here yet.</p>}
+                </div>
+              )}
+            </div>
           </Field>
 
           {mode === "edit" && full && (
