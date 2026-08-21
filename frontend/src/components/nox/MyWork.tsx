@@ -35,6 +35,7 @@ import { TrackerRail } from "./TrackerRail";
 import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
 import type { MyWorkData, QueueIssue } from "./model";
 import { M3Segmented } from "../M3Segmented";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 
 export function MyWorkPage({ shell }: { shell: ShellProps }) {
   const nav = useNavigate();
@@ -131,7 +132,7 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
         <TrackerRail active="my-work" isAdmin={shell.isAdmin} />
 
         <div className="tkw">
-        {error && <div className="tkc-err" onClick={() => setError("")}>{error} ✕</div>}
+        {error && <div className="tkc-err" onClick={() => setError("")}>{error} <X size={14} aria-hidden /></div>}
         {!data && <p className="tk-dim">Loading…</p>}
 
         {data && (
@@ -252,10 +253,10 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                     <span className="tkw-order">
                       <button type="button" className="tks-mini tk-layer" disabled={busy || !up}
                               title={up ? "Do this one sooner" : "Already first in its priority"}
-                              onClick={() => move(list, index, -1)}>↑</button>
+                              onClick={() => move(list, index, -1)}><ChevronUp size={16} aria-hidden /></button>
                       <button type="button" className="tks-mini tk-layer" disabled={busy || !down}
                               title={down ? "Do this one later" : "Already last in its priority"}
-                              onClick={() => move(list, index, 1)}>↓</button>
+                              onClick={() => move(list, index, 1)}><ChevronDown size={16} aria-hidden /></button>
                     </span>
                   );
                 }}

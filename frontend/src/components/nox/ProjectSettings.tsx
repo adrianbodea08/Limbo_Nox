@@ -28,6 +28,7 @@ import { FlowDiagram } from "./FlowDiagram";
 import { trackerApi } from "./model";
 import type { FieldDefinition, ProjectSettingsData, TrackerUser } from "./model";
 import { M3Segmented } from "../M3Segmented";
+import { X } from "lucide-react";
 
 type Tab = "columns" | "flow" | "access" | "types" | "fields";
 
@@ -176,7 +177,7 @@ export function ProjectSettings({
         ))}
       </nav>
 
-      {error && <div className="tkc-err" onClick={() => setError("")}>{error} ✕</div>}
+      {error && <div className="tkc-err" onClick={() => setError("")}>{error} <X size={14} aria-hidden /></div>}
 
       <div className="tks-body">
         {!data && <p className="tk-dim">Loading…</p>}
@@ -340,9 +341,7 @@ function Columns({ data, busy, act }: { data: ProjectSettingsData; busy: boolean
                   setHidden([...hidden, ...column.statuses]);
                   save(columns.filter((c) => c.id !== column.id));
                 }}
-              >
-                ✕
-              </button>
+              ><X size={16} aria-hidden /></button>
             </header>
 
             {column.statuses.map((st) => (
@@ -618,9 +617,7 @@ function Access({
                     setEntries(next);
                     if (next.length) save("restricted", next);
                   }}
-                >
-                  ✕
-                </button>
+                ><X size={16} aria-hidden /></button>
               </span>
             ))}
             {entries.length === 0 && (
@@ -715,9 +712,7 @@ function Types({ data, busy, act }: { data: ProjectSettingsData; busy: boolean; 
                   act(() => trackerApi.setTypes(
                     data.project.id, data.types.filter((x) => x.id !== t.id).map((x) => x.id)));
                 }}
-              >
-                ✕
-              </button>
+              ><X size={16} aria-hidden /></button>
             </li>
           ))}
         </ol>
@@ -782,9 +777,7 @@ function Types({ data, busy, act }: { data: ProjectSettingsData; busy: boolean; 
                         .filter((x) => x.id !== f.id)
                         .map((x) => ({ field_id: x.id, required: x.required })))
                     }
-                  >
-                    ✕
-                  </button>
+                  ><X size={16} aria-hidden /></button>
                 </li>
               ))}
               {current.fields.length === 0 && <p className="tk-dim">No fields on this type.</p>}
@@ -899,7 +892,7 @@ function Fields({ onChanged }: { onChanged: () => void }) {
           New field
         </button>
       </div>
-      {error && <div className="tkc-err" onClick={() => setError("")}>{error} ✕</div>}
+      {error && <div className="tkc-err" onClick={() => setError("")}>{error} <X size={14} aria-hidden /></div>}
 
       <div className="tks-fields">
         {shown.map((f) => {

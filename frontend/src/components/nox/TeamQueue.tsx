@@ -28,6 +28,7 @@ import { useIssueDialog } from "./useIssueDialog";
 import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
 import type { QueueIssue, TeamQueueData, TrackerTeam } from "./model";
 import { M3Segmented } from "../M3Segmented";
+import { X } from "lucide-react";
 
 // `urgent` is missing on purpose: it is not picked from a dropdown, it is set
 // with a reason attached.
@@ -186,7 +187,7 @@ export function TeamQueuePage({ shell }: { shell: ShellProps }) {
           )}
         </header>
 
-        {error && <div className="tkc-err" onClick={() => setError("")}>{error} ✕</div>}
+        {error && <div className="tkc-err" onClick={() => setError("")}>{error} <X size={14} aria-hidden /></div>}
         {!data && <p className="tk-dim">Loading…</p>}
 
         {data && stats && (

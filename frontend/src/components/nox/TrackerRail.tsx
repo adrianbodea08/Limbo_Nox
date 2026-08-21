@@ -1,13 +1,29 @@
-// The tracker's left rail, on every page that belongs to it.
+// The tracker's left navigation, on every page that belongs to it.
 //
-// Lifted out of the board page once My work needed it too. A person should not
-// have to go back to a board to reach their own queue, and a page without the
-// rail reads as somewhere you have left the tracker rather than somewhere
-// inside it.
+// Two columns, not one. It used to be a single 232px rail holding five
+// destinations, three section headings, every project and the board's layout
+// switch — and by the time a workspace had six projects the thing you were
+// looking for was below the fold in a list that mixed "where in the product am
+// I" with "which board am I on". Those are different questions and they now
+// have different columns:
+//
+//   * a narrow **rail** of destinations — the product's rooms, always visible,
+//     never scrolling, one tap from anywhere
+//   * a **sidebar** of what is inside the room you are in — the projects, and
+//     whatever the page hangs underneath them
+//
+// Borrowed from Plane, which is right about this, along with its icon set — the
+// unicode glyphs this used to draw (◉ ▲ ◇ ⚡ ⑂) are text characters, so they
+// rendered at whatever weight and baseline the font felt like and never quite
+// looked drawn on purpose. Kept from us: the midnight palette and the M3
+// indicator — the selected destination is a pill behind the icon, which is what
+// the spec's navigation rail actually says, not a background colour change on
+// the row.
 //
 // It fetches what it needs itself. One small request per page beats threading
 // projects and teams through every screen that happens to render a sidebar.
 
+import { GitBranch, LayoutGrid, MoreVertical, Rocket, Users, Workflow, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trackerApi } from "./model";
@@ -26,6 +42,19 @@ export interface RailProps {
   children?: React.ReactNode;
 }
 
+/** The rooms. Boards first because it is what the sidebar is showing — the
+ *  rail item names the list beneath it, the way Plane's "Projects" does. Then
+ *  the order somebody moves through a week: what am I doing, what is the team
+ *  carrying, what is going out, what runs itself, what git says about it all. */
+const DESTINATIONS = [
+  { id: "boards", Icon: LayoutGrid, label: "Boards", to: "/" },
+  { id: "my-work", Icon: Workflow, label: "My work", to: "/my-work" },
+  { id: "teams", Icon: Users, label: "Teams", to: "/teams", needsTeams: true },
+  { id: "releases", Icon: Rocket, label: "Releases", to: "/?section=releases" },
+  { id: "automations", Icon: Zap, label: "Automations", to: "/?section=automations" },
+  { id: "git", Icon: GitBranch, label: "Git", to: "/?section=git" },
+] as const;
+
 export function TrackerRail({
   active = "", isAdmin = false, projects, onProject, children,
 }: RailProps) {
@@ -42,104 +71,86 @@ export function TrackerRail({
   const list = projects ?? own;
 
   return (
-    <nav className="tk-rail">
-      <button
-        type="button"
-        className={`tk-rail-item tk-layer tk-rail-wide${active === "my-work" ? " tk-rail-on" : ""}`}
-        onClick={() => nav("/my-work")}
-      >
-        <span className="tk-rail-glyph">◉</span>
-        <span className="tk-rail-name">My work</span>
-      </button>
-      {/* One entry, because it is one page: the teams are tabs inside it. Two
-          rail items for two teams made "compare them" a navigation problem. */}
-      {teams.length > 0 && (
-        <button
-          type="button"
-          className={`tk-rail-item tk-layer tk-rail-wide${active === "teams" ? " tk-rail-on" : ""}`}
-          onClick={() => nav("/teams")}
-        >
-          <span className="tk-rail-glyph">▲</span>
-          <span className="tk-rail-name">Team Management</span>
-        </button>
-      )}
+    <div className="tk-nav">
+      <nav className="tk-rail" aria-label="Sections">
+        {DESTINATIONS.map((d) => {
+          // One entry for teams, because it is one page: the teams are tabs
+          // inside it. Two rail items for two teams made "compare them" a
+          // navigation problem.
+          if ("needsTeams" in d && d.needsTeams && teams.length === 0) return null;
+          // A board, an issue and a project's settings are all *in* Boards.
+          // A rail where nothing is lit on the page people spend the day on
+          // reads as broken, and "which room am I in" has an answer here.
+          const on = d.id === "boards"
+            ? active.startsWith("project:")
+            : active === d.id;
+          return (
+            <button
+              key={d.id}
+              type="button"
+              className={`tk-nav-item${on ? " on" : ""}`}
+              title={d.label}
+              aria-current={on || undefined}
+              onClick={() => nav(d.to)}
+            >
+              <span className="tk-nav-pill tk-layer">
+                <d.Icon size={20} strokeWidth={2} aria-hidden />
+              </span>
+              <span className="tk-nav-label">{d.label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
-      <h2 className="tk-rail-title tk-rail-title-2">Plan</h2>
-      <button
-        type="button"
-        className={`tk-rail-item tk-layer tk-rail-wide${active === "releases" ? " tk-rail-on" : ""}`}
-        onClick={() => nav("/?section=releases")}
-      >
-        <span className="tk-rail-glyph">◇</span>
-        <span className="tk-rail-name">Releases</span>
-      </button>
-      <button
-        type="button"
-        className={`tk-rail-item tk-layer tk-rail-wide${active === "automations" ? " tk-rail-on" : ""}`}
-        onClick={() => nav("/?section=automations")}
-      >
-        <span className="tk-rail-glyph">⚡</span>
-        <span className="tk-rail-name">Automations</span>
-      </button>
+      <aside className="tk-side" aria-label="Projects">
+        <h2 className="tk-rail-title">Projects</h2>
+        {list.map((p) => (
+          <div key={p.id} className="tk-rail-line">
+            <button
+              type="button"
+              className={`tk-rail-item tk-layer${active === `project:${p.key}` ? " tk-rail-on" : ""}`}
+              onClick={() => (onProject ? onProject(p.key) : nav(`/?project=${p.key}`))}
+            >
+              <span className="tk-rail-key">{p.key}</span>
+              <span className="tk-rail-name">{p.name}</span>
+            </button>
+            {/* Settings are an admin's business, so the affordance only exists
+                for one. */}
+            {isAdmin && (
+              <div className="tk-rail-more-wrap">
+                <button
+                  type="button"
+                  className="tk-rail-more tk-layer"
+                  title={`${p.name} settings`}
+                  aria-label={`${p.name} settings`}
+                  onClick={(e) => { e.stopPropagation(); setMenu(menu === p.id ? null : p.id); }}
+                ><MoreVertical size={16} aria-hidden /></button>
+                {menu === p.id && (
+                  <>
+                    <div className="tkc-pop-back" onClick={() => setMenu(null)} />
+                    <div className="tk-rail-menu">
+                      <button type="button" className="tkc-kebab-row tk-layer"
+                              onClick={() => { nav(`/project/${p.key}/settings`); setMenu(null); }}>
+                        Project settings
+                      </button>
+                      <button type="button" className="tkc-kebab-row tk-layer"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(
+                                  `${location.origin}/tracker?project=${p.key}`);
+                                setMenu(null);
+                              }}>
+                        Copy board link
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
 
-      <button
-        type="button"
-        className={`tk-rail-item tk-layer tk-rail-wide${active === "git" ? " tk-rail-on" : ""}`}
-        onClick={() => nav("/?section=git")}
-      >
-        <span className="tk-rail-glyph">⑂</span>
-        <span className="tk-rail-name">Git</span>
-      </button>
-
-      <h2 className="tk-rail-title tk-rail-title-2">Projects</h2>
-      {list.map((p) => (
-        <div key={p.id} className="tk-rail-line">
-          <button
-            type="button"
-            className={`tk-rail-item tk-layer${active === `project:${p.key}` ? " tk-rail-on" : ""}`}
-            onClick={() => (onProject ? onProject(p.key) : nav(`/?project=${p.key}`))}
-          >
-            <span className="tk-rail-key">{p.key}</span>
-            <span className="tk-rail-name">{p.name}</span>
-          </button>
-          {/* Settings are an admin's business, so the affordance only exists
-              for one. */}
-          {isAdmin && (
-            <div className="tk-rail-more-wrap">
-              <button
-                type="button"
-                className="tk-rail-more tk-layer"
-                title={`${p.name} settings`}
-                aria-label={`${p.name} settings`}
-                onClick={(e) => { e.stopPropagation(); setMenu(menu === p.id ? null : p.id); }}
-              >
-                ⋮
-              </button>
-              {menu === p.id && (
-                <>
-                  <div className="tkc-pop-back" onClick={() => setMenu(null)} />
-                  <div className="tk-rail-menu">
-                    <button type="button" className="tkc-kebab-row tk-layer"
-                            onClick={() => { nav(`/project/${p.key}/settings`); setMenu(null); }}>
-                      Project settings
-                    </button>
-                    <button type="button" className="tkc-kebab-row tk-layer"
-                            onClick={() => {
-                              navigator.clipboard?.writeText(
-                                `${location.origin}/tracker?project=${p.key}`);
-                              setMenu(null);
-                            }}>
-                      Copy board link
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
-
-      {children}
-    </nav>
+        {children}
+      </aside>
+    </div>
   );
 }

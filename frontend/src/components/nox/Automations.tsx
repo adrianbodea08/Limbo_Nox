@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { M3Select } from "../M3Select";
 import { ago, trackerApi } from "./model";
+import { ArrowLeft, X } from "lucide-react";
 import type {
   AutomationBlocks, AutomationRule, AutomationRun, TrackerMeta,
 } from "./model";
@@ -173,9 +174,7 @@ function RuleEditor({
   return (
     <div className="tk-releases">
       <div className="tk-rel-head">
-        <button type="button" className="tk-btn tk-layer" onClick={onClose}>
-          ← Automations
-        </button>
+        <button type="button" className="tk-btn tk-layer" onClick={onClose}><ArrowLeft size={16} aria-hidden /> Automations</button>
         <input
           className="tk-input"
           style={{ maxWidth: 380 }}
@@ -268,9 +267,7 @@ function RuleEditor({
               type="button"
               className="tk-x tk-layer"
               onClick={() => set({ actions: (draft.actions ?? []).filter((_, j) => j !== i) })}
-            >
-              ✕
-            </button>
+            ><X size={16} aria-hidden /></button>
           </div>
         ))}
         <button
@@ -396,9 +393,7 @@ function ConditionRows({
             meta={meta}
             onChange={(v) => set(rows.map((r, j) => (j === i ? { ...r, value: v } : r)))}
           />
-          <button type="button" className="tk-x tk-layer" onClick={() => set(rows.filter((_, j) => j !== i))}>
-            ✕
-          </button>
+          <button type="button" className="tk-x tk-layer" onClick={() => set(rows.filter((_, j) => j !== i))}><X size={16} aria-hidden /></button>
         </div>
       ))}
       <button

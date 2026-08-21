@@ -19,6 +19,7 @@
 import { useEffect, useState } from "react";
 import { ago } from "./model";
 import type { GitRef } from "./model";
+import { Check, Clock, X } from "lucide-react";
 
 type Kind = "pr" | "branch" | "commit" | "build";
 
@@ -70,7 +71,7 @@ export function DevelopmentSummary({ refs, issueKey }: { refs: GitRef[]; issueKe
           <path d="M280-80q-33 0-56.5-23.5T200-160v-486q-35-12-57.5-43T120-760q0-50 35-85t85-35q50 0 85 35t35 85q0 40-22.5 71T280-646v406h280v-86q-35-12-57.5-43T480-440q0-50 35-85t85-35q50 0 85 35t35 85q0 40-22.5 71T640-326v86q0 33-23.5 56.5T560-160H280Zm0-680q-17 0-28.5 11.5T240-720q0 17 11.5 28.5T280-680q17 0 28.5-11.5T320-720q0-17-11.5-28.5T280-760Zm320 360q-17 0-28.5 11.5T560-440q0 17 11.5 28.5T600-400q17 0 28.5-11.5T640-440q0-17-11.5-28.5T600-480Z" />
         </svg>
         <span className="tkd-summary-label">{head.label}</span>
-        {failing && <span className="tkd-checks tkd-c-failing" title="A build is failing">✕</span>}
+        {failing && <span className="tkd-checks tkd-c-failing" title="A build is failing"><X size={16} aria-hidden /></span>}
         {head.state && <span className={`tkd-state tkd-s-${head.state}`}>{head.state}</span>}
       </button>
 
@@ -154,7 +155,9 @@ const COLUMNS: Record<Kind, Column[]> = {
       cell: (r) => (r.checks !== "none"
         ? (
           <span className={`tkd-checks tkd-c-${r.checks}`} title={`Checks ${r.checks}`}>
-            {r.checks === "passing" ? "✓" : r.checks === "failing" ? "✕" : "…"}
+            {r.checks === "passing" ? <Check size={16} aria-hidden />
+              : r.checks === "failing" ? <X size={16} aria-hidden />
+              : <Clock size={16} aria-hidden />}
           </span>
         )
         : <span className="tk-dim">—</span>),
@@ -218,9 +221,7 @@ function DevelopmentDialog({
       <div className="tkd" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <header className="tkd-head">
           <h2>Development {issueKey}</h2>
-          <button type="button" className="tk-x tk-layer" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
+          <button type="button" className="tk-x tk-layer" onClick={onClose} aria-label="Close"><X size={16} aria-hidden /></button>
         </header>
 
         <div className="tkd-tabs">

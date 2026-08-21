@@ -12,6 +12,7 @@ import { IssueKey } from "./IssueKey";
 import { ReleaseTimeline } from "./ReleaseTimeline";
 import { ago, trackerApi } from "./model";
 import { M3Segmented } from "../M3Segmented";
+import { ArrowLeft, X } from "lucide-react";
 import type {
   ReleaseDetail, ReleaseSummary, TrackerComponent, UnreleasedIssue,
 } from "./model";
@@ -194,9 +195,7 @@ function ReleaseDetailView({
   return (
     <div className="tk-releases">
       <div className="tk-rel-head">
-        <button type="button" className="tk-btn tk-layer" onClick={onBack}>
-          ← Releases
-        </button>
+        <button type="button" className="tk-btn tk-layer" onClick={onBack}><ArrowLeft size={16} aria-hidden /> Releases</button>
         <h2>{release.name}</h2>
         <span className={`tk-state tk-state-${release.state}`}>
           {release.state.replace("_", " ")}
@@ -305,9 +304,7 @@ function ReleaseDetailView({
                   e.preventDefault();
                   onAction(() => trackerApi.removeAction(a.id));
                 }}
-              >
-                ✕
-              </button>
+              ><X size={16} aria-hidden /></button>
             </label>
           ))}
           <div className="tk-artifact-add">
@@ -407,9 +404,7 @@ function ReleaseDetailView({
                       className="tk-x tk-layer"
                       title="Take off this release"
                       onClick={() => onAction(() => trackerApi.removeReleaseIssue(release.id, i.id))}
-                    >
-                      ✕
-                    </button>
+                    ><X size={16} aria-hidden /></button>
                   </td>
                 </tr>
               ))}
@@ -510,7 +505,7 @@ function AddIssues({
             <div className="tkc-crumb">{release.name.toUpperCase()}</div>
             <h2 className="tkc-title">Add issues</h2>
           </div>
-          <button type="button" className="tk-x tk-layer" onClick={onCancel} aria-label="Close">✕</button>
+          <button type="button" className="tk-x tk-layer" onClick={onCancel} aria-label="Close"><X size={16} aria-hidden /></button>
         </header>
 
         <div className="tks-body">

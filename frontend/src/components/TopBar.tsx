@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import type { User } from "../types";
 import { AccountMenu } from "./AccountMenu";
 import LogoMark from "./LogoMark";
+import { ArrowLeft } from "lucide-react";
 
 /** What every page needs from the shell. Passed down from Root so a page never
  *  reaches for global state to find out who is signed in. */
@@ -59,7 +60,7 @@ export function TopBar({
     <header className="topbar">
       {onBack ? (
         <button className="brand-back" onClick={onBack} title={backTitle ?? "Back"}>
-          <span className="brand-back-arrow">←</span>
+          <span className="brand-back-arrow"><ArrowLeft size={18} aria-hidden /></span>
           {brand}
         </button>
       ) : (

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { trackerApi, type SearchHit } from "./model";
+import { X } from "lucide-react";
 
 const DEBOUNCE_MS = 180;
 
@@ -115,9 +116,7 @@ export function TrackerSearch() {
         />
         {term && (
           <button type="button" className="tkf-clear" title="Clear"
-                  onClick={() => { setTerm(""); inputRef.current?.focus(); }}>
-            ✕
-          </button>
+                  onClick={() => { setTerm(""); inputRef.current?.focus(); }}><X size={16} aria-hidden /></button>
         )}
       </div>
 

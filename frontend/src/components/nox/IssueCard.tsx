@@ -22,6 +22,7 @@ import { M3Select } from "../M3Select";
 import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
+import { ChevronDown, X } from "lucide-react";
 import {
   PRIORITIES, PRIORITY_COLOUR, ago, fieldLabel, trackerApi,
   type IssueField, type LinkType, type ParentCandidate, type TrackerIssue,
@@ -194,7 +195,7 @@ export function IssueCard({
     <>
       {error && (
         <div className="tkc-err" onClick={() => setError("")}>
-          {error} ✕
+          {error} <X size={14} aria-hidden />
         </div>
       )}
 
@@ -863,7 +864,7 @@ function Picker({
         title={variant === "chip" ? "Change the issue type" : undefined}
       >
         <span className="tkc-dd-val">{button}</span>
-        <span className="tkc-dd-caret">▾</span>
+        <span className="tkc-dd-caret"><ChevronDown size={16} aria-hidden /></span>
       </button>
       {open && box && createPortal(
         <>
@@ -1021,7 +1022,7 @@ function Links({
                 </span>
                 <button type="button" className="tks-mini tks-danger tk-layer"
                         disabled={busy} title="Remove this link"
-                        onClick={() => onRemove(link.id)}>✕</button>
+                        onClick={() => onRemove(link.id)}><X size={16} aria-hidden /></button>
               </div>
             ))}
           </div>
@@ -1096,7 +1097,7 @@ function Parent({
         <IssueKey issueKey={issue.parent.key} />
         <span className="tkl-sum">{issue.parent.summary}</span>
         <button type="button" className="tks-mini tks-danger tk-layer" disabled={busy}
-                title="Take it out from under this parent" onClick={() => onSet(null)}>✕</button>
+                title="Take it out from under this parent" onClick={() => onSet(null)}><X size={16} aria-hidden /></button>
       </div>
     );
   }

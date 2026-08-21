@@ -10,6 +10,7 @@
     "prune-css": "node prune-css.mjs src"
   },
   "dependencies": {
+    "lucide-react": "^1.33.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.18.1"

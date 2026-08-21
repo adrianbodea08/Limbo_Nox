@@ -991,19 +991,80 @@ body {
 .tk-shell {
   flex: 1;
   display: grid;
-  grid-template-columns: 232px 1fr;
+  /* 76 for the rail of rooms + 212 for what is in the room. Wider than the
+     232px single column it replaces, and worth it: one column was mixing
+     "where in the product am I" with "which board am I on". */
+  grid-template-columns: 288px 1fr;
   min-height: 0;
 }
 
 /* --- navigation rail ----------------------------------------------------- */
 
-.tk-rail {
+.tk-nav {
+  display: grid;
+  grid-template-columns: 76px 1fr;
   border-right: 1px solid var(--border);
   background: var(--bg-elev);
+  min-height: 0;
+}
+
+/* The rooms. An M3 navigation rail: icon over a short label, and the selected
+   state is a full-round indicator behind the icon — the spec's own anatomy, not
+   a background colour on the whole item. */
+.tk-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 6px;
+  border-right: 1px solid var(--border);
+  /* The rooms do not scroll. Whatever the sidebar is doing, these stay put. */
+  overflow: hidden;
+}
+.tk-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 2px 6px;
+  border: 0;
+  border-radius: var(--m3-shape-m);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+.tk-nav-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 32px;
+  border-radius: var(--m3-shape-full);
+  transition: background var(--m3-dur-short) var(--m3-ease-standard),
+              color var(--m3-dur-short) var(--m3-ease-standard);
+}
+.tk-nav-label {
+  font-size: var(--m3-font-label-small);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  text-align: center;
+  /* "Automations" is eleven characters in seventy-two pixels. It wraps rather
+     than being abbreviated into a word the rest of the product does not use. */
+  line-height: 1.2;
+}
+.tk-nav-item:hover { color: var(--text); }
+.tk-nav-item.on { color: var(--accent); }
+.tk-nav-item.on .tk-nav-pill { background: var(--accent-soft); }
+
+/* What is in the room. This is the half that scrolls when a workspace has
+   thirty projects. */
+.tk-side {
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .tk-rail-title {
@@ -1015,6 +1076,9 @@ body {
   margin: 0 0 8px 12px;
 }
 .tk-rail-title-2 { margin-top: 24px; }
+/* The sidebar's own headings sit above a list, not between two of them. */
+.tk-side > .tk-rail-title { margin-top: 0; }
+.tk-side > .tk-rail-title ~ .tk-rail-title { margin-top: 24px; }
 
 /* M3 navigation item: the selected state is a full-round indicator behind the
    label, not a background colour change on the row. */
@@ -1044,8 +1108,6 @@ body {
   font-weight: 600;
 }
 .tk-rail-sub { padding-left: 22px; min-height: 44px; }
-.tk-rail-wide { padding-left: 12px; }
-.tk-rail-glyph { width: 24px; text-align: center; font-size: var(--m3-font-title-medium); }
 
 .tk-rail-key {
   font-size: var(--m3-font-label-small);
@@ -4105,8 +4167,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkd-s-cancelled { border-color: var(--border-strong); color: var(--text-faint); }
 .tkd-s-skipped { border-color: var(--border-strong); color: var(--text-faint); }
 
-/* Its own column, because a merged PR with a red build is a real state. */
-.tkd-checks { font-size: var(--m3-font-body-medium); font-weight: 700; }
+/* Its own column, because a merged PR with a red build is a real state. The
+   marks are drawn now, so nothing here sets a size — only the colour that says
+   which of the three states it is. */
+.tkd-checks { display: inline-flex; align-items: center; }
 .tkd-c-passing { color: var(--ok); }
 .tkd-c-failing { color: var(--err); }
 .tkd-c-pending { color: var(--text-faint); }
