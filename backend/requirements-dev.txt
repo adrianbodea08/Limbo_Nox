@@ -1,0 +1,5 @@
+# Tests only. Kept out of the image that runs the app: a production container
+# has no business carrying a test runner, and there is exactly one Dockerfile
+# here, so the split has to be by file rather than by build stage for now.
+-r requirements.txt
+pytest==8.3.4

@@ -1,17 +1,24 @@
 # ---- Nox by Limbo — API (FastAPI + uvicorn) ----
 FROM python:3.12-slim
 
-# No .pyc, unbuffered stdout so `docker logs` is live. Accounts live in SQLite
-# on the mounted volume; everything Nox tracks lives in Postgres.
+# No .pyc, unbuffered stdout so `docker logs` is live. Everything — the work and
+# the accounts alike — lives in Postgres; there was a second, SQLite store for
+# accounts until 2026-08-22.
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    NOX_AUTH_DB_PATH=/data/nox.db
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
 # Dependencies first, so this layer is cached until requirements change.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+
+# The test runner, only when asked for. A container that runs the app has no
+# business carrying pytest, and installing it per test run instead would cost
+# five seconds every time somebody wanted to know whether they had broken
+# something — which is the tax that stops people running tests.
+ARG WITH_TESTS=0
+RUN if [ "$WITH_TESTS" = "1" ]; then pip install --no-cache-dir pytest==8.3.4; fi
 
 COPY app ./app
 
@@ -22,10 +29,9 @@ COPY alembic ./alembic
 COPY entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
-# Unprivileged. The app user owns /data, where the accounts database lives.
+# Unprivileged.
 RUN useradd --create-home --uid 10001 nox \
-    && mkdir -p /data \
-    && chown -R nox:nox /app /data
+    && chown -R nox:nox /app
 USER nox
 
 EXPOSE 8200

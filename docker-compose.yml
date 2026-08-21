@@ -57,6 +57,28 @@ services:
       timeout: 5s
       retries: 5
 
+  # The suite. Behind a profile so `docker compose up` ignores it, and built
+  # with the test runner so running it does not reinstall pytest every time.
+  #
+  #   docker compose run --rm test
+  #
+  # It makes its own database and drops it afterwards — see tests/conftest.py.
+  test:
+    profiles: ["test"]
+    build:
+      context: ./backend
+      args:
+        WITH_TESTS: "1"
+    environment:
+      NOX_TEST_ADMIN_URL: postgresql://nox:nox@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/tests:/app/tests:ro
+      - ./backend/pytest.ini:/app/pytest.ini:ro
+    entrypoint: ["python", "-m", "pytest"]
+
   # nginx: serves the built SPA and reverse-proxies /api to the API.
   web:
     build: ./frontend

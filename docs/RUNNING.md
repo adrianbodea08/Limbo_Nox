@@ -176,6 +176,42 @@ no reload, no signing in again.
 the server answered, and status `0` means it never answered. Before that,
 everything arrived as a bare `Error` and no caller *could* tell them apart.
 
+## Tests
+
+```
+docker compose run --rm test          # everything
+docker compose run --rm test -k auth  # or a slice
+```
+
+Thirty of them, over the three things where a silent regression is a security
+incident: **auth** (hashing, sessions, suspension taking effect now rather than
+in thirty days), **the rate limiter**, and **who can see which project**.
+
+Three facts about how they run, each of them deliberate:
+
+- **A real Postgres.** Everything worth testing here is something Postgres does
+  — twenty-seven foreign keys, visibility compiling to SQL, a unique constraint
+  refusing a second account. A stand-in that enforced none of those would pass
+  the whole suite while the real thing failed.
+- **Its own database**, created and dropped per run, so the suite never costs
+  anybody their demo data.
+- **Built by the real migrations**, not by `metadata.create_all`. The migrations
+  are what runs against the real database; a schema built another way would
+  leave the one people depend on untested.
+
+### They have been proved to fail
+
+The permission tests are regressions for a leak that existed on 2026-08-22, and
+a regression test that has never seen its bug is a guess. The fix was put back
+to how it was and the suite run again: **exactly those three failed and the
+other twenty-seven passed.** That is the evidence that they are watching the
+right thing.
+
+Writing them also found two bugs in themselves, which is the ordinary way of it:
+a fixture that only cleaned the database for tests that asked for a client, and
+a helper that used `connect()` where it needed `begin()`, so every row it
+inserted rolled back on close.
+
 ## Backups
 
 The flow exists; nothing is scheduled. Running it is a decision for whenever

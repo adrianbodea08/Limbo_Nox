@@ -85,7 +85,23 @@ Worth writing down, so the next review does not start from zero.
 
 ---
 
-## 3. Known and accepted, for now
+## 3. It is now watched
+
+`backend/tests` — thirty tests over auth, the rate limiter, and who can see
+which project. Run with `docker compose run --rm test`, and in CI on every push.
+
+Both findings above are regression tests, and both have been **proved to fail**
+against the code as it was before the fix: putting the visibility bug back made
+exactly three tests fail and left the other twenty-seven passing. A regression
+test that has never seen its bug is a guess.
+
+This is what makes the rest of this document keep being true. A security fix in
+a codebase with no tests is one refactor away from being quietly undone, and
+nobody would find out from the outside.
+
+---
+
+## 4. Known and accepted, for now
 
 Written down because an undocumented tradeoff is indistinguishable from an
 oversight.
