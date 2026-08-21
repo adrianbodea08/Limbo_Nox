@@ -3872,10 +3872,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   align-items: center;
   gap: 10px;
   flex: 0 0 auto;
-  /* Tall enough for the face that moved down here from the key row. */
-  height: 24px;
+  /* The counts read from the left, the person sits at the right.
+     `min-height`, not `height`: the box is border-box, so a fixed 24 minus the
+     rule and its padding left a 21px content box — which a 22px face
+     overflowed, and everything in it sat a pixel and a half low against the
+     rule. This leaves room to spare and lets `align-items` do its job. */
+  min-height: 28px;
   margin-top: auto;
-  padding-top: 2px;
+  padding-top: 3px;
   border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
@@ -5032,4 +5036,4 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkn-why { margin: 0 0 14px; max-width: 62ch; font-size: var(--m3-font-label-medium); line-height: 1.55; }
 /* The assignee, at the far end of the foot — the counts read left to right and
    the person is where the eye ends up anyway. */
-.tk-card-face { margin-left: auto; display: inline-flex; align-items: center; }
+.tk-card-face { margin-left: auto; display: inline-flex; align-items: center; flex: 0 0 auto; }

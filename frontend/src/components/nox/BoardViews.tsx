@@ -106,7 +106,9 @@ function Badges({ issue }: { issue: TrackerIssue }) {
       {/* Last, and pushed to the far end. Who owns a card is a fact about it
           rather than part of its identity line, and the key row was carrying
           four things competing for one corner. */}
-      <span className="tk-card-face"><Face issue={issue} /></span>
+      {/* A shade smaller here than it was in the key row: beside 13px count
+          badges, 22 was the loudest thing in the footer. */}
+      <span className="tk-card-face"><Face issue={issue} size={20} /></span>
     </div>
   );
 }
