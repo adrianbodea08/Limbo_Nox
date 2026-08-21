@@ -13,6 +13,9 @@ backend/.env
 *.tar
 *.tar.gz
 *.db
+
+# Backups are data, not source. Keep them somewhere that is not the repo.
+backups/
 *.db-wal
 *.db-shm
 

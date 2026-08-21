@@ -166,6 +166,55 @@ no reload, no signing in again.
 the server answered, and status `0` means it never answered. Before that,
 everything arrived as a bare `Error` and no caller *could* tell them apart.
 
+## Backups
+
+The flow exists; nothing is scheduled. Running it is a decision for whenever
+this stops being a toy.
+
+```
+python scripts/backup.py                 -> ./backups/nox-<utc>.tar.gz
+python scripts/backup.py --keep 10       -> and prune older ones
+python scripts/restore.py <archive>      -> report only, changes nothing
+python scripts/restore.py <archive> --yes  -> replace everything
+```
+
+Two stores go in, because Nox has two:
+
+| | |
+|---|---|
+| `tracker.dump` | Postgres — issues, events, releases, git refs. The work. |
+| `accounts.db` | SQLite — who everybody is. 45 KB, and the only copy. |
+
+The small one is the frightening one: small enough to look unimportant, and
+losing it means nobody can sign in to whatever survived.
+
+**The SQLite file is never copied.** It runs in WAL mode, and when this was
+written the write-ahead log was *larger than the database* — 53 KB against 45
+KB. A file copy takes the main database, leaves the recent half of the
+transactions behind, and produces a backup that restores cleanly, looks fine and
+is silently out of date. `sqlite3.Connection.backup()` is the online-backup API
+and cooperates with the running app.
+
+**Postgres is captured first, and the order is load-bearing.** No transaction
+spans two databases, so seconds separate the snapshots. This way round, an
+account created in that window lands in the accounts file with no tracker row —
+and `_project_user` writes that row on the way past, so it repairs itself the
+first time that person clicks something. The other order leaves a tracker person
+with no account, which nothing fixes.
+
+### It has been restored
+
+Not just written. A backup nobody has restored is a hope, and the first restore
+found a real bug: `docker compose cp` writes as root, the app runs as its own
+user, and SQLite opens a file it cannot write as *readonly* rather than failing
+— so the container came back up and crash-looped on "attempt to write a readonly
+database". The script fixes ownership now.
+
+The test that proves it works, in case it is worth repeating: take a backup,
+make a visible change the backup does not contain, restore, and check the change
+is gone. A restore that silently does nothing looks exactly like one that
+worked.
+
 ## Migrations
 
 ```bash
