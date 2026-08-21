@@ -20,8 +20,9 @@ from sqlalchemy import select, text
 
 from .. import db
 from . import (
-    admin, automation, git, github_app, links, mock, query, releases as rel, repo,
-    seed, work,
+    admin, asks as asks_mod, automation, git, github_app, insights,
+    labels as labels_mod, links, mock, notify, query, releases as rel, repo,
+    seed, views as views_mod, work,
 )
 from .admin import SettingsError
 from .links import LinkError
@@ -118,7 +119,7 @@ async def setup(request: Request) -> dict:
 async def meta(request: Request) -> dict:
     """Everything the UI needs to render forms and boards without a round trip
     per dropdown: projects, types, statuses, fields and views."""
-    _actor(request)
+    actor = _actor(request)
     with _engine().connect() as conn:
         allowed = admin.visible_project_ids(conn, request.state.user)
         project_q = (select(projects).where(projects.c.archived_at.is_(None))
@@ -126,6 +127,10 @@ async def meta(request: Request) -> dict:
         if allowed is not None:
             project_q = project_q.where(projects.c.id.in_(sorted(allowed) or [0]))
         return {
+            # Who is asking. Needed wherever the UI has to tell "yours" from
+            # "somebody else's" — an ask directed at you is answerable, one
+            # directed at a colleague is only readable.
+            "me": actor.id,
             "projects": [dict(r) for r in conn.execute(project_q).mappings()],
             "issueTypes": [dict(r) for r in conn.execute(
                 select(issue_types).where(issue_types.c.archived_at.is_(None))
@@ -459,6 +464,244 @@ async def git_sync(request: Request, repo_name: str | None = None,
         raise HTTPException(400, str(exc))
     except git.NoCredentials as exc:
         raise HTTPException(503, str(exc))
+
+
+# -------------------------------------------------------------------- labels --
+
+# ------------------------------------------------------------------ views --
+
+@router.get("/views")
+async def list_views(request: Request, project_id: int | None = None) -> list[dict]:
+    """Yours first, then the team's."""
+    actor = _actor(request)
+    with _engine().connect() as conn:
+        return views_mod.for_user(conn, actor, request.state.user, project_id)
+
+
+@router.post("/views")
+async def create_view(request: Request, body: dict) -> dict:
+    """Keep the board the way it is set up right now."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return views_mod.create(conn, actor, body)
+        except views_mod.ViewError as e:
+            raise HTTPException(400, str(e)) from e
+
+
+@router.patch("/views/{view_id}")
+async def patch_view(view_id: int, request: Request, body: dict) -> dict:
+    """Rename it, re-point it at what the board shows now, or share it."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return views_mod.update(conn, actor, request.state.user, view_id, body)
+        except views_mod.ViewError as e:
+            raise HTTPException(404, str(e)) from e
+
+
+@router.delete("/views/{view_id}")
+async def delete_view(view_id: int, request: Request) -> dict:
+    """Really delete. A view is an arrangement, not a record of anything — there
+    is no history to keep and nothing points at it."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            views_mod.remove(conn, actor, request.state.user, view_id)
+        except views_mod.ViewError as e:
+            raise HTTPException(404, str(e)) from e
+    return {"ok": True}
+
+
+@router.get("/labels")
+async def list_labels(request: Request) -> list[dict]:
+    """Every label, commonest first — the only ranking that means anything for
+    a list people type into."""
+    _actor(request)
+    with _engine().connect() as conn:
+        return labels_mod.all_labels(conn)
+
+
+@router.post("/issues/{issue_id}/labels")
+async def add_label(issue_id: int, request: Request, body: dict) -> list[dict]:
+    """Put a label on an issue, making it if nobody has used the word yet.
+
+    There is no "create a label" screen on purpose: an admin curating the list
+    before anybody may tag anything is how a tag system ends up with eleven
+    labels nobody uses and the actual words living in the summary.
+    """
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return labels_mod.add(conn, actor, issue_id, body.get("name", ""))
+        except labels_mod.LabelError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@router.delete("/issues/{issue_id}/labels/{label_id}")
+async def drop_label(issue_id: int, label_id: int, request: Request) -> list[dict]:
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        return labels_mod.remove(conn, actor, issue_id, label_id)
+
+
+@router.patch("/labels/{label_id}")
+async def patch_label(label_id: int, body: dict, request: Request) -> dict:
+    """Rename, recolour or archive. Global, like the statuses it sits beside —
+    the key never moves, because that is what "the same label" means."""
+    _admin(request)
+    with _engine().begin() as conn:
+        try:
+            return labels_mod.update(conn, label_id, body)
+        except labels_mod.LabelError as exc:
+            raise HTTPException(400, str(exc))
+
+
+# ------------------------------------------------------------- notifications --
+
+@router.get("/notifications")
+async def list_notifications(request: Request, limit: int = 30) -> dict:
+    """The bell: what is unread, and what recently was."""
+    actor = _actor(request)
+    with _engine().connect() as conn:
+        return {
+            "unread": notify.unread_count(conn, actor.id),
+            "items": notify.recent(conn, actor.id, min(max(limit, 1), 100)),
+        }
+
+
+@router.post("/notifications/read")
+async def read_notifications(request: Request, body: dict | None = None) -> dict:
+    """Mark some read, or everything if no ids are given."""
+    actor = _actor(request)
+    ids = (body or {}).get("ids") or None
+    with _engine().begin() as conn:
+        notify.mark_read(conn, actor.id, ids)
+        return {
+            "unread": notify.unread_count(conn, actor.id),
+            "items": notify.recent(conn, actor.id),
+        }
+
+
+@router.get("/notifications/prefs")
+async def get_notification_prefs(request: Request) -> dict:
+    """Four switches. The list is short enough that the default is on and the
+    setting exists to turn one off rather than to opt in."""
+    actor = _actor(request)
+    with _engine().connect() as conn:
+        return notify.prefs(conn, actor.id)
+
+
+@router.put("/notifications/prefs/{kind}")
+async def set_notification_pref(kind: str, request: Request, on: bool = True) -> dict:
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return notify.set_pref(conn, actor.id, kind, on)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+
+# ---------------------------------------------------------------------- asks --
+
+class AskNew(BaseModel):
+    issue_id: int
+    asked_of: int
+    kind: str
+    question: str = Field(min_length=1, max_length=2000)
+    blocking: bool = False
+
+
+class AskAnswer(BaseModel):
+    answer: str = Field(default="", max_length=4000)
+
+
+@router.get("/asks/kinds")
+async def ask_kinds(request: Request) -> dict:
+    """The four shapes, and what coming back looks like for each."""
+    _actor(request)
+    return asks_mod.KINDS
+
+
+@router.post("/asks")
+async def create_ask(body: AskNew, request: Request) -> dict:
+    """Ask somebody something about an issue."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return asks_mod.ask(
+                conn, actor, issue_id=body.issue_id, asked_of=body.asked_of,
+                kind=body.kind, question=body.question, blocking=body.blocking)
+        except asks_mod.AskError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@router.post("/asks/{ask_id}/answer")
+async def answer_ask(ask_id: int, body: AskAnswer, request: Request) -> dict:
+    """Come back to somebody."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return asks_mod.answer(conn, actor, ask_id, body.answer)
+        except asks_mod.AskError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@router.post("/asks/{ask_id}/decline")
+async def decline_ask(ask_id: int, body: AskAnswer, request: Request) -> dict:
+    """Say no, or say it is not yours. Kept apart from answering because a
+    queue that cannot tell them apart is a queue people clear badly."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return asks_mod.decline(conn, actor, ask_id, body.answer)
+        except asks_mod.AskError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@router.post("/asks/{ask_id}/withdraw")
+async def withdraw_ask(ask_id: int, request: Request) -> dict:
+    """Take it back. Only the person who asked may."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return asks_mod.withdraw(conn, actor, ask_id)
+        except asks_mod.AskError as exc:
+            raise HTTPException(400, str(exc))
+
+
+# ------------------------------------------------------------------ insights --
+
+@router.get("/insights/overview")
+async def insights_overview(request: Request, project: str | None = None,
+                            days: int = 30) -> dict:
+    """Four numbers with a comparison, and created versus finished."""
+    _actor(request)
+    with _engine().connect() as conn:
+        return insights.overview(
+            conn, project_id=insights.project_id_for(conn, project),
+            days=_period(days))
+
+
+@router.get("/insights/flow")
+async def insights_flow(request: Request, project: str | None = None,
+                        days: int = 30) -> dict:
+    """Where work waits, how long it takes, and who is moving it."""
+    _actor(request)
+    with _engine().connect() as conn:
+        return insights.flow(
+            conn, project_id=insights.project_id_for(conn, project),
+            days=_period(days))
+
+
+def _period(days: int) -> int:
+    """A window somebody asked for, clamped to one somebody can read.
+
+    The upper bound is not a performance guard — it is that a year of daily
+    buckets is a texture, not a chart, and the page already switches to weeks
+    past six weeks.
+    """
+    return max(7, min(int(days), 365))
 
 
 @router.get("/git/refs")
@@ -1487,6 +1730,24 @@ async def put_types(project_id: int, body: OrderIn, request: Request) -> dict:
     with _engine().begin() as conn:
         try:
             admin.set_types(conn, project_id, body.ids)
+        except SettingsError as exc:
+            raise HTTPException(400, str(exc))
+        return admin.settings(conn, project_id)
+
+
+@router.patch("/projects/{project_id}/types/{issue_type_id}")
+async def patch_type(project_id: int, issue_type_id: int, body: dict,
+                     request: Request) -> dict:
+    """Rename, re-mark or recolour an issue type.
+
+    Types are global for the same reason statuses are: a Bug has to mean a Bug
+    on every board or no cross-project number means anything. This lands
+    everywhere, and the UI says so first.
+    """
+    _admin(request)
+    with _engine().begin() as conn:
+        try:
+            admin.update_type(conn, issue_type_id, body)
         except SettingsError as exc:
             raise HTTPException(400, str(exc))
         return admin.settings(conn, project_id)

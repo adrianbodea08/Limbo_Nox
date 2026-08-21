@@ -33,7 +33,11 @@ import { useIssueDialog } from "./useIssueDialog";
 import { DropSlot, useBandReorder } from "./useBandReorder";
 import { TrackerRail } from "./TrackerRail";
 import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
-import type { MyWorkData, QueueIssue } from "./model";
+import type { MyWorkData, QueueIssue, TrackerUser } from "./model";
+import { M3Segmented } from "../M3Segmented";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
+import { AsksBand } from "./Asks";
 
 export function MyWorkPage({ shell }: { shell: ShellProps }) {
   const nav = useNavigate();
@@ -50,6 +54,9 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
     setParams(p, { replace: true });
   }
   const [data, setData] = useState<MyWorkData | null>(null);
+  // Only so answering an ask can complete a name. Once, and a failure is
+  // silent: the answer box still works, it just stops suggesting.
+  const [people, setPeople] = useState<TrackerUser[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [parking, setParking] = useState<QueueIssue | null>(null);
@@ -62,6 +69,13 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }, [viewing]);
+
+
+  useEffect(() => {
+
+    trackerApi.users().then(setPeople).catch(() => {});
+
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -130,7 +144,7 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
         <TrackerRail active="my-work" isAdmin={shell.isAdmin} />
 
         <div className="tkw">
-        {error && <div className="tkc-err" onClick={() => setError("")}>{error} ✕</div>}
+        {error && <div className="tkc-err" onClick={() => setError("")}>{error} <X size={14} aria-hidden /></div>}
         {!data && <p className="tk-dim">Loading…</p>}
 
         {data && (
@@ -150,18 +164,15 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 </div>
               </div>
               <div className="tkw-head-r">
-                <div className="tkf-switch tkw-switch">
-                  {(["columns", "list"] as const).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      className={`tkf-switch-btn tk-layer${layout === v ? " on" : ""}`}
-                      onClick={() => setLayout(v)}
-                    >
-                      {v === "columns" ? "Columns" : "List"}
-                    </button>
-                  ))}
-                </div>
+                <M3Segmented
+                  label="How to show your work"
+                  value={layout}
+                  options={[
+                    { value: "columns", label: "Columns" },
+                    { value: "list", label: "List" },
+                  ] as const}
+                  onChange={setLayout}
+                />
                 {data.leads && (
                   <button type="button" className="tk-btn tk-layer"
                           onClick={() => nav(`/teams?tab=${data.leads!.key}`)}>
@@ -237,6 +248,25 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 )}
               />
 
+              {/* What other people need from you, before what you had planned
+
+                  to do next — somebody is held up until you come back. */}
+
+              <AsksBand
+
+                asks={data.asks ?? []}
+
+                me={shell.user.id}
+
+                users={people}
+
+                onOpen={(key) => issueDialog.open(key)}
+
+                onChanged={load}
+
+              />
+
+
               <Band
                 layout={layout}
                 band={band}
@@ -254,10 +284,10 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                     <span className="tkw-order">
                       <button type="button" className="tks-mini tk-layer" disabled={busy || !up}
                               title={up ? "Do this one sooner" : "Already first in its priority"}
-                              onClick={() => move(list, index, -1)}>↑</button>
+                              onClick={() => move(list, index, -1)}><ChevronUp size={16} aria-hidden /></button>
                       <button type="button" className="tks-mini tk-layer" disabled={busy || !down}
                               title={down ? "Do this one later" : "Already last in its priority"}
-                              onClick={() => move(list, index, 1)}>↓</button>
+                              onClick={() => move(list, index, 1)}><ChevronDown size={16} aria-hidden /></button>
                     </span>
                   );
                 }}
@@ -372,7 +402,7 @@ function Card({ issue, onOpen, hideWhy }: { issue: QueueIssue; onOpen: () => voi
   return (
     <button type="button" className="tkw-card-main tk-layer" onClick={onOpen}>
       <span className="tkw-card-top">
-        <span className="tk-type" style={{ color: issue.type_colour }}>{issue.type_icon}</span>
+        <TypeGlyph icon={issue.type_icon} colour={issue.type_colour} />
         <IssueKey issueKey={issue.key} />
         <span className="tk-chip" style={{ borderColor: issue.status_colour, color: issue.status_colour }}>
           {issue.status_name}

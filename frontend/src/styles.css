@@ -59,8 +59,30 @@
   --m3-elev-4: 0 6px 10px 4px rgba(0, 0, 0, .15), 0 2px 3px rgba(0, 0, 0, .30);
   --m3-elev-5: 0 8px 12px 6px rgba(0, 0, 0, .16), 0 4px 4px rgba(0, 0, 0, .30);
 
+  /* Type scale. M3 names type by role and not by size, and that is the point:
+     a rule asking for title-medium still means the right thing when the scale
+     is retuned, and a rule asking for 13.5px never did. */
+  --m3-font-label-small: 11px;
+  --m3-font-label-medium: 12px;
+  --m3-font-body-medium: 14px;      /* also label-large and title-small */
+  --m3-font-title-medium: 16px;     /* also body-large */
+  --m3-font-title-large: 22px;
+  --m3-font-headline-small: 24px;
+  --m3-font-headline-medium: 28px;
+  --m3-font-headline-large: 32px;
+
+  /* M3 sizes buttons extra-small 32 / small 40 / medium 56. Ours run at
+     --m3-control-h everywhere except inside a table row, where the row would
+     have to grow to hold them. That is what extra-small is for. */
+  --m3-control-h-dense: 32px;
+
   /* Text on an accent fill. A named role rather than #fff scattered about. */
   --m3-on-accent: #ffffff;
+
+  /* Merged. Not a Material colour — it is GitHub's purple, and it is the one
+     colour a developer reads without a legend. Named so the themes can diverge
+     if they need to and no rule has to spell it out again. */
+  --merged: #a371f7;
 
   /* Our density step: M3's default button is 40px and its field 56px. This
      app has run every control at 42px for a long time, and a bar mixing 40
@@ -134,7 +156,7 @@
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
-  border-radius: 6px;
+  border-radius: var(--m3-shape-full);;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
@@ -152,10 +174,33 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.app {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
+/* Every icon in the product is an <svg>, and an <svg> is an inline box by
+   default: it sits on the text baseline with the font's descender space still
+   underneath it. So a 16px chevron inside a 19px line box draws 1.5px above the
+   centre of the row that was asked to centre it, and the row-height rule that
+   was supposed to do the centring never gets a say. It cost the dropdown caret
+   1.5px, the back arrow 2px and every button in the prose toolbar 2px, each in
+   a different rule, none of them wrong on its own.
+
+   Block takes the icon off the baseline: its box is exactly its own size, and
+   whoever centres the row centres the icon with it. Nothing here is ever a
+   glyph inside a sentence — icons live in flex rows or alone in a button — so
+   this is the right default rather than an exception, and it means the next
+   icon wrapper somebody writes is correct without being told. */
+svg {
+  display: block;
+}
+
+/* The other half of the same idea: a control whose whole content is an icon has
+   to be the box that centres it. Most of ours already say so; the ones that
+   never did — the month arrows in the date picker, the × on a scope chip — were
+   being centred by the line box the icon used to make, which the rule above
+   takes away. At no specificity, so any control that does declare its own box
+   keeps it, and one that does not is centred rather than left-aligned. */
+:where(button, a, label):has(> svg:only-child) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ---- Topbar ---- */
@@ -199,10 +244,6 @@ body {
   font-weight: 600;
   color: var(--text-dim);
 }
-.board-tab.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
 
 .topbar-right {
   margin-left: auto;
@@ -212,11 +253,6 @@ body {
 }
 
 /* ---- Issue-type filter ---- */
-.type-btn.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-}
 
 /* ---- Fetch button ---- */
 
@@ -228,123 +264,26 @@ body {
 
 /* ---- Board ---- */
 
-.columns {
-  display: grid;
-  grid-template-columns: repeat(var(--cols, 4), minmax(240px, 1fr));
-  gap: 16px;
-  height: 100%;
-}
-
-.column {
-  background: var(--bg-col);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  transition: border-color 0.15s, background 0.15s;
-}
-.column.drag-over {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-/* ---- Column info icon + tooltip ---- */
-/* blue flame strip echoing the HOT card, but clean and cool-toned */
-.column-count.over {
-  color: var(--err);
-  border: 1px solid rgba(248, 81, 73, 0.4);
-}
-
-.column.ranked {
-  /* Hot Queue stands out: a dimmed red fading to the dark column background */
-  border-color: rgba(220, 60, 50, 0.5);
-  background: linear-gradient(180deg, rgba(170, 30, 28, 0.28), var(--bg-col) 60%);
-}
-.column.ranked .column-name {
-  color: #ff8a7a;
-}
-
 /* rank badge on cards */
-.card-head .pill {
-  flex-shrink: 0;
-}
 
 /* drop insertion line for ranked column */
 
 /* ---- Card ---- */
-.card {
-  position: relative;
-  overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 11px 14px;
-  cursor: grab;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 6px 18px rgba(0, 0, 0, 0.06);
-  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s,
-    background 0.15s;
-}
-.card:hover {
-  transform: translateY(-2px);
-  border-color: var(--border-strong);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08), 0 16px 34px rgba(0, 0, 0, 0.12);
-}
 /* a soft warm base glow */
 /* flame tongues — two layers flicker out of sync for a chaotic fire */
 
 /* Urgent: wide whole diagonal bands behind the content, drifting slowly. */
-.card:hover {
-  background: var(--bg-card-hover);
-  border-color: var(--border-strong);
-}
-.card:active {
-  cursor: grabbing;
-}
 
 /* description sizes to its content (clamped below) so cards stay compact */
 /* compact status pill, inline with the issue key in the header */
 
 /* short description where the status used to be */
-.card-desc {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-dim);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
 
 /* Blocked reason replaces the description, in red */
 /* Blocked — minimal inline display on the card (no callout box) */
 
 /* Blocked editor (issue drawer) */
-.blocked-reason-chip.active {
-  background: rgba(248, 81, 73, 0.14);
-  border-color: rgba(248, 81, 73, 0.5);
-  color: #ff8079;
-}
-
-.card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
 /* last-modified stamp */
-
-.tag {
-  font-size: 10.5px;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  background: var(--bg-col);
-  border: none;
-  padding: 4px 11px;
-  border-radius: 999px;
-}
 
 /* ---- "X days in Hot Queue" pill (sits next to the issue-type pill) ---- */
 
@@ -356,138 +295,22 @@ body {
 /* the flame: a white→orange→red bar that shimmers across the top */
 
 /* ---- Urgent: stuck at Hot Queue #1 too long ---- */
-.card-urgent {
-  /* tied to the urgent-stripe effect */
-  border-color: rgba(248, 81, 73, calc(0.75 * var(--fx-urgent-opacity, 0) / 0.2));
-}
 
 /* ---- Stale: sat in a column (e.g. Ready) too long. Subtle amber breathing. ---- */
 
 /* ---- Hot Queue info (drawer) ---- */
 
 /* ---- Tag picker (drawer) ---- */
-.tag-chip.on {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--text);
-}
-.tag-chip-fire.on {
-  background: linear-gradient(135deg, #fff4e0, #ffb14d 55%, #ff7a3c);
-  border-color: transparent;
-  color: #6e2400;
-  font-weight: 800;
-  box-shadow: 0 0 10px rgba(255, 130, 60, 0.5);
-}
 
 /* ---- Issue type badge (bigger + color coded) ---- */
 
-.pill {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 999px;
-  color: var(--text-dim);
-  background: var(--bg-col);
-  border: none;
-}
-
-.avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #5b8cff, #8b5bff);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.avatar img {
-  width: 100%;
-  height: 100%;
-}
-
 /* ---- Issue modal ---- */
-@keyframes fade {
-  from { opacity: 0; }
-}
 
 /* prominent blocked reason editor in the main column */
 
 /* themed scrollbars so they match the dark UI */
 
-.btn {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 8px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.btn:hover:not(:disabled) {
-  border-color: var(--border-strong);
-}
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.hint {
-  font-size: 12px;
-  color: var(--text-faint);
-  margin: 4px 0 0;
-  width: 100%;
-}
-
-.status {
-  font-size: 12px;
-  font-weight: 500;
-}
-
 /* ---- Overflow confirm modal ---- */
-.modal {
-  background: var(--bg-elev);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  padding: 24px;
-  width: min(440px, 92vw);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-}
-.modal h3 {
-  margin: 0 0 12px;
-  font-size: 18px;
-  color: #ff9d5c;
-}
-.modal p {
-  margin: 0 0 12px;
-  color: var(--text-dim);
-  font-size: 14px;
-  line-height: 1.5;
-}
-.modal strong {
-  color: var(--text);
-}
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
-}
 
 /* ---- Notifications drawer ---- */
 
@@ -507,7 +330,7 @@ body {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   padding: 28px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--m3-elev-3);
 }
 .auth-brand {
   display: flex;
@@ -531,8 +354,8 @@ body {
   border: none;
   color: var(--text-dim);
   padding: 8px;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--m3-shape-s);;
+  font-size: var(--m3-font-body-medium);
   font-weight: 500;
   cursor: pointer;
 }
@@ -551,65 +374,39 @@ body {
   padding: 10px;
 }
 .auth-error {
-  background: rgba(248, 81, 73, 0.12);
+  background: color-mix(in srgb, var(--err) 12%, transparent);;
   color: var(--err);
   border: 1px solid rgba(248, 81, 73, 0.35);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   margin-top: 8px;
 }
 .auth-info {
-  background: rgba(63, 185, 80, 0.12);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);;
   color: var(--ok);
   border: 1px solid rgba(63, 185, 80, 0.35);
   border-radius: var(--radius-sm);
   padding: 8px 10px;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   margin-top: 8px;
 }
 .auth-hint {
   text-align: center;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   margin: 16px 0 0;
 }
 
 /* ---- Account menu ---- */
-.account {
-  position: relative;
-}
 
 /* ---- Theme picker (account menu) ---- */
-.theme-option.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
 
 /* ---- Admin page ---- */
 
 /* ---- Admin: effect settings ---- */
 
 /* ---- Settings toggle switch ---- */
-.toggle {
-  width: 42px;
-  height: 24px;
-  border-radius: 13px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-col);
-  cursor: pointer;
-  padding: 0;
-  position: relative;
-  transition: background 0.15s, border-color 0.15s;
-}
-.toggle.on {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-}
-.toggle.on .toggle-knob {
-  transform: translateX(18px);
-  background: var(--accent);
-}
 
 /* ---- Duration (D/H/M/S) input ---- */
 
@@ -641,7 +438,6 @@ body {
 /* V3 — nested frame */
 
 /* ---- Design lab: split Epic/Story popup (dzpop-) ---- */
-.dzpop-child.current { border-color: rgba(139, 91, 255, 0.5); background: rgba(139, 91, 255, 0.1); }
 
 /* combined split card — HOT / Blocked states + epic status */
 
@@ -677,10 +473,6 @@ body {
 
 /* --- Releases board --- */
 
-.rel-list { display: flex; flex-direction: column; gap: 8px; }
-.rel-prog-fill.full { background: #3fb950; }
-.rel-toolbar-right .btn .fetch-icon { margin-right: 5px; }
-
 /* --- Releases: stats panel + charts --- */
 /* Header cells inherit text-align: left from the th rule above; the numeric
    ones have to follow their column or they sit off to the side of it. */
@@ -702,8 +494,6 @@ body {
    leaving it pinned left against dead space. Wide charts still scroll. */
 /* Click a legend entry to focus that series (others dim). Same metrics as a
    plain entry — no padding/size change, only colour + cursor. */
-.chart-legend-click.on { color: var(--text); }
-.chart-legend-click.off { opacity: .4; }
 /* An x label that jumps to the same release in the table below. */
 /* ===== Release trends: the table under the chart ===== */
 /* The percentage sits on its own share of the cell, so a column reads as a
@@ -711,7 +501,6 @@ body {
 /* Where the chart just sent you. A one-off flash, not a selection. */
 
 /* --- Filters button + dropdown (issue types) --- */
-.filter-item.on { color: var(--accent, #8fb0ff); font-weight: 600; }
 
 /* Standardize release-table columns so every section aligns identically. */   /* Key */   /* UP */
 /* col 3 = Summary: takes the remaining space. UP sits beside the key rather
@@ -736,11 +525,8 @@ body {
 /* One line. The search box gives way instead of the buttons wrapping to a
    row of their own — "Update now" sitting alone under the bar read as though
    it belonged to whatever came next. */
-.rel-chipbtn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 
 /* ===== My Board — unified issue modal (Jira-style create/edit/view) ===== */
-.im2-status-row.on { background: var(--accent-soft); border-color: rgba(91,140,255,.55); color: var(--text); }
-.im2-check.on { background: var(--accent); border-color: var(--accent); }
 
 /* Stale/offline warning banner (Jira fetch failed, showing cached data) */
 
@@ -751,24 +537,10 @@ body {
 .topbar { position: relative; z-index: 3; }
 
 /* Admin: per-user account tag toggle (e.g. Time management app access). */
-.tag-toggle.on { border-color:rgba(63,185,80,.45); background:rgba(63,185,80,.12); color:#3fb950; }
-.tag-toggle.on .tag-toggle-dot { background:#3fb950; }
 
 /* App-switcher dropdown (nav logo → other workspace apps). */
-.appsw-trigger .brand { cursor:pointer; }
-.appsw-item.active { background:rgba(91,140,255,.12); }
-
-/* Timesheet billing: the itemised statement is the only thing that prints. */
-@media screen { #ts-billing-print { display: none; } }
-@media print {
-  @page { size: letter; margin: 0.6in; }
-  html, body { background: #fff !important; }
-  body > *:not(#ts-billing-print) { display: none !important; }
-  #ts-billing-print { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
-}
 
 /* My Board access tokens (Settings → Access tokens). */
-.tok-scope.on { border-color: rgba(91,140,255,.5); background: rgba(91,140,255,.08); }
 
 /* Admin: per-user multi-tag strip (wraps to its own line under the row). */
 
@@ -785,12 +557,8 @@ body {
    table swap look like a page change. Too narrow to fit, it scrolls sideways
    instead of growing. (Both pickers portal their popups, so nothing is clipped
    by the scroll container.) */
-.ds-range.one-line { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
-.ds-range.one-line::-webkit-scrollbar { height: 6px; }
 /* …and the row that holds it keeps the Recompute button alongside rather than
    dropping it onto a second line: the controls shrink and scroll instead. */
-.ds-controls.one-row .ds-range.one-line { flex: 1 1 auto; min-width: 0; }
-.ds-controls.one-row > .btn { flex: 0 0 auto; }
 /* M3 data table: a surface container, 56px header / 52px rows, dividers
    between rows only, and a state layer on hover instead of a flat fill.
    Figures use the body face with tabular numerals rather than a monospace —
@@ -806,10 +574,8 @@ body {
    admin column, which squeezed a board built for the full width. */
 
 /* Dev Stats "count UP when" mode switcher. */
-.ds-seg-btn.on { background: var(--accent-soft); color: var(--accent); }
 
 /* Dev Stats: equal number columns + sortable headers. */ /* remaining split equally */
-.ds-th-sort.on { color: var(--accent); }
 /* Glued to the last word with a non-breaking space, so it can never wrap onto
    a line of its own — which lifted the label of whichever column was sorted a
    whole line above the rest of the header row. */
@@ -828,10 +594,6 @@ body {
    the chart — .chart-scroll still does its own horizontal clipping. */
 
 /* Dev detail: monthly bug-cost table. */
-.bill-badge.ready { color: var(--ok); background: rgba(63,185,80,.14); border-color: rgba(63,185,80,.4); }
-.bill-badge.pending { color: var(--warn, #d29922); background: rgba(210,153,34,.14); border-color: rgba(210,153,34,.4); }
-.bill-reason.ready { color: var(--ok); }
-.up-banner.ready { color: var(--ok); background: rgba(63,185,80,.10); border-color: rgba(63,185,80,.4); }
 
 /* Hoverable stat cards with a rich tooltip (support breakdown / Final UP formula) */
 /* invisible bridge over the 8px gap so moving into the tooltip keeps the hover */
@@ -842,24 +604,22 @@ body {
 /* Same metrics as .m3sel-field: both are M3 fields and they sit side by side on
    the stats bar, where a 3px difference moved everything below on every swap. */
 .m3mp-field { display: inline-flex; align-items: center; gap: 12px; min-width: 168px;
-  background: var(--bg-col); border: 1px solid var(--border); border-radius: 10px;
-  padding: 11px 12px; color: var(--text); font-family: inherit; font-size: 13.5px;
-  font-weight: 600; cursor: pointer; transition: border-color .12s, background .12s; }
+  background: var(--bg-col); border: 1px solid var(--border); border-radius: var(--m3-shape-m);;
+  padding: 11px 12px; color: var(--text); font-family: inherit; font-size: var(--m3-font-body-medium);
+  font-weight: 600; cursor: pointer; transition: border-color var(--m3-dur-short) var(--m3-ease-standard), background var(--m3-dur-short) var(--m3-ease-standard); }
 .m3mp-field:hover { border-color: var(--border-strong); }
 .m3mp-cal { color: var(--text-faint); flex: 0 0 auto; }
 .m3mp-label { flex: 1; text-align: left; white-space: nowrap; }
 .m3mp-caret { color: var(--text-faint); flex: 0 0 auto; }
 .m3mp-backdrop { position: fixed; inset: 0; z-index: 250; }
 .m3mp-pop { z-index: 251;
-  background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: 16px;
-  box-shadow: 0 20px 54px rgba(0,0,0,.5); padding: 12px; }
+  background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: var(--m3-shape-l);;
+  box-shadow: var(--m3-elev-3); padding: 12px; }
 .m3mp-yearnav { display: flex; align-items: center; justify-content: space-between; padding: 2px 6px 10px; }
-.m3mp-year { font-size: 15px; font-weight: 700; color: var(--text); }
+.m3mp-year { font-size: var(--m3-font-title-medium); font-weight: 700; color: var(--text); }
 .m3mp-nav { width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent;
-  color: var(--text-dim); font-size: 18px; cursor: pointer; font-family: inherit; transition: background .12s; }
+  color: var(--text-dim); font-size: var(--m3-font-headline-small); cursor: pointer; font-family: inherit; transition: background var(--m3-dur-short) var(--m3-ease-standard); }
 .m3mp-nav:hover { background: var(--bg-card); color: var(--text); }
-.m3mp-month.now { box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); }
-.m3mp-month.sel { background: var(--accent); color: #fff; box-shadow: none; }
 
 /* Per Release: the tickets behind one dev. A nested M3 surface — inset, no
    outer border of its own, and scrollable when a dev carries forty of them. */
@@ -878,30 +638,10 @@ body {
    that reads as a fade rather than a morph — and it drags every unrelated
    pixel (header, tab bar, banners) through the animation with it. */
 :root { view-transition-name: none; }
-
-::view-transition-group(stats-table) {
-  animation-duration: 400ms;
-  animation-timing-function: cubic-bezier(.2, 0, 0, 1);
-}
 /* Pin both snapshots to the container's top-left at their natural size. The
    default stretches them to the container, so a table growing by two rows
    would smear its type as it went; cropping instead makes the container look
    like it is opening to reveal the new content. */
-::view-transition-old(stats-table),
-::view-transition-new(stats-table) {
-  width: 100%; height: 100%;
-  object-fit: none;
-  object-position: top left;
-}
-::view-transition-old(stats-table) {
-  animation: vt-fade-out 80ms cubic-bezier(.3, 0, .8, .15) both;
-}
-::view-transition-new(stats-table) {
-  animation: vt-fade-in 320ms 80ms cubic-bezier(.05, .7, .1, 1) both;
-}
-
-@keyframes vt-fade-out { to { opacity: 0; } }
-@keyframes vt-fade-in { from { opacity: 0; } }
 
 /* The table is the ONLY thing that animates. The control bar, the meta line
    and everything around them swap instantly — naming them too meant three
@@ -923,11 +663,6 @@ body {
    the release rather than only the part of it somebody signed for. */
 /* The Releases tab is the board's own view; the (i) sits above it. */
 
-.person { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-.person-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.face { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: 0 0 auto;
-  background: var(--bg-card); }
-
 /* The profile header's scope controls wrap as one group rather than pushing
    the name off the row on a narrow window. */
 
@@ -939,12 +674,9 @@ body {
    describe rather than being marooned between the two. */
 
 /* ===== Rate chart — a line over bars (RateChart.tsx) ===== */
-.rc-bar.on { fill: var(--border-strong); }
 /* The points bar, beside the hours one. Green to tie it to the rate the two
    of them produce; red when the month came out negative, which is a fact
    about that month and not a styling flourish. */
-.rc-bar2.on { opacity: .78; }
-.rc-bar2.neg.on { opacity: .85; }
 /* A series the key has dimmed. On the group, so it multiplies with whatever
    opacity the marks already carry rather than fighting it. */
 /* The chosen column, behind everything, so the breakdown below has a visible
@@ -953,11 +685,8 @@ body {
    the whole column: on a multi-line chart the question at a point is almost
    always "what were ALL of these here", which a native title answers one
    series at a time, after a delay, and never for two at once. */
-.chart-tip-row.off { opacity: .35; }
 
 /* ===== One month's Final UP, broken into its terms ===== */
-.dd-term-v.pos { color: #3fb950; }
-.dd-term.strong .dd-term-v { color: var(--accent); font-size: 18px; }
 /* Hours and the rate are consequences, not terms of the sum — set apart. */
 /* A month can hold a hundred issues; the panel must not become the page. */
 /* Fixed layout, because the summary is long and the cell is not: with auto
@@ -971,12 +700,10 @@ body {
 /* The key column was inheriting the table's right-alignment, so every row
    started at a different x depending on how long its summary was. Fixed width
    for the key, left for the cell, and the two line up. */
-.dd-more-table td.num, .dd-more-table th.num { text-align: right; }
 /* Widths, and they have to out-specify the board's own `width: auto` on every
    column that is not the name one — otherwise Type and Status took 363px each
    and the summary was left with 104. The Issue column is the one that should
    grow: it holds a sentence, the others hold a word. */
-.dd-more-table th.num, .dd-more-table td.num { width: 92px; }
 /* A charge carried by more than one root cause. The row already shows what
    the bug cost and what this person carries; this says why the two differ. */
 /* A charge shared between several RCAs: what the bug cost, then what they carry. */
@@ -992,9 +719,9 @@ body {
 /* 12px of air around the trailing caret: 12 to the border on the right, 12 to
    the label on the left. Vertical padding matches, so it never looks pinned. */
 .m3sel-field { display: inline-flex; align-items: center; gap: 12px; min-width: 168px;
-  background: var(--bg-col); border: 1px solid var(--border); border-radius: 10px;
-  padding: 11px 12px; color: var(--text); font-family: inherit; font-size: 13.5px;
-  font-weight: 600; cursor: pointer; transition: border-color .12s, background .12s; }
+  background: var(--bg-col); border: 1px solid var(--border); border-radius: var(--m3-shape-m);;
+  padding: 11px 12px; color: var(--text); font-family: inherit; font-size: var(--m3-font-body-medium);
+  font-weight: 600; cursor: pointer; transition: border-color var(--m3-dur-short) var(--m3-ease-standard), background var(--m3-dur-short) var(--m3-ease-standard); }
 .m3sel-field:hover { border-color: var(--border-strong); }
 .m3sel-lead { display: inline-flex; color: var(--text-faint); flex: 0 0 auto; }
 .m3sel-label { flex: 1; text-align: left; white-space: nowrap; overflow: hidden;
@@ -1002,25 +729,27 @@ body {
 .m3sel-caret { color: var(--text-faint); flex: 0 0 auto; }
 .m3sel-backdrop { position: fixed; inset: 0; z-index: 250; }
 .m3sel-pop { z-index: 251; max-height: 340px; overflow-y: auto;
-  background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: 16px;
-  box-shadow: 0 20px 54px rgba(0,0,0,.5); padding: 8px; }
-.m3sel-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  width: 100%; text-align: left; border: none; border-radius: 10px; background: transparent;
-  color: var(--text-dim); font-family: inherit; font-size: 13.5px; font-weight: 600;
-  padding: 10px 12px; cursor: pointer; transition: background .12s, color .12s; }
+  background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: var(--m3-shape-l);;
+  box-shadow: var(--m3-elev-3); padding: 8px; }
+/* A row, not a column. The label and its hint already stack inside
+   .m3sel-item-text; leaving the item itself as a column put a person's face
+   above their name instead of beside it — invisible until an option list had
+   faces in it, which nothing did until asks. */
+.m3sel-item { display: flex; align-items: center; gap: 10px;
+  width: 100%; text-align: left; border: none; border-radius: var(--m3-shape-s);; background: transparent;
+  color: var(--text-dim); font-family: inherit; font-size: var(--m3-font-body-medium); font-weight: 600;
+  padding: 10px 12px; cursor: pointer; transition: background var(--m3-dur-short) var(--m3-ease-standard), color var(--m3-dur-short) var(--m3-ease-standard); }
 .m3sel-item:hover { background: var(--bg-card); color: var(--text); }
 .m3sel-item.sel { background: var(--accent-soft); color: var(--accent); }
 .m3sel-item-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.m3sel-item-hint { font-size: 11.5px; font-weight: 500; color: var(--text-faint); }
+.m3sel-item-hint { font-size: var(--m3-font-label-medium); font-weight: 500; color: var(--text-faint); }
 .m3sel-item.sel .m3sel-item-hint { color: var(--accent); opacity: .75; }
 
 /* ===== My Board — Push to Jira modal ===== */
 
 /* ===== Admin — link a pending account to its Jira dev ===== */
-.dev-match-hint.ok { color: var(--ok); }
 
 /* searchable dev picker */
-.devpick-item.active { background: rgba(91,140,255,.14); }
 
 /* ===== Dev Stats — Live bugs tab ===== */
 /* dev cards: responsive grid of vertical cards */
@@ -1036,8 +765,6 @@ body {
 /* Output-vs-finds scatter + the per-release team comparison. */
 
 /* UTP/hour bars with a hover card. */
-.ub-bar.on .ub-hit { fill: rgba(255,255,255,.04); }
-.ub-bar.on rect:not(.ub-hit) { opacity: .82; }
 
 /* Release readiness gauges, above the Per Release leaderboard. */
 
@@ -1045,9 +772,9 @@ body {
 
 /* Secondary pages: the logo doubles as "back to the parent page". */
 .brand-back { display: inline-flex; align-items: center; gap: 4px; background: none; border: none;
-  padding: 0; margin: 0; color: inherit; font: inherit; cursor: pointer; border-radius: 8px; }
+  padding: 0; margin: 0; color: inherit; font: inherit; cursor: pointer; border-radius: var(--m3-shape-full);; }
 .brand-back .brand { pointer-events: none; }
-.brand-back-arrow { color: var(--text-faint); font-size: 15px; transition: transform .12s ease, color .12s ease; }
+.brand-back-arrow { color: var(--text-faint); font-size: var(--m3-font-title-medium); transition: transform var(--m3-dur-short) var(--m3-ease-standard), color var(--m3-dur-short) var(--m3-ease-standard); }
 .brand-back:hover .brand-back-arrow { color: var(--text); transform: translateX(-2px); }
 .brand-back:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
 
@@ -1062,29 +789,18 @@ body {
 /* Issue tracker — work items */
 
 /* compact row with data */
-.it-count.zero { opacity: .45; }
 
 /* Issue tracker — clickable people + the per-person tracker tab */
 
 /* Issue tracker — "needs attention" (queue running dry) + sorting */
-.it-attention-count.empty { color: var(--danger, #f85149); background: rgba(248,81,73,.13);
-  border: 1px solid rgba(248,81,73,.4); }
-.it-attention-count.low { color: var(--warn, #d29922); background: rgba(210,153,34,.13);
-  border: 1px solid rgba(210,153,34,.4); }
 /* nothing planned at all — urgent */
-.it-attention-badge.empty { color: var(--danger, #f85149);
-  background: rgba(248,81,73,.14); border: 1px solid rgba(248,81,73,.45); }
 /* down to the last item — warning */
-.it-attention-badge.low { color: var(--warn, #d29922);
-  background: rgba(210,153,34,.14); border: 1px solid rgba(210,153,34,.45); }
 
 /* the attention treatment, shared by all three layouts */
 
 /* ===== Admin — accounts as a full-width card grid with filters ===== */
-.acct-filters .btn { height: var(--acct-h); padding-top: 0; padding-bottom: 0; }
 
 /* tag filter — a single button that opens a multi-select */
-.acct-tagbtn.on { border-color: var(--accent); color: var(--text); }
 
 /* the cards themselves — several per row, content stacked */
 /* stretch: every card in a row is the tallest card's height (M3 card, elevation 0) */
@@ -1107,15 +823,12 @@ body {
 /* only the edges take the pointer, so the tooltip needs the line, not the section */
 
 /* "Edit page" in the header — M3 outlined button, tonal when active */
-.psec-editbtn.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
 /* the toolbar above a section — only in edit mode, always in normal flow so it
    can never sit on top of the section's own controls */
-.psec-bar-hide.on { color: var(--warn, #d29922); border-color: rgba(210,153,34,.45); }
 
 /* Editable cards inside a section (edit mode) */
 /* hidden from the person: dashed + dimmed, so admins can tell at a glance */
-.pcard-btn.on { color: var(--warn, #d29922); border-color: rgba(210,153,34,.45); }
 
 /* A section can be a grid item itself (Testing volume / Time allocation sit in
    .dd-two) — let it fill its cell so the two columns still line up. */
@@ -1124,7 +837,6 @@ body {
 /* --- Activity history (tester profile) ---------------------------------- */
 
 /* Timeline (release swimlane) */
-.sl-lane:hover .sl-label, .sl-lane.on .sl-label { fill: var(--text); }
 /* Hours that fall outside the release's own cycle — real, but attributed on a
    name the Fix Version no longer matches. */
 /* The ship marker sits on top of the bar in the same colour, so it needs an
@@ -1145,16 +857,6 @@ body {
 /* The Action column: what this person's stake in the ticket is. */
 
 /* Role beside the name, and the count on the who-selector. */
-::view-transition-group(standup-list) {
-  animation-duration: 300ms;
-  animation-timing-function: cubic-bezier(.2, 0, 0, 1);
-}
-::view-transition-old(standup-list),
-::view-transition-new(standup-list) {
-  width: 100%; height: 100%; object-fit: none; object-position: top left;
-}
-::view-transition-old(standup-list) { animation: vt-fade-out 80ms cubic-bezier(.3,0,.8,.15) both; }
-::view-transition-new(standup-list) { animation: vt-fade-in 240ms 80ms cubic-bezier(.05,.7,.1,1) both; }
 
 /* The shared .ds-table is table-layout:fixed with a 940px floor and 220px name
    columns. Five of those overflow this panel and clipped the Idle column, so
@@ -1209,7 +911,6 @@ body {
 /* ===== Dev Stats — Hours tab ===== */
 /* The two summary charts sit side by side and are drawn to the column width
    (see useFitWidth), so neither floats in dead space. */
-.hr-charts .hint { font-size: 11.5px; line-height: 1.45; margin-top: 6px; }
 /* The individual Tempo logs behind one ticket. */
 /* Fixed layout so a long comment can't push the Logged column off-screen: the
    date and hours columns are sized, the comment takes what's left and clips. */
@@ -1241,7 +942,6 @@ body {
 
 /* Tinted, never filled: a table of solid badges is harder to read than the
    text it replaces. Colour comes from statusColor.ts as an inline style. */
-.vb-th-sort.on { color: var(--accent, #5b8cff); }
 
 /* Day columns share the Bug Lifecycle board's banding so a number means the
    same thing on both pages. */
@@ -1264,13 +964,9 @@ body {
 /* ===== Import products modal ===== */
 /* .modal is a 440px confirm box; the import flow needs its own frame, and the
    review step wants the whole screen for a 27-column sheet. */
-.ip-steps span.on { color: var(--text); border-color: var(--accent, #5b8cff); }
-.ip-steps span.done { color: #3fb950; border-color: rgba(63,185,80,.4); }
-.ip-pick.on { border-color: var(--accent, #5b8cff); background: rgba(91,140,255,.12); }
 /* An amber panel, not a blue one: this is something to deal with, not a note.
    Buttons sit under the list rather than beside it — at full width the text ran
    long enough that they drifted a screen away from what they answer. */
-.ip-ask-buttons .btn { padding: 8px 18px; font-size: 13.5px; font-weight: 600; }
 /* Search box and its button stay on one line — .rel-hist-tools wraps once the
    200px input plus the button outgrow the space space-between leaves it. */
 
@@ -1328,30 +1024,157 @@ body {
 .tk-shell {
   flex: 1;
   display: grid;
-  grid-template-columns: 232px 1fr;
+  /* The nav, then everything else. One column: the projects expand inside it
+     under the Projects room rather than living in a second one. */
+  grid-template-columns: 248px 1fr;
   min-height: 0;
 }
 
 /* --- navigation rail ----------------------------------------------------- */
 
+/* The rooms. An M3 navigation rail: icon over a short label, and the selected
+   state is a full-round indicator behind the icon — the spec's own anatomy, not
+   a background colour on the whole item. */
 .tk-rail {
-  border-right: 1px solid var(--border);
-  background: var(--bg-elev);
-  padding: 16px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  padding: 12px 10px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-elev);
+  min-height: 0;
+  /* Scrolls only when a workspace has enough projects to need it. */
+  overflow-y: auto;
 }
+/* The row you aim at and the indicator you see are different boxes.
+   Forty-four pixels of filled pill around fourteen pixels of text reads as
+   heavy — but shrinking the row to fix that would put the target under the
+   forty-pixel floor. So the row keeps its height for the pointer and the
+   indicator is inset inside it, which is how the spec handles a dense
+   navigation item. */
+.tk-nav-item {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--m3-dur-short) var(--m3-ease-standard);
+}
+.tk-nav-item::before {
+  content: "";
+  position: absolute;
+  inset: 4px 0;
+  z-index: -1;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  transition: background var(--m3-dur-short) var(--m3-ease-standard);
+}
+.tk-nav-item svg { flex: 0 0 auto; }
+.tk-nav-label { flex: 1; min-width: 0; }
+.tk-nav-item:hover { color: var(--text); }
+.tk-nav-item.on { color: var(--accent); font-weight: 600; }
+.tk-nav-item.on::before { background: var(--accent-soft); }
+/* The state layer rides on the indicator's box, not the row's. Left at inset 0
+   it painted a full-height pill on hover while the selected one was inset four
+   pixels — two different shapes for the same control, which is what made a
+   hovered row look badly aligned next to a selected one. */
+.tk-nav-item.tk-layer::after { inset: 4px 0; }
 
-.tk-rail-title {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+/* Projects is a room and a disclosure. The row navigates, the twist opens —
+   two jobs that would fight if one control did both, because "show me the
+   list" and "take me to the board" are different wants. */
+.tk-rail-group { display: flex; align-items: center; gap: 2px; }
+.tk-rail-group .tk-nav-item { flex: 1; min-width: 0; }
+.tk-rail-twist {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
   color: var(--text-faint);
-  margin: 0 0 8px 12px;
+  cursor: pointer;
 }
-.tk-rail-title-2 { margin-top: 24px; }
+.tk-rail-twist:hover { color: var(--text); }
+.tk-rail-twist svg { transition: transform var(--m3-dur-short) var(--m3-ease-standard); }
+.tk-twisted { transform: rotate(90deg); }
+
+/* The projects, indented under the room they belong to. */
+.tk-rail-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Enough indent to read as containment, not so much that "AI First
+     Development" has nowhere to go. */
+  margin: 2px 0 6px 8px;
+  padding-left: 8px;
+  /* A hairline down the group, so the indent reads as containment rather than
+     as an arbitrary margin. */
+  border-left: 1px solid var(--border);
+}
+.tk-rail-line { display: flex; align-items: center; gap: 2px; }
+.tk-rail-line .tk-rail-item {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 10px;
+  gap: 8px;
+  /* Same trick as the rooms: the target stays forty, the indicator is inset. */
+  background: transparent;
+}
+.tk-rail-line .tk-rail-item::before {
+  content: "";
+  position: absolute;
+  inset: 4px 0;
+  z-index: -1;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  transition: background var(--m3-dur-short) var(--m3-ease-standard);
+}
+.tk-rail-line .tk-rail-on { background: transparent; }
+.tk-rail-line .tk-rail-on::before { background: var(--accent-soft); }
+/* Same correction as the rooms: hover and selection are one pill. */
+.tk-rail-line .tk-rail-item.tk-layer::after { inset: 4px 0; }
+.tk-rail-cog {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--m3-dur-short) var(--m3-ease-standard),
+              color var(--m3-dur-short) var(--m3-ease-standard);
+}
+/* Shown on approach, and always once focused — a control that only appears on
+   hover is a control a keyboard cannot reach. */
+.tk-rail-line:hover .tk-rail-cog,
+.tk-rail-line:focus-within .tk-rail-cog { opacity: 1; }
+.tk-rail-cog:hover { color: var(--text); }
+.tk-rail-none { padding: 8px 12px; font-size: var(--m3-font-label-medium); }
+/* The sidebar's own headings sit above a list, not between two of them. */
 
 /* M3 navigation item: the selected state is a full-round indicator behind the
    label, not a background colour change on the row. */
@@ -1367,7 +1190,7 @@ body {
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 500;
   letter-spacing: 0.1px;
   text-align: left;
@@ -1380,12 +1203,9 @@ body {
   color: var(--accent);
   font-weight: 600;
 }
-.tk-rail-sub { padding-left: 22px; min-height: 44px; }
-.tk-rail-wide { padding-left: 12px; }
-.tk-rail-glyph { width: 24px; text-align: center; font-size: 15px; }
 
 .tk-rail-key {
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.5px;
   padding: 3px 6px;
@@ -1424,7 +1244,9 @@ body {
      scroll the window to see is a worse trade than a bar that wraps. */
   flex-wrap: wrap;
 }
-.tk-bar-left { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+/* Wraps, because the view's name is somebody's sentence and can be long, and
+   the project title must not be pushed out of the window by it. */
+.tk-bar-left { display: flex; align-items: baseline; gap: 12px; min-width: 0; flex-wrap: wrap; }
 .tk-bar-right {
   display: flex;
   align-items: center;
@@ -1436,7 +1258,7 @@ body {
 }
 
 /* headline-small */
-.tk-title { font-size: 22px; font-weight: 600; line-height: 1.2; margin: 0; white-space: nowrap; }
+.tk-title { font-size: var(--m3-font-title-large); font-weight: 600; line-height: 1.2; margin: 0; white-space: nowrap; }
 
 /* M3 filled text field, at the app's 42px density so fields and buttons line
    up on one bar. */
@@ -1449,7 +1271,7 @@ body {
   background: var(--bg-col);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.25px;
   transition: border-color var(--m3-dur-short) var(--m3-ease-standard),
               background var(--m3-dur-short) var(--m3-ease-standard);
@@ -1516,7 +1338,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   align-items: center;
   gap: 8px;
   padding: 4px 4px 8px;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -1529,10 +1351,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-elev);
   border-radius: var(--m3-shape-full);
   padding: 2px 8px;
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
 }
 .tk-col-body { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
-.tk-col-empty { color: var(--text-faint); font-size: 12px; padding: 12px 4px; margin: 0; }
+.tk-col-empty { color: var(--text-faint); font-size: var(--m3-font-label-medium); padding: 12px 4px; margin: 0; }
 
 .tk-dot { width: 8px; height: 8px; border-radius: var(--m3-shape-full); flex: 0 0 auto; }
 
@@ -1546,7 +1368,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-m);
   box-shadow: var(--m3-elev-1);
-  padding: 12px;
+  /* No padding at the top: the key row sits in the same band as the type
+     corner, which is pinned to the card's actual corner. With a 12px inset the
+     key floated eleven pixels below the mark it belongs to. */
+  padding: 0 12px 12px;
   cursor: pointer;
   /* Every card the same height, so a column scans as a grid rather than a
      ragged stack and the eye can count without measuring. The height is the
@@ -1577,7 +1402,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: color-mix(in srgb, var(--pill, var(--accent)) 16%, transparent);
   border: 1px solid color-mix(in srgb, var(--pill, var(--accent)) 40%, transparent);
   color: var(--pill, var(--text-dim));
-  font-size: 10.5px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.3px;
   white-space: nowrap;
@@ -1587,7 +1412,39 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-card:hover { box-shadow: var(--m3-elev-2); border-color: var(--border-strong); }
 .tk-card-on { border-color: var(--accent); box-shadow: var(--m3-elev-2), 0 0 0 1px var(--accent); }
 .tk-card-dragging { opacity: var(--m3-state-drag); box-shadow: var(--m3-elev-4); }
-.tk-card-top { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; min-width: 0; }
+/* The band sits in the card's own corner — outside its padding, clipped by the
+   radius the card already has (it sets overflow: hidden). Rounded on the inner
+   corner only, so it reads as a band laid into the corner rather than a square
+   stuck on top of it. */
+.tk-card-corner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 24px;
+  border-radius: var(--m3-shape-m) 0 var(--m3-shape-m) 0;
+  color: var(--m3-on-accent);
+  font-size: var(--m3-font-label-medium);
+  line-height: 1;
+  /* It labels the card; it is not a second thing to click. */
+  pointer-events: none;
+}
+
+/* The key row starts clear of the band. Only this row — the summary and the
+   description below it use the card's full width. */
+.tk-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+  /* Exactly the corner band's height, so the two share a centre line. */
+  min-height: 24px;
+  margin-left: 22px;
+}
 /* Only the parent pill gives up width on this row. The type, the key and the
    face are how a card is identified at a glance and must not be squeezed. */
 .tk-card-top > .tk-type,
@@ -1601,7 +1458,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-card-sum {
   margin: 0;
   flex: 0 0 auto;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   line-height: 1.45;
   letter-spacing: 0.25px;
   display: -webkit-box;
@@ -1616,7 +1473,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-card-desc {
   margin: 0;
   flex: 0 0 auto;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   line-height: 1.45;
   color: var(--text-faint);
   display: -webkit-box;
@@ -1626,9 +1483,26 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   overflow: hidden;
 }
 
-.tk-type { font-size: 14px; line-height: 1; }
+/* A fixed box, because the glyphs are text and text has its own opinions about
+   width: ▫ measures 5px and ▲ measures 12.1, so a bare span left every label
+   starting at a different x — 292 to 299 across one menu. Centred in 16px, they
+   all agree, here and on every card and link that draws one.
+   Square, because the box was only ever fixed across: its height still came
+   from whatever it held — 13px on a board card, 14px in a menu, 16px in
+   settings, a whole line box when the type still wears a character — and a row
+   centring four different boxes puts the mark in four different places. */
+.tk-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  font-size: var(--m3-font-body-medium);
+  line-height: 1;
+}
 .tk-key {
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--text-faint);
@@ -1643,6 +1517,25 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .tk-prio-row { display: inline-flex; align-items: center; gap: 8px; text-transform: capitalize; }
 .tk-prio-row .tk-prio { margin-left: 0; }
+
+/* On a card, priority is a word. The dot above needs a legend nobody has —
+   six priorities told apart by six shades — and "urgent" is the thing a board
+   is actually scanned for. Kept apart from .tk-prio so the pickers, where the
+   dot sits beside its own name, still get a dot. */
+.tk-card-prio {
+  margin-left: auto;
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--prio) 55%, transparent);
+  border-radius: var(--m3-shape-full);
+  background: color-mix(in srgb, var(--prio) 16%, transparent);
+  color: var(--prio);
+  font-size: var(--m3-font-label-small);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
 .tk-face {
   border-radius: var(--m3-shape-full);
@@ -1665,12 +1558,12 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-m);
   overflow: hidden;
 }
-.tk-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tk-table { width: 100%; border-collapse: collapse; font-size: var(--m3-font-body-medium); }
 .tk-table thead th {
   height: 56px;
   padding: 0 16px;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--text-dim);
@@ -1680,7 +1573,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .tk-sortable { cursor: pointer; user-select: none; transition: color var(--m3-dur-short) var(--m3-ease-standard); }
 .tk-sortable:hover { color: var(--text); }
-.tk-sort { margin-left: 6px; font-size: 9px; color: var(--accent); }
+.tk-sort { margin-left: 6px; font-size: var(--m3-font-label-small); color: var(--accent); }
 .tk-table tbody tr {
   height: 52px;
   border-bottom: 1px solid var(--border);
@@ -1691,7 +1584,13 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-table tbody tr:hover { background: var(--bg-card-hover); }
 .tk-row-on { background: var(--accent-soft) !important; }
 .tk-table td { padding: 0 16px; letter-spacing: 0.25px; }
-.tk-cell-key { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+/* The cell stays a table cell. Making it `display: flex` — which it was —
+   takes it out of table layout: it loses `vertical-align: middle`, so on a 52px
+   row the key sat eighteen pixels above the summary beside it, and it dropped
+   out of the table's column sizing too. The line inside it does the flexing.
+   TeamQueue already worked this out and has its own copy of the pattern. */
+.tk-cell-key { white-space: nowrap; }
+.tk-keyline { display: inline-flex; align-items: center; gap: 8px; }
 .tk-cell-sum { max-width: 460px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tk-num { font-variant-numeric: tabular-nums; }
 .tk-empty-row { text-align: center; color: var(--text-faint); padding: 40px 0 !important; }
@@ -1700,11 +1599,13 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-chip {
   display: inline-flex;
   align-items: center;
-  height: 26px;
+  
+  /* 32dp, the spec's chip height. It had drifted to 26. */
+  height: 32px;;
   padding: 0 10px;
   border: 1px solid;
   border-radius: var(--m3-shape-s);
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.5px;
   white-space: nowrap;
@@ -1719,7 +1620,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -1738,7 +1639,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-card);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.25px;
   text-align: left;
   cursor: pointer;
@@ -1763,7 +1664,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text-faint);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   transition: color var(--m3-dur-short) var(--m3-ease-standard);
 }
 .tk-x:hover { color: var(--text); }
@@ -1772,8 +1673,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* M3 outlined button, small: full-round, label-large. */
 
 .tk-comment { border-left: 2px solid var(--border); padding-left: 12px; margin-bottom: 14px; }
-.tk-comment header { display: flex; gap: 8px; font-size: 12px; margin-bottom: 4px; }
-.tk-comment p { margin: 0; font-size: 14px; line-height: 1.55; letter-spacing: 0.25px; white-space: pre-wrap; }
+.tk-comment header { display: flex; gap: 8px; font-size: var(--m3-font-label-medium); margin-bottom: 4px; }
+.tk-comment p { margin: 0; font-size: var(--m3-font-body-medium); line-height: 1.55; letter-spacing: 0.25px; white-space: pre-wrap; }
 .tk-comment-new { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .tk-comment-new textarea {
   width: 100%;
@@ -1782,7 +1683,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-col);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.25px;
   padding: 12px 16px;
   line-height: 1.5;
@@ -1795,7 +1696,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-event {
   display: flex;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.25px;
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
@@ -1819,7 +1720,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-elev);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
   letter-spacing: 0.1px;
   cursor: pointer;
@@ -1847,7 +1748,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-m);
   background: color-mix(in srgb, var(--err) 10%, transparent);
   color: var(--err);
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.25px;
 }
 
@@ -1865,11 +1766,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   color: var(--text-dim);
   padding: 40px;
 }
+/* At the root there is no page around it to fill, so it says how tall it is.
+   `flex: 1` needs a flex parent and the shell has not rendered one yet. */
+.tk-blank-full { min-height: 100vh; }
 .tk-blank-card { max-width: 560px; margin: 0 auto; text-align: center; }
-.tk-blank-card h2 { font-size: 22px; font-weight: 600; margin: 0; color: var(--text); }
-.tk-blank-card p { margin: 0; line-height: 1.6; font-size: 14px; letter-spacing: 0.25px; }
+.tk-blank-card h2 { font-size: var(--m3-font-title-large); font-weight: 600; margin: 0; color: var(--text); }
+.tk-blank-card p { margin: 0; line-height: 1.6; font-size: var(--m3-font-body-medium); letter-spacing: 0.25px; }
 .tk-blank-detail {
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   background: var(--bg-col);
   border-radius: var(--m3-shape-m);
   padding: 12px 16px;
@@ -1903,7 +1807,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   animation: tk-dialog var(--m3-dur-medium) var(--m3-ease-decel);
 }
 @keyframes tk-dialog { from { opacity: 0; transform: scale(0.92); } }
-.tk-modal h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0; }
+.tk-modal h2 { margin: 0; font-size: var(--m3-font-title-large); font-weight: 600; letter-spacing: 0; }
 .tk-modal-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .tk-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
@@ -1915,7 +1819,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 .tk-releases { display: flex; flex-direction: column; gap: 24px; max-width: 1100px; }
 .tk-rel-head { display: flex; align-items: center; gap: 12px; }
-.tk-rel-head h2 { font-size: 22px; font-weight: 600; letter-spacing: 0; margin: 0; }
+.tk-rel-head h2 { font-size: var(--m3-font-title-large); font-weight: 600; letter-spacing: 0; margin: 0; }
 .tk-rel-head .tk-btn-primary { margin-left: auto; }
 
 .tk-rel-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
@@ -1937,8 +1841,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .tk-rel-card:hover { box-shadow: var(--m3-elev-2); border-color: var(--border-strong); }
 .tk-rel-card-top { display: flex; align-items: center; gap: 8px; }
-.tk-rel-name { font-size: 16px; font-weight: 600; letter-spacing: 0.15px; }
-.tk-rel-card-foot { display: flex; justify-content: space-between; font-size: 12px; letter-spacing: 0.4px; }
+.tk-rel-name { font-size: var(--m3-font-title-medium); font-weight: 600; letter-spacing: 0.15px; }
+.tk-rel-card-foot { display: flex; justify-content: space-between; font-size: var(--m3-font-label-medium); letter-spacing: 0.4px; }
 
 .tk-rel-bar {
   height: 6px;
@@ -1962,7 +1866,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   display: inline-flex;
   align-items: center;
   height: 24px;
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -1986,7 +1890,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 12px;
 }
 .tk-rel-block h3 {
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -1996,12 +1900,12 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   align-items: center;
   gap: 8px;
 }
-.tk-rel-block p { margin: 0; font-size: 14px; letter-spacing: 0.25px; }
+.tk-rel-block p { margin: 0; font-size: var(--m3-font-body-medium); letter-spacing: 0.25px; }
 
-.tk-mini { font-size: 14px; border-collapse: collapse; }
+.tk-mini { font-size: var(--m3-font-body-medium); border-collapse: collapse; }
 .tk-mini td { padding: 4px 12px 4px 0; }
 
-.tk-artifact { display: flex; align-items: center; gap: 12px; font-size: 14px; min-height: 40px; }
+.tk-artifact { display: flex; align-items: center; gap: 12px; font-size: var(--m3-font-body-medium); min-height: 40px; }
 .tk-artifact-name { flex: 1; font-weight: 600; letter-spacing: 0.15px; }
 /* M3 outlined button, small */
 .tk-ship {
@@ -2012,7 +1916,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   letter-spacing: 0.1px;
   cursor: pointer;
@@ -2025,7 +1929,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.25px;
   min-height: 44px;
   padding: 0 8px;
@@ -2081,7 +1985,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-col);
   color: var(--text);
   font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   line-height: 1.65;
   padding: 16px;
   resize: vertical;
@@ -2101,7 +2005,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--accent);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
   letter-spacing: 0.1px;
   cursor: pointer;
@@ -2139,16 +2043,19 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   text-align: left;
   cursor: pointer;
 }
-.tk-rule-name { font-size: 16px; font-weight: 600; letter-spacing: 0.15px; }
-.tk-rule-main .tk-dim { font-size: 12px; letter-spacing: 0.4px; }
-.tk-rule-warn { font-size: 12px; letter-spacing: 0.4px; color: var(--warn); }
+.tk-rule-name { font-size: var(--m3-font-title-medium); font-weight: 600; letter-spacing: 0.15px; }
+.tk-rule-main .tk-dim { font-size: var(--m3-font-label-medium); letter-spacing: 0.4px; }
+.tk-rule-warn { font-size: var(--m3-font-label-medium); letter-spacing: 0.4px; color: var(--warn); }
 
 /* M3 switch: 52x32 track, 24px handle, sliding on the standard easing. */
 .tk-toggle {
   display: inline-flex;
   align-items: center;
+  /* The switch itself is 32dp, which is the spec. The label around it is what
+     a finger aims at, so that is what has to clear 40. */
+  min-height: 40px;
   gap: 10px;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   letter-spacing: 0.4px;
   color: var(--text-dim);
   cursor: pointer;
@@ -2203,7 +2110,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   display: inline-flex;
   align-items: center;
   height: 22px;
-  font-size: 10px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -2272,13 +2179,15 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    off the top of it. */
 .tkc-as-page .tkc-side { position: sticky; top: 0; align-self: start; }
 
-/* Room to actually write. The dialog keeps its 168px; the page gives the
-   description most of the window.
-   Written as a descendant rather than its own class: .tkc-ta is declared
-   further down this file, and a single class would lose on source order. */
-/* Doubled: a description is the part of an issue people actually write, and
-   the page exists to give it room. The page scrolls; the dialog keeps 168px. */
-.tkc-as-page .tkc-ta { min-height: clamp(640px, 92vh, 1280px); font-size: 14.5px; }
+/* Room to actually write. A description is the part of an issue people
+   actually write, and the full-page view exists to give it room — the dialog
+   keeps its 168px, the page takes most of the window. Not the compact comment
+   box, which is a reply and not a document.
+   A descendant selector rather than its own class: the editor's own rules are
+   declared further down this file and a single class would lose on order. */
+.tkc-as-page .tk-rt:not(.tk-rt-compact) .tk-rt-body {
+  min-height: clamp(640px, 92vh, 1280px);
+}
 .tkc-as-page .tkc-activity { max-height: none; }
 .tkc-as-page .tkc-comments { max-height: none; }
 
@@ -2295,23 +2204,31 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .tkc-head-l { flex: 1; min-width: 0; }
 .tkc-crumb {
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--text-faint);
   margin-bottom: 4px;
 }
-.tkc-title { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0; }
+.tkc-title { margin: 0; font-size: var(--m3-font-title-large); font-weight: 600; letter-spacing: 0; }
 .tkc-key { font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
 
+/* The message and the × that dismisses it are a row, not a sentence with a
+   picture at the end of it. They were the latter, which put the × on the
+   baseline of whichever line the message happened to finish on; a row centres
+   it against the message however many lines that turns out to be. The gap is
+   the space that used to sit between them in the markup — a flex row drops it. */
 .tkc-err {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 12px 24px 0;
   padding: 12px 16px;
   border: 1px solid var(--err);
   border-radius: var(--m3-shape-m);
   background: color-mix(in srgb, var(--err) 10%, transparent);
   color: var(--err);
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   cursor: pointer;
 }
 
@@ -2319,6 +2236,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Hold the scrollbar's width whether or not there is one. Without it, content
+     that grows past the fold narrows the whole body as the bar appears, and
+     every control in it jumps sideways. */
+  scrollbar-gutter: stable;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 28px;
@@ -2329,7 +2250,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 .tkc-field { display: flex; flex-direction: column; gap: 8px; }
 .tkc-label {
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -2345,32 +2266,24 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-col);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.25px;
   transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
 }
 .tkc-input:hover { border-color: var(--border-strong); }
 .tkc-input:focus { outline: none; border-color: var(--accent); }
-.tkc-input-sm { height: 34px; padding: 0 12px; font-size: 13px; }
+.tkc-input-sm { height: 40px;; padding: 0 12px; font-size: var(--m3-font-body-medium); }
 
 /* Description: toolbar and textarea share one outlined container, so it reads
    as a single field rather than two stacked controls. */
-.tkc-desc {
-  border: 1px solid var(--border);
-  border-radius: var(--m3-shape-m);
-  background: var(--bg-col);
-  overflow: hidden;
-  transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
-}
-.tkc-desc:focus-within { border-color: var(--accent); }
-.tkc-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-}
+/* The toolbar mixes buttons that say H1 with buttons that draw a bullet list,
+   and a <button> only centres either of them by way of the line box it makes
+   for them. Now that an icon is a block that line box is gone, so the button
+   has to be the box that does the centring. */
 .tkc-tb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 30px;
   height: 30px;
   padding: 0 7px;
@@ -2379,24 +2292,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   cursor: pointer;
 }
 .tkc-tb-div { width: 1px; height: 18px; background: var(--border); margin: 0 5px; }
-.tkc-ta {
-  width: 100%;
-  min-height: 168px;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-  line-height: 1.6;
-  letter-spacing: 0.25px;
-  padding: 14px 16px;
-  resize: vertical;
-}
-.tkc-ta:focus { outline: none; }
 
 /* --- dropdowns ------------------------------------------------------------ */
 
@@ -2414,7 +2313,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-col);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   cursor: pointer;
   transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
 }
@@ -2422,14 +2321,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkc-dd-val { display: inline-flex; align-items: center; gap: 10px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tkc-dd-caret { color: var(--text-faint); flex: 0 0 auto; }
 
-.tkc-pop-back { position: fixed; inset: 0; z-index: 96; }
+/* Both are portalled to <body>, so they clear the card dialog (95) and the
+   development dialog (120) rather than only their own stacking context. The
+   position and height come from placeMenu() — a menu whose height is decided
+   in CSS cannot know how much room is left below the trigger. */
+.tkc-pop-back { position: fixed; inset: 0; z-index: 250; }
 .tkc-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  z-index: 97;
-  max-height: 320px;
+  position: fixed;
+  z-index: 251;
   overflow-y: auto;
   padding: 8px;
   background: var(--bg-elev);
@@ -2450,7 +2349,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   text-align: left;
   cursor: pointer;
 }
@@ -2467,28 +2366,22 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkc-menu-row.sel:hover { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 
 /* A chip is narrow by design, so its menu cannot take its width from it. */
-.tkc-dd-wrap-chip .tkc-menu {
-  right: auto;
-  width: max-content;
-  min-width: 200px;
-  max-width: 320px;
-}
+/* The chip menu sizes to its content between bounds, which placeMenu passes
+   in — it is the only thing that knows where the trigger is. */
 
 /* --- status list ---------------------------------------------------------- */
-.tkc-status-row.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 /* A move the workflow forbids is shown and dimmed rather than hidden: the rule
    is worth seeing, and the title says why it cannot be clicked. */
-.tkc-status-row.on:disabled { opacity: 1; cursor: default; }
 
 /* --- side details --------------------------------------------------------- */
 
 .tkc-custom { display: flex; flex-direction: column; gap: 8px; }
-.tkc-custom-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.tkc-custom-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--m3-font-body-medium); }
 .tkc-custom-row .tkc-input { width: 110px; flex: 0 0 auto; }
 
 .tkc-releases { display: flex; flex-wrap: wrap; gap: 6px; }
 
-.tkc-meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 13px; }
+.tkc-meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: var(--m3-font-body-medium); }
 .tkc-meta dt { color: var(--text-faint); }
 .tkc-meta dd { margin: 0; }
 
@@ -2539,14 +2432,21 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   text-align: left;
   cursor: pointer;
 }
 .tkc-danger { color: var(--err); }
 
 @media (max-width: 900px) {
-  .tkc-body { grid-template-columns: 1fr; gap: 20px; }
+  /* Both selectors, because `.tkc-as-page .tkc-body` is the more specific one
+     and would otherwise keep its 340px sidebar through the breakpoint — which
+     leaves the 1fr main column at literally zero and the summary, description,
+     labels and links simply gone. */
+  .tkc-body,
+  .tkc-as-page .tkc-body { grid-template-columns: 1fr; gap: 20px; }
+  /* Nothing to stick to once the columns are stacked. */
+  .tkc-as-page .tkc-side { position: static; }
 }
 
 /* --- project settings ----------------------------------------------------
@@ -2556,48 +2456,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* The rail gains a ⋯ per project. It sits inside the row rather than beside it
    so the row stays one 48px target, and only shows up on hover or when the
    project is the current one — a column of dots is noise. */
-.tk-rail-line { position: relative; display: flex; align-items: center; }
-.tk-rail-line .tk-rail-item { flex: 1; padding-right: 34px; }
-.tk-rail-more-wrap { position: absolute; right: 4px; }
-.tk-rail-more {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: var(--m3-shape-full);
-  background: transparent;
-  color: var(--text-faint);
-  font: inherit;
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--m3-dur-short) var(--m3-ease-standard),
-              color var(--m3-dur-short) var(--m3-ease-standard);
-}
-.tk-rail-line:hover .tk-rail-more,
-.tk-rail-line:focus-within .tk-rail-more,
-.tk-rail-line .tk-rail-on + .tk-rail-more-wrap .tk-rail-more { opacity: 1; }
-.tk-rail-more:hover { color: var(--text); }
-
-.tk-rail-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 97;
-  min-width: 190px;
-  padding: 8px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--m3-shape-l);
-  box-shadow: var(--m3-elev-3);
-}
 
 /* --- the dialog ----------------------------------------------------------- */
-
-.tks { width: min(980px, 100%); }
 .tks-newfield { width: min(520px, 100%); }
 
 .tks-tabs {
@@ -2615,7 +2475,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
   letter-spacing: 0.1px;
   cursor: pointer;
@@ -2636,11 +2496,11 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 .tks-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 24px 24px; }
 .tks-pane { display: flex; flex-direction: column; gap: 16px; }
-.tks-pane > p { margin: 0; font-size: 13px; }
+.tks-pane > p { margin: 0; font-size: var(--m3-font-body-medium); }
 .tks-two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
 .tks-h {
   margin: 0 0 10px;
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -2657,7 +2517,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-m);
   background: var(--bg-card);
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
 }
 .tks-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tks-pick { cursor: pointer; }
@@ -2676,7 +2536,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   cursor: pointer;
 }
 .tks-mini:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -2684,9 +2544,9 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tks-danger { color: var(--err); }
 
 .tks-add { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.tks-add .tk-dim { font-size: 12px; }
+.tks-add .tk-dim { font-size: var(--m3-font-label-medium); }
 
-.tks-req { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.tks-req { display: inline-flex; align-items: center; min-height: 40px; gap: 6px; font-size: var(--m3-font-label-medium); color: var(--text-dim); }
 .tks-req input, .tks-grid input { accent-color: var(--accent); width: 16px; height: 16px; }
 
 /* --- the flow grid -------------------------------------------------------- */
@@ -2697,7 +2557,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-m);
   max-height: 420px;
 }
-.tks-grid { border-collapse: collapse; font-size: 13px; }
+.tks-grid { border-collapse: collapse; font-size: var(--m3-font-body-medium); }
 .tks-grid th, .tks-grid td {
   border-bottom: 1px solid var(--border);
   border-right: 1px solid var(--border);
@@ -2719,7 +2579,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   color: var(--text-dim);
   margin: 0 auto;
@@ -2734,7 +2594,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   padding: 0 14px;
   height: 42px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
 }
 .tks-grid tbody th .tk-dot { margin-right: 8px; display: inline-block; vertical-align: middle; }
 .tks-grid td { text-align: center; min-width: 44px; }
@@ -2755,13 +2615,13 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-m);
   background: var(--bg-card);
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   cursor: pointer;
   transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
 }
 .tks-radio.on { border-color: var(--accent); background: var(--accent-soft); }
 .tks-radio input { accent-color: var(--accent); width: 18px; height: 18px; }
-.tks-radio .tk-dim { font-size: 13px; }
+.tks-radio .tk-dim { font-size: var(--m3-font-body-medium); }
 
 .tks-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-height: 32px; }
 .tks-chips .tk-chip { gap: 6px; }
@@ -2770,7 +2630,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: inherit;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   cursor: pointer;
   padding: 0 0 0 4px;
   opacity: 0.7;
@@ -2802,8 +2662,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 16px;
   margin-bottom: 4px;
 }
-.tks-page-title { margin: 4px 0 2px; font-size: 26px; font-weight: 600; letter-spacing: 0; }
-.tks-page-head p { margin: 0; font-size: 14px; }
+.tks-page-title { margin: 4px 0 2px; font-size: var(--m3-font-headline-small); font-weight: 600; letter-spacing: 0; }
+.tks-page-head p { margin: 0; font-size: var(--m3-font-body-medium); }
 .tks-page .tks-tabs { padding: 12px 0 0; }
 .tks-page .tks-body { overflow: visible; padding: 24px 0 0; }
 
@@ -2822,22 +2682,22 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .tks-field-off { opacity: 0.6; }
 .tks-field-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.tks-field-name { font-size: 15px; font-weight: 600; letter-spacing: 0.15px; }
+.tks-field-name { font-size: var(--m3-font-title-medium); font-weight: 600; letter-spacing: 0.15px; }
 .tks-field-key {
   font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   color: var(--text-faint);
   background: var(--bg-col);
   padding: 2px 7px;
   border-radius: var(--m3-shape-xs);
 }
 .tks-field-actions { margin-left: auto; display: flex; gap: 2px; }
-.tks-field-why { margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.tks-field-why { margin: 0; font-size: var(--m3-font-body-medium); color: var(--text-dim); line-height: 1.5; }
 .tks-field-foot {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   flex-wrap: wrap;
 }
 /* A field asked for on five types that nobody fills in is the shape of the rot
@@ -2845,7 +2705,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tks-warn { color: var(--warn); }
 .tks-field-edit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tks-field-edit .tkc-input { width: 210px; }
-.tks-field-edit .tk-dim { font-size: 12px; }
+.tks-field-edit .tk-dim { font-size: var(--m3-font-label-medium); }
 
 /* --- the workflow diagram ------------------------------------------------
    Statuses as boxes, transitions as labelled arrows, settings for whichever
@@ -2853,20 +2713,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    ------------------------------------------------------------------------- */
 
 .tkf-switch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.tkf-switch .tk-dim { flex: 1; font-size: 12px; }
-.tkf-switch-btn {
-  height: 36px;
-  padding: 0 18px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--m3-shape-full);
-  background: transparent;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.tkf-switch-btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.tkf-switch .tk-dim { flex: 1; font-size: var(--m3-font-label-medium); }
 
 .tkf { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
 
@@ -2903,7 +2750,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .tkf-bar .tks-req { flex: 1; }
 .tkf-zoom { display: inline-flex; align-items: center; gap: 6px; }
-.tkf-zoom .tk-num { min-width: 42px; text-align: center; font-size: 12px; }
+.tkf-zoom .tk-num { min-width: 42px; text-align: center; font-size: var(--m3-font-label-medium); }
 
 /* The canvas takes whatever height is left rather than a fixed 620px, so a
    bigger window means a bigger diagram instead of more empty page. */
@@ -2927,7 +2774,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-full);
   background: var(--bg-elev);
   color: var(--text-dim);
-  font-size: 10.5px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   line-height: 18px;
   text-align: center;
@@ -2948,7 +2795,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   box-shadow: var(--m3-elev-1);
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
   text-align: left;
   cursor: grab;
@@ -2959,7 +2806,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkf-node-dot { width: 8px; height: 8px; border-radius: var(--m3-shape-full); flex: 0 0 auto; }
 .tkf-node-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tkf-node-count {
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   color: var(--text-faint);
   background: var(--bg-col);
@@ -2979,7 +2826,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   display: flex;
   flex-direction: column;
 }
-.tkf-panel > .tk-dim { padding: 20px; margin: 0; font-size: 13px; }
+.tkf-panel > .tk-dim { padding: 20px; margin: 0; font-size: var(--m3-font-body-medium); }
 .tkf-panel-head {
   display: flex;
   align-items: center;
@@ -2987,20 +2834,20 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   padding: 16px 18px;
   border-bottom: 1px solid var(--border);
 }
-.tkf-panel-head h3 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.15px; }
+.tkf-panel-head h3 { margin: 0; font-size: var(--m3-font-title-medium); font-weight: 600; letter-spacing: 0.15px; }
 .tkf-panel-body { overflow-y: auto; padding: 4px 18px 18px; }
 
 .tkf-sec { padding: 16px 0; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
 .tkf-sec:last-child { border-bottom: 0; }
 .tkf-sec h4 {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   color: var(--text-faint);
 }
-.tkf-sec p { margin: 0; font-size: 12px; line-height: 1.5; }
+.tkf-sec p { margin: 0; font-size: var(--m3-font-label-medium); line-height: 1.5; }
 .tkf-sec .tkc-field { gap: 6px; }
 .tkf-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tkf-danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 45%, transparent); }
@@ -3016,14 +2863,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .tkf-swatch.on { border-color: var(--text); }
 
-.tkf-move { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.tkf-move { display: flex; align-items: center; gap: 6px; font-size: var(--m3-font-body-medium); }
 .tkf-move-name {
   border: 1px dashed var(--border-strong);
   border-radius: var(--m3-shape-full);
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   padding: 3px 10px;
   cursor: text;
@@ -3043,7 +2890,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   padding: 4px 6px;
   cursor: pointer;
   text-align: left;
@@ -3074,8 +2921,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkq { max-width: 1560px; margin: 0 auto; }
 
 .tkw-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-.tkw-head h1 { margin: 0; font-size: 26px; font-weight: 600; }
-.tkw-head p { margin: 4px 0 0; font-size: 14px; }
+.tkw-head h1 { margin: 0; font-size: var(--m3-font-headline-small); font-weight: 600; }
+.tkw-head p { margin: 4px 0 0; font-size: var(--m3-font-body-medium); }
 
 /* Urgent has to be the loudest thing on the page or it does not work. */
 .tkw-urgent {
@@ -3088,8 +2935,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 14px;
 }
 .tkw-urgent-head { display: flex; align-items: center; gap: 14px; }
-.tkw-urgent-head h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--err); }
-.tkw-urgent-head p { margin: 2px 0 0; font-size: 13px; color: var(--text-dim); }
+.tkw-urgent-head h2 { margin: 0; font-size: var(--m3-font-title-large); font-weight: 700; color: var(--err); }
+.tkw-urgent-head p { margin: 2px 0 0; font-size: var(--m3-font-body-medium); color: var(--text-dim); }
 .tkw-siren {
   display: inline-flex;
   align-items: center;
@@ -3099,16 +2946,16 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   flex: 0 0 auto;
   border-radius: var(--m3-shape-full);
   background: var(--err);
-  color: #fff;
-  font-size: 19px;
+  color: var(--m3-on-accent);
+  font-size: var(--m3-font-title-large);
   font-weight: 800;
 }
 
 .tkw-band { display: flex; flex-direction: column; gap: 8px; }
 .tkw-band > header { display: flex; align-items: baseline; gap: 12px; }
-.tkw-band h2 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.15px; }
-.tkw-band .tk-dim { font-size: 13px; }
-.tkw-empty { font-size: 13px; margin: 0; padding: 6px 2px; }
+.tkw-band h2 { margin: 0; font-size: var(--m3-font-title-medium); font-weight: 600; letter-spacing: 0.15px; }
+.tkw-band .tk-dim { font-size: var(--m3-font-body-medium); }
+.tkw-empty { font-size: var(--m3-font-body-medium); margin: 0; padding: 6px 2px; }
 
 .tkw-card {
   display: flex;
@@ -3120,7 +2967,19 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-card);
   box-shadow: var(--m3-elev-1);
 }
-.tkw-card-urgent { border-color: var(--err); background: var(--bg-card); }
+/* The urgent card carries three things a normal card does not have to fit on
+   one line: the issue, the reason somebody escalated it, and the button that
+   stops whatever you were doing. As a row they compete, and the issue — which
+   is flex:1 with a zero basis — is the one that loses: at 1120px it collapsed
+   to 42px and wrapped the summary one word per line. So it stacks. Reading
+   order is also the right one: what, why, what to do about it. */
+.tkw-card-urgent {
+  border-color: var(--err);
+  background: var(--bg-card);
+  flex-direction: column;
+  align-items: stretch;
+}
+.tkw-card-urgent > .tk-btn { align-self: flex-start; }
 .tkw-card-main {
   flex: 1;
   min-width: 0;
@@ -3138,10 +2997,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   cursor: pointer;
 }
 .tkw-card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tkw-summary { font-size: 15px; font-weight: 600; letter-spacing: 0.15px; }
+.tkw-summary { font-size: var(--m3-font-title-medium); font-weight: 600; letter-spacing: 0.15px; }
 /* Every card says why it is here — the line that makes the order followable. */
-.tkw-why { font-size: 12px; color: var(--text-faint); letter-spacing: 0.4px; }
-.tkw-why-urgent { color: var(--err); font-size: 13px; }
+.tkw-why { font-size: var(--m3-font-label-medium); color: var(--text-faint); letter-spacing: 0.4px; }
+.tkw-why-urgent { color: var(--err); font-size: var(--m3-font-body-medium); }
 
 /* The position, which is the whole point of the Next band. */
 .tkw-num {
@@ -3154,20 +3013,20 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-full);
   background: var(--bg-col);
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .tkw-card:first-of-type .tkw-num { background: var(--accent); color: var(--m3-on-accent); }
 
 .tkw-prio {
-  font-size: 10px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   padding: 2px 8px;
   border-radius: var(--m3-shape-xs);
-  color: #fff;
+  color: var(--m3-on-accent);
 }
 .tkw-order { display: inline-flex; gap: 2px; flex: 0 0 auto; }
 .tkw-park { width: min(560px, 100%); }
@@ -3175,20 +3034,59 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* --- team queue ----------------------------------------------------------- */
 
 .tkq-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.tkq-tabs { display: flex; gap: 8px; }
-.tkq-tab {
-  height: 40px;
-  padding: 0 20px;
-  border: 2px solid var(--border-strong);
+/* A page's own heading, under the top bar. headline-small is the doc's role
+   for a page title; the line under it says what the page is for, because a
+   title alone answers "where am I" and not "what is this". */
+.tk-page-head { margin: 0 0 20px; }
+.tk-page-head h1 {
+  margin: 0;
+  font-size: var(--m3-font-headline-small);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.tk-page-head p { margin: 4px 0 0; font-size: var(--m3-font-body-medium); }
+
+/* --- M3 segmented button --------------------------------------------------
+   One outlined container, hairline dividers, and a selected segment that says
+   so twice: a filled background and a check. See M3Segmented.tsx for why the
+   row of separate pills it replaces did not work. */
+.m3seg {
+  display: inline-flex;
+  height: var(--m3-control-h);
+  border: 1px solid var(--border-strong);
   border-radius: var(--m3-shape-full);
+  overflow: hidden;
+  /* Sizes to its labels, including inside a column-flex card, which stretches
+     its children by default and would otherwise run the outline to the far
+     edge with three segments huddled at the left. */
+  flex: 0 0 auto;
+  align-self: flex-start;
+}
+.m3seg-stretch { display: flex; width: 100%; align-self: stretch; }
+.m3seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  border: 0;
+  /* The divider, not a box: segments are connected by definition. */
+  border-left: 1px solid var(--border-strong);
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--m3-font-body-medium);
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background var(--m3-dur-short) var(--m3-ease-standard),
+              color var(--m3-dur-short) var(--m3-ease-standard);
 }
-.tkq-tab.on { background: var(--bg-card); }
+.m3seg-btn:first-child { border-left: 0; }
+.m3seg-stretch .m3seg-btn { flex: 1; }
+.m3seg-btn.on { background: var(--accent-soft); color: var(--accent); }
+.m3seg-check { flex: 0 0 auto; }
 /* Countable urgency polices itself. */
 .tkq-urgent-btn { color: var(--err); border-color: color-mix(in srgb, var(--err) 45%, transparent); }
 
@@ -3219,10 +3117,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* A card that is also the active filter says so, or clicking it twice is a
    mystery. */
 .tkq-card.on { border-color: var(--accent); box-shadow: var(--m3-elev-2), 0 0 0 1px var(--accent); }
-.tkq-card-value { font-size: 30px; font-weight: 650; line-height: 1.05; font-variant-numeric: tabular-nums; }
-.tkq-card-label { font-size: 13px; font-weight: 600; letter-spacing: 0.15px; }
+.tkq-card-value { font-size: var(--m3-font-headline-medium); font-weight: 650; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.tkq-card-label { font-size: var(--m3-font-body-medium); font-weight: 600; letter-spacing: 0.15px; }
 .tkq-card-hint {
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   color: var(--text-faint);
   letter-spacing: 0.4px;
   overflow: hidden;
@@ -3235,7 +3133,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkq-card-zero .tkq-card-value { color: var(--text-faint); }
 
 .tkq-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.tkq-count { margin-left: auto; font-size: 13px; font-variant-numeric: tabular-nums; }
+.tkq-count { margin-left: auto; font-size: var(--m3-font-body-medium); font-variant-numeric: tabular-nums; }
 
 /* Fixed layout, or the Task column gets whatever is left after the controls
    and every summary wraps to four lines. Widths are declared on the header. */
@@ -3253,10 +3151,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   min-width: 0;
   width: 100%;
   padding: 5px 10px;
-  font-size: 12.5px;
+  font-size: var(--m3-font-label-medium);
   border-radius: var(--m3-shape-s);
 }
-.tkq-table .tk-btn { height: 30px; padding: 0 12px; font-size: 12px; }
+.tkq-table .tk-btn { height: var(--m3-control-h-dense);; padding: 0 12px; font-size: var(--m3-font-label-medium); }
 
 .tkq-td-key { vertical-align: middle; }
 .tkq-keyline { display: inline-flex; align-items: center; gap: 7px; }
@@ -3269,7 +3167,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--accent);
   font-family: ui-monospace, "Cascadia Code", Menlo, monospace;
-  font-size: 12.5px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 700;
   letter-spacing: 0.2px;
   cursor: pointer;
@@ -3288,7 +3186,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.2px;
   text-align: left;
   cursor: pointer;
@@ -3306,11 +3204,11 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   text-overflow: ellipsis;
   padding-left: 4px;
 }
-.tkq-table .tkw-prio { font-size: 9.5px; padding: 2px 7px; }
-.tkq-table .tk-chip { height: 22px; padding: 0 8px; font-size: 10.5px; }
-.tkq-table .tk-assignee { font-size: 12.5px; min-width: 0; }
+.tkq-table .tkw-prio { font-size: var(--m3-font-label-small); padding: 2px 7px; }
+.tkq-table .tk-chip { height: var(--m3-control-h-dense);; padding: 0 8px; font-size: var(--m3-font-label-small); }
+.tkq-table .tk-assignee { font-size: var(--m3-font-label-medium); min-width: 0; }
 .tkq-table .tk-assignee, .tkq-table .tkq-key { overflow: hidden; text-overflow: ellipsis; }
-.tkq-note { font-size: 12px; margin: 0; }
+.tkq-note { font-size: var(--m3-font-label-medium); margin: 0; }
 
 /* --- multiple choice, with a search box ----------------------------------
    Matches M3Select's field and popup so the two sit together on a filter bar
@@ -3326,7 +3224,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-full);
   background: var(--accent);
   color: var(--m3-on-accent);
-  font-size: 10.5px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   line-height: 18px;
   text-align: center;
@@ -3336,14 +3234,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .m3ms-search { padding: 10px 10px 6px; border-bottom: 1px solid var(--border); }
 .m3ms-search input {
   width: 100%;
-  height: 34px;
+  height: 40px;;
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-s);
   background: var(--bg-col);
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
 }
 .m3ms-search input:focus { outline: none; border-color: var(--accent); }
 
@@ -3372,7 +3270,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
 }
 
-.m3ms-none { margin: 0; padding: 14px 12px; font-size: 13px; color: var(--text-faint); }
+.m3ms-none { margin: 0; padding: 14px 12px; font-size: var(--m3-font-body-medium); color: var(--text-faint); }
 
 .m3ms-foot {
   display: flex;
@@ -3389,7 +3287,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
   cursor: pointer;
 }
@@ -3410,7 +3308,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    tooltip is abstract, a row of faces is four people with nothing to do. */
 .tkq-card-faces { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
 .tkq-card-faces .tk-face { border: 1.5px solid var(--bg-card); }
-.tkq-card-faces .tk-dim { font-size: 11px; }
+.tkq-card-faces .tk-dim { font-size: var(--m3-font-label-small); }
 
 .tkw-who { display: flex; align-items: center; gap: 14px; }
 
@@ -3430,7 +3328,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   align-items: flex-start;
   gap: 12px;
 }
-.tkw-seed p { margin: 0; font-size: 14px; color: var(--text-dim); max-width: 62ch; line-height: 1.55; }
+.tkw-seed p { margin: 0; font-size: var(--m3-font-body-medium); color: var(--text-dim); max-width: 62ch; line-height: 1.55; }
 
 /* --- my work: columns or a list ------------------------------------------
    Urgent stays across the top either way. It is an interrupt, not one of the
@@ -3438,7 +3336,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    ------------------------------------------------------------------------- */
 
 .tkw-head-r { display: flex; align-items: center; gap: 10px; }
-.tkw-switch .tkf-switch-btn { height: 34px; padding: 0 16px; font-size: 12.5px; }
 
 .tkw-cols {
   display: grid;
@@ -3457,8 +3354,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   min-height: 140px;
 }
 .tkw-band-col > header { justify-content: space-between; }
-.tkw-band-col h2 { font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-dim); }
-.tkw-band-hint { margin: -4px 0 2px; font-size: 11.5px; letter-spacing: 0.4px; }
+.tkw-band-col h2 { font-size: var(--m3-font-body-medium); letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-dim); }
+.tkw-band-hint { margin: -4px 0 2px; font-size: var(--m3-font-label-medium); letter-spacing: 0.4px; }
 
 /* In a column the card stacks: content, then whatever you can do to it. */
 .tkw-card-col {
@@ -3473,7 +3370,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* The position badge sits with the key rather than in front of a wide row. */
 .tkw-card-col .tkw-num { position: absolute; top: 10px; right: 10px; }
 .tkw-card-col { position: relative; }
-.tkw-card-col .tkw-summary { font-size: 14px; line-height: 1.35; }
+.tkw-card-col .tkw-summary { font-size: var(--m3-font-body-medium); line-height: 1.35; }
 
 @media (max-width: 1500px) { .tkw-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .tkw-cols { grid-template-columns: 1fr; } }
@@ -3495,7 +3392,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .m3dp-weekdays span {
   text-align: center;
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.5px;
   color: var(--text-faint);
@@ -3511,7 +3408,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background var(--m3-dur-short) var(--m3-ease-standard),
@@ -3546,7 +3443,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
   cursor: pointer;
 }
@@ -3556,7 +3453,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 /* --- picking issues onto a release ---------------------------------------- */
 
-.tk-rel-notes-head .tkr-add { margin-left: auto; font-size: 17px; }
+.tk-rel-notes-head .tkr-add { margin-left: auto; font-size: var(--m3-font-title-medium); }
 .tkr-pick { width: min(820px, 100%); }
 .tkr-pick-list { display: flex; flex-direction: column; gap: 4px; max-height: 46vh; overflow-y: auto; }
 .tkr-pick-row {
@@ -3568,7 +3465,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-s);
   background: var(--bg-card);
-  font-size: 13.5px;
+  font-size: var(--m3-font-body-medium);
   cursor: pointer;
 }
 .tkr-pick-row.on { border-color: var(--accent); background: var(--accent-soft); }
@@ -3590,7 +3487,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 .tkc-talk { display: flex; flex-direction: column; gap: 0; }
 .tkc-talk-tabs { padding: 0; margin-bottom: 14px; }
-.tkc-talk-tabs .tks-tab { height: 40px; padding: 0 14px; font-size: 13px; }
+.tkc-talk-tabs .tks-tab { height: 40px; padding: 0 14px; font-size: var(--m3-font-body-medium); }
 
 /* One panel, so the two lists no longer stack and the second is no longer
    found by accident. */
@@ -3611,21 +3508,21 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkc-menu-search { padding: 10px 10px 6px; border-bottom: 1px solid var(--border); }
 .tkc-menu-search input {
   width: 100%;
-  height: 34px;
+  height: 40px;;
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-s);
   background: var(--bg-col);
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
 }
 .tkc-menu-search input:focus { outline: none; border-color: var(--accent); }
 .tkc-menu-list { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
 .tkc-menu-none, .tkc-menu-note {
   margin: 0;
   padding: 10px 14px;
-  font-size: 12.5px;
+  font-size: var(--m3-font-label-medium);
   color: var(--text-faint);
   border-top: 1px solid var(--border);
 }
@@ -3634,7 +3531,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    "Begin Work" says what it means. */
 .tkc-move-name {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   color: var(--text-faint);
   white-space: nowrap;
 }
@@ -3645,13 +3542,23 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 .tkc-custom-row { min-height: 34px; }
 .tkc-custom-row > .tk-dim { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
-.tkc-custom-row .tkc-dd { width: 150px; height: 34px; padding: 0 12px; font-size: 13px; }
-.tkc-custom-check input { accent-color: var(--accent); width: 17px; height: 17px; }
+.tkc-custom-row .tkc-dd { width: 150px; height: 34px; padding: 0 12px; font-size: var(--m3-font-body-medium); }
+/* 18dp box in a 40dp target: the box is the spec's size, the label is what
+   you actually hit. There was no wrapper rule here at all before — the whole
+   hit area was seventeen pixels square. */
+.tkc-custom-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  cursor: pointer;
+}
+.tkc-custom-check input { accent-color: var(--accent); width: 18px; height: 18px; }
 /* Required is a star, not a colour: colour would be the only signal for
    anybody who cannot see the difference. */
 .tkc-req { color: var(--err); font-weight: 700; }
 .tkc-stray {
-  font-size: 9.5px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -3695,7 +3602,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
   letter-spacing: 0.1px;
   text-align: left;
@@ -3712,8 +3619,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkb-dragging { opacity: var(--m3-state-drag); }
 
 .tkb-hidden { background: transparent; border-style: dashed; }
-.tkb-note { font-size: 11px; margin: -4px 0 2px; line-height: 1.4; }
-.tkb-empty { font-size: 11.5px; color: var(--text-faint); margin: 0; padding: 6px 2px; }
+.tkb-note { font-size: var(--m3-font-label-small); margin: -4px 0 2px; line-height: 1.4; }
+.tkb-empty { font-size: var(--m3-font-label-medium); color: var(--text-faint); margin: 0; padding: 6px 2px; }
 
 .tkb-status {
   display: flex;
@@ -3724,12 +3631,16 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-s);
   background: var(--bg-card);
   box-shadow: var(--m3-elev-1);
-  font-size: 12.5px;
+  font-size: var(--m3-font-label-medium);
   cursor: grab;
 }
 .tkb-status:active { cursor: grabbing; }
 .tkb-status-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tkb-status .tk-chip { height: 19px; font-size: 9.5px; padding: 0 6px; }
+.tkb-status .tk-chip { 
+  /* A board card's status is read, never clicked. A label at chip
+     height would be the loudest thing on a card whose point is the
+     summary, so it stays small — and says it is not a control. */
+  height: 22px; pointer-events: none;; font-size: var(--m3-font-label-small); padding: 0 6px; }
 
 .tkb-add {
   flex: 0 0 150px;
@@ -3740,7 +3651,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
   cursor: pointer;
 }
@@ -3752,7 +3663,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* The phrase once, with its issues under it — "is blocked by" twice in a row
    reads as a stutter rather than as two blockers. */
 .tkl-phrase {
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -3768,7 +3679,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-s);
   background: var(--bg-card);
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
 }
 .tkl-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tkl-parent { background: var(--bg-col); }
@@ -3783,7 +3694,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-m);
   background: color-mix(in srgb, var(--err) 8%, transparent);
   color: var(--err);
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
 }
 .tkl-blocked .tk-issue-key { color: inherit; font-weight: 700; }
 
@@ -3824,7 +3735,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: none;
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   letter-spacing: 0.25px;
 }
 .tkf-input:focus { outline: none; }
@@ -3842,7 +3753,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-full);
   background: none;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   cursor: pointer;
   transition: background var(--m3-dur-short) var(--m3-ease-standard);
 }
@@ -3864,13 +3775,13 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   margin: 0;
   padding: 12px 14px;
   color: var(--text-faint);
-  font-size: 12.5px;
+  font-size: var(--m3-font-label-medium);
 }
 .tkf-foot {
   padding: 10px 14px 6px;
   border-top: 1px solid var(--border);
   margin-top: 4px;
-  font-size: 11.5px;
+  font-size: var(--m3-font-label-medium);
 }
 
 .tkf-hit {
@@ -3895,7 +3806,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkf-hit-key {
   flex: 0 0 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   letter-spacing: 0.3px;
   color: var(--accent);
@@ -3906,7 +3817,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13.5px;
+  font-size: var(--m3-font-body-medium);
 }
 
 /* Why this row is here, when the title alone does not explain it. */
@@ -3919,7 +3830,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 .tkf-hit-where {
   flex: 0 0 auto;
-  font-size: 10.5px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -3931,7 +3842,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   color: var(--text-dim);
 }
 
@@ -3985,7 +3896,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* Assignee and tester side by side. The second overlaps the first and carries a
    ring in the surface colour, so two pictures read as a pair rather than as a
    crowd. */
-.tk-list-row .tk-faces > :nth-child(2) { box-shadow: 0 0 0 2px var(--bg-elev); }
 
 /* --- the badge row along the bottom of a card ---------------------------- */
 /* Always present, even with nothing in it: a card that changes height as work
@@ -3996,9 +3906,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   align-items: center;
   gap: 10px;
   flex: 0 0 auto;
-  height: 18px;
+  /* The counts read from the left, the person sits at the right.
+     `min-height`, not `height`: the box is border-box, so a fixed 24 minus the
+     rule and its padding left a 21px content box — which a 22px face
+     overflowed, and everything in it sat a pixel and a half low against the
+     rule. This leaves room to spare and lets `align-items` do its job. */
+  min-height: 28px;
   margin-top: auto;
-  padding-top: 2px;
+  padding-top: 3px;
   border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
@@ -4007,7 +3922,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   align-items: center;
   gap: 3px;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -4063,7 +3978,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-m);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent);
-  font-size: 11.5px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   line-height: 1.35;
   text-align: center;
@@ -4088,7 +4003,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 /* The All tab says what it will and will not let you do, rather than leaving
    somebody to discover it by clicking. */
-.tkq-scope { font-size: 12.5px; }
+.tkq-scope { font-size: var(--m3-font-label-medium); }
 
 /* --- the issue type, in the card header ---------------------------------- */
 /* Identity rather than data: you read it to know what you are looking at, the
@@ -4108,20 +4023,18 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-full);
   background: var(--m3-state-hover);
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   font-weight: 600;
 }
 .tkc-dd-chip:hover:not(:disabled) { border-color: var(--border-strong); background: var(--bg-col); }
 .tkc-dd-chip .tkc-dd-val { flex: 0 0 auto; gap: 7px; }
-.tkc-dd-chip .tkc-dd-caret { font-size: 10px; opacity: 0.75; }
+.tkc-dd-chip .tkc-dd-caret { font-size: var(--m3-font-label-small); opacity: 0.75; }
 .tkc-type-name { white-space: nowrap; }
 
 /* --- Release Scope: the plan, and what grew on top of it ------------------ */
-.sc-xlabel.on { fill: #d29922; font-weight: 700; }
 
 /* Filter bar: chips that set what the table below shows. Clicking a date on
    the chart sets the same state, so the two are one control. */
-.sc-chip.on { background: rgba(255,255,255,0.1); color: var(--text); border-color: var(--border-strong); }
 
 /* The chart and the list are one control: a caret drops out of the chart at the
    selected date, and the block below picks up the same amber and names what it
@@ -4140,14 +4053,11 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    sit half empty. These classes say which column is which, once, so a new table
    is laid out by naming its columns rather than by guessing widths again.
    Put `issue-table` on the <table> and a `col-*` on each th AND its td. */
-.issue-table th.col-name,     .issue-table td.col-name     { width: 100%; min-width: 260px;
-  word-break: normal; overflow-wrap: anywhere; }
 /* A key is a link to a ticket wherever it appears, including the parent's. */
 
 /* --- Profile: "is this your work?" --------------------------------------- */
 
 /* --- Month drill-down: support labels ------------------------------------ */
-.dd-sup-up.pos { color: #3fb950; }
 
 /* The support chips borrow the profile's tooltip. Narrower than a stat card's
    — it holds names, not a column of figures — and anchored to the chip, which
@@ -4161,11 +4071,11 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 .tkt { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .tkt-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.tkt-head h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.tkt-head h2 { margin: 0; font-size: var(--m3-font-title-large); font-weight: 600; }
 .tkt-scales,
 /* the Timeline/List switch on the releases page — same shape, its own name */
 .tk-rel-views { display: inline-flex; gap: 6px; }
-.tkt-count { font-size: 12.5px; margin-left: auto; }
+.tkt-count { font-size: var(--m3-font-label-medium); margin-left: auto; }
 
 .tkt-scroll {
   overflow-x: auto;
@@ -4189,7 +4099,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   position: absolute;
   top: 6px;
   left: 5px;
-  font-size: 10.5px;
+  font-size: var(--m3-font-label-small);
   font-weight: 600;
   letter-spacing: 0.3px;
   color: var(--text-faint);
@@ -4206,7 +4116,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-full);
   background: var(--accent);
   color: var(--m3-on-accent, #fff);
-  font-size: 10px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.4px;
   white-space: nowrap;
@@ -4257,7 +4167,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkt-art {
   width: 3px;
   height: 12px;
-  border-radius: 1px;
+  border-radius: var(--m3-shape-full);;
   background: color-mix(in srgb, currentColor 30%, transparent);
 }
 .tkt-art.out { background: currentColor; }
@@ -4268,7 +4178,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   position: absolute;
   left: calc(100% + 8px);
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   color: var(--text);
   pointer-events: none;
@@ -4278,94 +4188,243 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   padding: 1px 5px;
   border-radius: var(--m3-shape-full);
   background: var(--err);
-  color: #fff;
-  font-size: 9.5px;
+  color: var(--m3-on-accent);
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
 }
 .tkt-bar-meta { color: var(--text-faint); font-weight: 500; }
 
-.tkt-key { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-faint); }
+.tkt-key { display: flex; gap: 16px; flex-wrap: wrap; font-size: var(--m3-font-label-medium); color: var(--text-faint); }
 .tkt-key-item { display: inline-flex; align-items: center; gap: 6px; }
-.tkt-key-dot { width: 12px; height: 12px; border-radius: 3px; border: 1px solid; }
+.tkt-key-dot { width: 12px; height: 12px; border-radius: var(--m3-shape-xs);; border: 1px solid; }
 
 /* --- development: branches and pull requests on an issue ----------------- */
-.tkg { display: flex; flex-direction: column; gap: 6px; }
-.tkg-row {
+/* In the side column, one line. The detail lives in the dialog below it. */
+.tkd-summary {
   display: flex;
   align-items: center;
   gap: 9px;
-  min-width: 0;
-  padding: 8px 10px;
+  width: 100%;
+  min-height: var(--m3-control-h);
+  padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-s);
   background: var(--bg-col);
-  color: inherit;
-  text-decoration: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  text-align: left;
+  cursor: pointer;
   transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
 }
-.tkg-row:hover { border-color: var(--border-strong); }
+.tkd-summary:hover { border-color: var(--border-strong); }
+.tkd-summary svg { flex: 0 0 auto; color: var(--text-faint); }
+.tkd-summary-label { flex: 1; min-width: 0; }
 
-.tkg-kind {
-  flex: 0 0 auto;
-  padding: 1px 7px;
-  border-radius: var(--m3-shape-full);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-.tkg-pr { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
-.tkg-branch { background: var(--m3-state-hover); color: var(--text-faint); }
-
-.tkg-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
-.tkg-state {
+.tkd-state {
   flex: 0 0 auto;
   padding: 1px 8px;
   border-radius: var(--m3-shape-full);
   border: 1px solid;
-  font-size: 10.5px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.3px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
-.tkg-s-open { border-color: var(--ok); color: var(--ok); }
-.tkg-s-draft { border-color: var(--border-strong); color: var(--text-faint); }
-.tkg-s-merged {
-  border-color: color-mix(in srgb, #a371f7 60%, transparent);
-  color: #a371f7;
+/* Pull requests. */
+.tkd-s-open { border-color: var(--ok); color: var(--ok); }
+.tkd-s-draft { border-color: var(--border-strong); color: var(--text-faint); }
+.tkd-s-merged {
+  border-color: color-mix(in srgb, var(--merged) 60%, transparent);
+  color: var(--merged);
 }
-.tkg-s-closed { border-color: var(--err); color: var(--err); }
+.tkd-s-closed { border-color: var(--err); color: var(--err); }
 
-/* Its own column, because a merged PR with a red build is a real state. */
-.tkg-checks { flex: 0 0 auto; font-size: 13px; font-weight: 700; }
-.tkg-c-passing { color: var(--ok); }
-.tkg-c-failing { color: var(--err); }
-.tkg-c-pending { color: var(--text-faint); }
+/* Branches, against the default branch. Ahead is the healthy one — work is
+   happening and it will merge. Behind and diverged are the ones that cost
+   somebody an afternoon, so they carry the warning colour. */
+.tkd-s-ahead { border-color: var(--accent); color: var(--accent); }
+.tkd-s-behind { border-color: var(--warn); color: var(--warn); }
+.tkd-s-diverged { border-color: var(--warn); color: var(--warn); }
+.tkd-s-identical { border-color: var(--border-strong); color: var(--text-faint); }
+
+/* Builds. */
+.tkd-s-success { border-color: var(--ok); color: var(--ok); }
+.tkd-s-failure { border-color: var(--err); color: var(--err); }
+.tkd-s-running { border-color: var(--accent); color: var(--accent); }
+.tkd-s-cancelled { border-color: var(--border-strong); color: var(--text-faint); }
+.tkd-s-skipped { border-color: var(--border-strong); color: var(--text-faint); }
+
+/* Its own column, because a merged PR with a red build is a real state. The
+   marks are drawn now, so nothing here sets a size — only the colour that says
+   which of the three states it is. */
+.tkd-checks { display: inline-flex; align-items: center; }
+.tkd-c-passing { color: var(--ok); }
+.tkd-c-failing { color: var(--err); }
+.tkd-c-pending { color: var(--text-faint); }
+
+/* --- the development dialog ---------------------------------------------- */
+/* Above the issue card, which is itself a dialog when opened from a board.
+   It also drops the shared view-transition-name: two live elements claiming
+   the same name is an error, and the card is already using it. */
+.tkd-scrim { z-index: 120; view-transition-name: none; }
+.tkd {
+  width: min(940px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-xl);
+  box-shadow: var(--m3-elev-3);
+  overflow: hidden;
+  animation: tk-dialog var(--m3-dur-medium) var(--m3-ease-decel);
+}
+
+.tkd-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 14px 14px 24px;
+}
+.tkd-head h2 {
+  margin: 0;
+  font-size: var(--m3-font-title-large);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* M3 primary tabs: the indicator is the active state, not a filled pill. */
+.tkd-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.tkd-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--m3-shape-s) var(--m3-shape-s) 0 0;
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+}
+.tkd-tab:disabled { opacity: 0.45; cursor: default; }
+.tkd-tab.on { color: var(--accent); }
+.tkd-tab.on::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+}
+.tkd-tab-n {
+  padding: 0 6px;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+  font-size: var(--m3-font-label-small);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tkd-body { padding: 8px 24px 20px; overflow-y: auto; }
+.tkd-none { padding: 32px 0; text-align: center; }
+
+/* Repository first: "which repo was that in" comes before any other question. */
+.tkd-repo { margin-top: 16px; }
+.tkd-repo-head {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 8px;
+  font-size: var(--m3-font-body-medium);
+}
+.tkd-repo-name { font-weight: 600; }
+
+/* The table can be wider than the dialog — a branch name and a commit message
+   are both as long as somebody felt like making them. It scrolls in its own
+   box so the dialog itself never does. */
+.tkd-scroll {
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  overflow-x: auto;
+}
+.tkd-table { font-size: var(--m3-font-body-medium); }
+.tkd-table thead th { height: 44px; padding: 0 14px; }
+/* Nothing here selects a row — only the links inside one do. */
+.tkd-table tbody tr { height: auto; cursor: default; }
+.tkd-table td { padding: 12px 14px; vertical-align: top; }
+.tkd-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--accent);
+  text-decoration: none;
+}
+.tkd-id:hover { text-decoration: underline; }
+.tkd-title {
+  display: block;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.tkd-title:hover { color: var(--accent); text-decoration: underline; }
+.tkd-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.tkd-branch {
+  display: inline-block;
+  margin-top: 5px;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+  color: var(--text-faint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--m3-font-label-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.tkd-foot {
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  font-size: var(--m3-font-label-medium);
+}
+
+@media (max-width: 640px) {
+  .tkd-head { padding: 14px 8px 10px 16px; }
+  .tkd-tabs, .tkd-body, .tkd-foot { padding-left: 16px; padding-right: 16px; }
+  .tkd-tab { padding: 0 10px; font-size: var(--m3-font-body-medium); }
+}
 
 /* A merged PR on a board card reads as settled, not as news. */
-.tk-badge-done { color: #a371f7; }
+.tk-badge-done { color: var(--merged); }
 
 /* --- git settings -------------------------------------------------------- */
 .tkgs { display: flex; flex-direction: column; gap: 16px; max-width: 820px; }
 .tkgs-setup { max-width: none; }
-.tkgs-setup h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+.tkgs-setup h3 { margin: 0 0 8px; font-size: var(--m3-font-title-medium); font-weight: 600; }
 .tkgs-steps {
   margin: 12px 0;
   padding-left: 22px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 13.5px;
+  font-size: var(--m3-font-body-medium);
   line-height: 1.55;
   color: var(--text-dim);
 }
@@ -4374,7 +4433,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-radius: var(--m3-shape-xs);
   background: var(--m3-state-hover);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
 }
 
 .tkgs-list { display: flex; flex-direction: column; gap: 12px; }
@@ -4388,7 +4447,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-card);
 }
 .tkgs-card-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.tkgs-org { font-size: 16px; font-weight: 600; }
+.tkgs-org { font-size: var(--m3-font-title-medium); font-weight: 600; }
 .tkgs-card .tk-btn { align-self: flex-start; }
 .tkgs-manual { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .tkgs-manual-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
@@ -4401,7 +4460,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 .auth-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
 .auth-field > span {
-  font-size: 12px;
+  font-size: var(--m3-font-label-medium);
   font-weight: 600;
   letter-spacing: 0.3px;
   color: var(--text-dim);
@@ -4414,7 +4473,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-col);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
 }
 .auth-field > input:hover { border-color: var(--border-strong); }
@@ -4446,7 +4505,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: none;
   color: var(--text);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
   cursor: pointer;
   transition: background var(--m3-dur-short) var(--m3-ease-standard),
               border-color var(--m3-dur-short) var(--m3-ease-standard);
@@ -4465,7 +4524,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   place-items: center;
   background: var(--accent);
   color: var(--m3-on-accent, #fff);
-  font-size: 11px;
+  font-size: var(--m3-font-label-small);
   font-weight: 700;
   letter-spacing: 0.3px;
 }
@@ -4488,7 +4547,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   flex-direction: column;
   gap: 3px;
   padding: 8px 12px 10px;
-  font-size: 13px;
+  font-size: var(--m3-font-body-medium);
 }
 .acct-who .tk-chip { align-self: flex-start; margin-top: 4px; }
 .acct-div { height: 1px; background: var(--border); margin: 6px 0; }
@@ -4502,8 +4561,1071 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--m3-font-body-medium);
   text-align: left;
   cursor: pointer;
 }
 .acct-row:hover { background: var(--m3-state-hover); }
+
+/* --- insights -------------------------------------------------------------
+   The page that reads the event log. See docs/ANALYTICS.md. */
+.tki { display: flex; flex-direction: column; gap: 20px; max-width: 1100px; }
+.tki-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin: 0; }
+.tki-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* An insight card. The number is the point, the comparison is what makes it
+   actionable, and the label is smaller than both. */
+.tki-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.tki-card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-card);
+  box-shadow: var(--m3-elev-1);
+}
+.tki-card h3 {
+  margin: 0 0 6px;
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.tki-card-value {
+  font-size: var(--m3-font-headline-medium);
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.tki-card-unit {
+  margin-left: 6px;
+  font-size: var(--m3-font-label-medium);
+  font-weight: 500;
+  color: var(--text-faint);
+}
+.tki-trend { margin: 6px 0 0; font-size: var(--m3-font-label-medium); color: var(--text-dim); }
+/* Green and red mean "the direction this metric wanted" and "the other one",
+   which is why the card says which way is up rather than the trend guessing. */
+.tki-trend.good { color: var(--ok); }
+.tki-trend.bad { color: var(--err); }
+
+.tki-section {
+  padding: 18px 20px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-card);
+}
+.tki-section h2 {
+  margin: 0;
+  font-size: var(--m3-font-title-medium);
+  font-weight: 600;
+  letter-spacing: 0.15px;
+}
+/* Every chart says what it shows and what a bad shape looks like. A chart
+   nobody can read is decoration. */
+.tki-note {
+  margin: 6px 0 16px;
+  max-width: 74ch;
+  font-size: var(--m3-font-label-medium);
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.tki-empty {
+  margin: 8px 0 0;
+  padding: 28px 0;
+  text-align: center;
+  font-size: var(--m3-font-body-medium);
+  color: var(--text-faint);
+}
+
+.tki-chart { width: 100%; }
+.tki-chart svg { display: block; overflow: visible; }
+.tki-axis { fill: var(--text-faint); font-size: var(--m3-font-label-small); }
+.tki-value {
+  fill: var(--text-dim);
+  font-size: var(--m3-font-label-small);
+  font-variant-numeric: tabular-nums;
+}
+.tki-faint { fill: var(--text-faint); }
+.tki-grid { stroke: var(--border); stroke-width: 1; }
+/* A reference line is read across the whole plot, so it is dashed — a solid one
+   at this weight reads as another series. */
+.tki-rule { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 3 4; }
+.tki-dot { fill: var(--accent); opacity: 0.75; }
+.tki-dot-click { cursor: pointer; }
+.tki-dot-click:hover { opacity: 1; r: 7; }
+
+.tki-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+.tki-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--m3-font-label-medium);
+  color: var(--text-dim);
+}
+.tki-swatch { width: 10px; height: 10px; border-radius: var(--m3-shape-xs); }
+
+.tki-scroll { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--m3-shape-m); overflow-x: auto; }
+.tki-table { font-size: var(--m3-font-body-medium); }
+.tki-table td { padding: 10px 14px; }
+.tki-table tbody tr { height: auto; cursor: default; }
+.tki-move { font-weight: 500; }
+
+/* How much of a transition runs itself, as a bar rather than a number: the
+   comparison between rows is the finding, and eyes compare lengths faster than
+   they compare percentages. */
+.tki-split {
+  display: inline-block;
+  width: 90px;
+  height: 6px;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+  vertical-align: middle;
+  overflow: hidden;
+}
+.tki-split-fill { display: block; height: 100%; border-radius: var(--m3-shape-full); }
+.tki-split-label {
+  margin-left: 10px;
+  font-size: var(--m3-font-label-medium);
+  /* "always automatic" wrapped and made every other row a different
+     height, which turned a table meant for comparing rows into a ragged
+     list. */
+  white-space: nowrap;
+}
+
+.tki-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  cursor: pointer;
+}
+.tki-link:hover { text-decoration: underline; }
+.tki-cap { margin: 12px 0 0; font-size: var(--m3-font-label-medium); }
+/* "31h so far" is one phrase, not two lines. */
+.tki-cost { white-space: nowrap; }
+
+/* --- the type mark, and choosing one -------------------------------------- */
+/* The mark on a settings row is a button: it is how you change it, so it has
+   to look like something you can press. */
+.tks-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-s);
+  background: var(--bg-col);
+  cursor: pointer;
+}
+.tks-mark:hover { border-color: var(--border-strong); }
+
+.tks-mark-dialog { width: min(560px, 100%); }
+.tks-mark-note { margin: 0 0 20px; font-size: var(--m3-font-label-medium); line-height: 1.55; }
+
+/* A grid, not a list. Picking a picture is something the eye does in one pass;
+   a column of names makes it a reading exercise. */
+.tkg-pick { display: flex; flex-direction: column; gap: 12px; }
+.tkg-pick-search { max-width: 240px; }
+.tkg-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-col);
+}
+.tkg-pick-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color var(--m3-dur-short) var(--m3-ease-standard),
+              color var(--m3-dur-short) var(--m3-ease-standard);
+}
+.tkg-pick-cell:hover { color: var(--text); }
+/* The chosen one wears the type's own colour, so the decision is previewed
+   rather than described. */
+.tkg-pick-cell.on { border-color: currentColor; background: var(--m3-state-hover); }
+.tkg-pick-none { grid-column: 1 / -1; padding: 24px 0; text-align: center; }
+
+/* --- asks ----------------------------------------------------------------
+   Somebody needs a named person to look at something and come back. See
+   docs/ASKS.md — the thing a comment could never be. */
+.tka { display: flex; flex-direction: column; gap: 10px; }
+
+.tka-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-col);
+}
+/* An ask that stops the work wears the same edge a blocker does. */
+.tka-blocking { border-left: 3px solid var(--warn); }
+.tka-answered, .tka-declined, .tka-withdrawn { opacity: 0.72; }
+
+.tka-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tka-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+/* Each kind wants a different shape of answer, so each reads differently. */
+.tka-k-confirm { color: var(--accent); }
+.tka-k-explain { color: var(--ok); }
+.tka-k-discuss { color: var(--merged); }
+.tka-k-present { color: var(--warn); }
+
+.tka-stops {
+  padding: 1px 8px;
+  border: 1px solid var(--warn);
+  border-radius: var(--m3-shape-full);
+  color: var(--warn);
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.tka-waited {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: var(--m3-font-label-medium);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* Three days is where a question stops being a question and starts being a
+   thing somebody is stuck behind. */
+.tka-waited.late { color: var(--warn); font-weight: 600; }
+.tka-settled-when { margin-left: auto; font-size: var(--m3-font-label-medium); }
+
+.tka-question {
+  margin: 0;
+  font-size: var(--m3-font-body-medium);
+  line-height: 1.55;
+  letter-spacing: 0.15px;
+}
+.tka-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--m3-font-label-medium);
+}
+.tka-answer {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--m3-shape-s);
+  background: var(--bg-card);
+  font-size: var(--m3-font-body-medium);
+  line-height: 1.55;
+}
+.tka-error { margin: 0; }
+
+.tka-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.tka-reply { display: flex; flex-direction: column; gap: 10px; }
+.tka-ta {
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 12px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.tka-new, .tka-more {
+  align-self: flex-start;
+  padding: 8px 14px;
+  min-height: 40px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  cursor: pointer;
+}
+.tka-new:hover, .tka-more:hover { color: var(--text); border-color: var(--text-faint); }
+.tka-more { border-style: solid; }
+
+/* The composer names what the person is being asked *for*, rather than
+   leaving them to guess what "confirm" wants back. */
+.tka-compose { border-color: var(--border-strong); background: var(--bg-card); }
+.tka-kinds { display: flex; gap: 6px; flex-wrap: wrap; }
+.tka-kind-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  font-weight: 500;
+  cursor: pointer;
+}
+.tka-kind-pick.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.tka-field { display: flex; flex-direction: column; gap: 6px; }
+.tka-blocking-pick { align-self: flex-start; }
+
+/* On My work: what other people need, with the issue it is about. */
+.tka-band .tka { margin-top: 4px; }
+.tka-queued { display: flex; flex-direction: column; gap: 0; }
+.tka-queued-issue {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--m3-shape-m) var(--m3-shape-m) 0 0;
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.tka-queued-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tka-queued .tka-card { border-radius: 0 0 var(--m3-shape-m) var(--m3-shape-m); }
+
+/* --- notifications --------------------------------------------------------
+   Four kinds and no more. See docs/ASKS.md section 5 — the failure mode is not
+   too few, it is somebody who has learned to ignore the badge. */
+.tkn { position: relative; }
+.tkn-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.tkn-bell:hover { color: var(--text); }
+.tkn-bell.has { color: var(--text); }
+.tkn-count {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--m3-shape-full);
+  background: var(--err);
+  color: var(--m3-on-accent);
+  font-size: var(--m3-font-label-small);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tkn-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 251;
+  width: min(400px, calc(100vw - 32px));
+  max-height: 460px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-l);
+  box-shadow: var(--m3-elev-3);
+  overflow: hidden;
+  animation: tk-dialog var(--m3-dur-short) var(--m3-ease-decel);
+}
+.tkn-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.tkn-head h2 {
+  margin: 0;
+  font-size: var(--m3-font-title-medium);
+  font-weight: 600;
+  letter-spacing: 0.15px;
+}
+.tkn-readall {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tkn-list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.tkn-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--m3-shape-m);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* Read ones stay, dimmed. A list that empties as you read it leaves nowhere to
+   go back to, and "what was that thing I dismissed" is a real question. */
+.tkn-row.read { opacity: 0.55; }
+.tkn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+}
+.tkn-t-ask { color: var(--accent); }
+.tkn-t-answer { color: var(--ok); }
+.tkn-t-assign { color: var(--warn); }
+.tkn-t-mention { color: var(--merged); }
+
+.tkn-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tkn-text { font-size: var(--m3-font-body-medium); line-height: 1.4; }
+.tkn-sub {
+  font-size: var(--m3-font-label-medium);
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tkn-empty {
+  margin: 0;
+  padding: 34px 20px;
+  text-align: center;
+  font-size: var(--m3-font-body-medium);
+  line-height: 1.55;
+  color: var(--text-faint);
+}
+
+/* The four switches, in Settings. */
+.tkn-prefs { display: flex; flex-direction: column; gap: 4px; }
+.tkn-pref {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  padding: 0 4px;
+  font-size: var(--m3-font-body-medium);
+}
+.tkn-pref-label { flex: 1; min-width: 0; }
+.tkn-why { margin: 0 0 14px; max-width: 62ch; font-size: var(--m3-font-label-medium); line-height: 1.55; }
+/* The assignee, at the far end of the foot — the counts read left to right and
+   the person is where the eye ends up anyway. */
+.tk-card-face { margin-left: auto; display: inline-flex; align-items: center; flex: 0 0 auto; }
+
+/* --- Labels ------------------------------------------------------------
+   M3 assist chips, at the small end of the scale. Full-radius, outlined, a
+   tint of the label's own colour so a wall of them still reads as distinct
+   without any one shouting. Deliberately quieter than the priority pill on
+   the same card: priority is a state somebody assigned, a label is a word
+   somebody typed. */
+.tk-labels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.tk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 160px;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--label, var(--border-strong)) 45%, transparent);
+  border-radius: var(--m3-shape-full);
+  background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, transparent);
+  color: color-mix(in srgb, var(--label, var(--text-dim)) 78%, var(--text));
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  line-height: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Never a silent trim: the card says how many it is not showing. */
+.tk-label-more {
+  border-style: dashed;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+/* On the issue, where they can be taken off. */
+.tk-label-edit { position: relative; }
+.tk-label-edit .tk-labels { gap: 6px; }
+.tk-label-on { padding-right: 3px; }
+.tk-label-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: inherit;
+  opacity: 0.65;
+  cursor: pointer;
+  transition: opacity var(--m3-dur-short) var(--m3-ease-standard);
+}
+/* A 16px button is fiddly to hit, so the target reaches past the glyph
+   without the chip growing to accommodate it. */
+.tk-label-x::before { content: ""; position: absolute; inset: -7px; }
+.tk-label-x { position: relative; }
+.tk-label-x:hover { opacity: 1; background: color-mix(in srgb, currentColor 18%, transparent); }
+.tk-label-x:disabled { cursor: default; opacity: 0.3; }
+
+/* Not an outlined field: it sits among the chips as another chip-shaped slot,
+   so adding one reads as continuing the row rather than filling in a form.
+   Full control height even though the chips beside it are 19px — a box people
+   are meant to click into needs a target they can hit, and the row it grows
+   to matches the fields above and below it. */
+.tk-label-input {
+  flex: 1 1 110px;
+  min-width: 110px;
+  height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-label-medium);
+}
+.tk-label-input::placeholder { color: var(--text-faint); }
+.tk-label-input:focus { outline: 0; }
+.tk-label-edit:focus-within .tk-label-input { border-bottom: 1px solid var(--accent); }
+.tk-label-err { margin: 6px 0 0; font-size: var(--m3-font-label-medium); }
+
+.tk-label-pop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-m);
+  box-shadow: var(--m3-elev-3);
+}
+.tk-label-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.tk-label-opt-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-label-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: var(--m3-shape-full); }
+.tk-label-new { color: var(--text-dim); }
+.tk-label-new strong { color: var(--text); }
+
+/* On a board card the chips sit between the summary and the description: same
+   left edge, and the summary's own bottom margin is the whole gap so the space
+   above them matches the space below. */
+.tk-card-sum + .tk-labels { margin-top: 0; }
+
+/* --- @mentions -----------------------------------------------------------
+   An M3 menu, anchored at the caret rather than at the field: the thing being
+   completed is a word in the middle of a sentence, and a list pinned to the
+   bottom of a twelve-line description is nowhere near it. Fixed and portalled
+   because these boxes live inside scrolling dialogs. */
+.tk-mention {
+  position: fixed;
+  z-index: 260;
+  min-width: 230px;
+  max-width: 300px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-m);
+  box-shadow: var(--m3-elev-3);
+}
+.tk-mention-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  text-align: left;
+  cursor: pointer;
+}
+/* The highlighted row follows the keyboard, so it has to read as chosen and
+   not merely hovered — the arrow keys are the primary way through this list. */
+.tk-mention-opt.on { background: var(--accent-soft); }
+.tk-mention-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-mention-craft { font-size: var(--m3-font-label-small); text-transform: uppercase; letter-spacing: 0.4px; }
+/* Says which key does it. Once is enough — it is a hint, not a control. */
+.tk-mention-hint {
+  padding: 5px 8px 1px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  font-size: var(--m3-font-label-small);
+}
+
+/* --- prose -----------------------------------------------------------------
+   ONE set of rules for both the editor and the read-only renderer.
+   `RichText` puts `tk-md` on the ProseMirror surface and `Markdown.tsx` puts it
+   on its output, so what you type looks like what everybody else reads. That is
+   the whole promise of the editor, and it only holds if there is one stylesheet
+   behind both — two would drift within a week.
+
+   Element selectors, not classes: ProseMirror renders bare <h1>, <ul>, <p>, and
+   it owns that DOM. The class hooks that remain are for the things HTML has no
+   element for. */
+
+.tk-md {
+  /* How far the prose is inset from its surface's edge. A divider is the one
+     thing that should ignore it and run the whole width — a rule that stops
+     short on both sides reads as an underline of the paragraph above rather
+     than as a break between two. Each surface says how much padding it has;
+     everywhere that does not say has none. */
+  --tk-md-bleed: 0px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: var(--m3-font-body-medium);
+  line-height: 1.6;
+  letter-spacing: 0.25px;
+  /* A code block or a long identifier must scroll inside itself rather than
+     widen the panel: a flex item defaults to min-width: auto, which means it
+     refuses to shrink below its own content. */
+  min-width: 0;
+}
+.tk-md > * { min-width: 0; max-width: 100%; }
+.tk-md > :first-child { margin-top: 0; }
+.tk-md > :last-child { margin-bottom: 0; }
+
+.tk-md p {
+  margin: 0;
+  /* Prose people paste from elsewhere is full of long identifiers and URLs,
+     and one of them must not widen the panel it sits in. */
+  overflow-wrap: anywhere;
+}
+
+.tk-md h1, .tk-md h2, .tk-md h3, .tk-md h4 {
+  margin: 6px 0 0;
+  font-size: var(--m3-font-title-medium);
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  line-height: 1.4;
+}
+/* The second level is smaller and quieter but still unmistakably a heading —
+   a description that needs sections needs them to be findable. */
+.tk-md h3, .tk-md h4 {
+  font-size: var(--m3-font-body-medium);
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+}
+
+.tk-md ul, .tk-md ol {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.55;
+}
+.tk-md li > p { margin: 0; }
+/* Nested lists sit under their parent item, not beside it. */
+.tk-md li > ul, .tk-md li > ol { margin-top: 4px; }
+
+/* A checklist is a checklist, not a bullet list with square brackets in it.
+   Two shapes to cover: what the renderer emits, and what ProseMirror does. */
+.tk-md ul[data-type="taskList"], .tk-md-tasks { list-style: none; padding-left: 2px; }
+.tk-md ul[data-type="taskList"] > li, .tk-md-tasks > li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.tk-md ul[data-type="taskList"] > li > label { flex: 0 0 auto; }
+.tk-md ul[data-type="taskList"] > li > div, .tk-md-task { flex: 1; min-width: 0; }
+.tk-md ul[data-type="taskList"] input[type="checkbox"] {
+  /* Big enough to hit, and it sits on the text's own line rather than on the
+     line box, which is a couple of pixels lower. */
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  transform: translateY(2px);
+}
+.tk-md-box { flex: 0 0 auto; color: var(--text-dim); }
+.tk-md-done, .tk-md li[data-checked="true"] > div { color: var(--text-dim); text-decoration: line-through; }
+
+.tk-md blockquote {
+  margin: 0;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-dim);
+}
+
+.tk-md code {
+  padding: 1px 5px;
+  border-radius: var(--m3-shape-xs);
+  background: var(--bg-col);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-size: var(--m3-font-label-medium);
+}
+.tk-md pre {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-s);
+  background: var(--bg-col);
+  /* Its own scroller, so a wide line scrolls here and not the whole dialog. */
+  overflow-x: auto;
+}
+.tk-md pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.tk-md hr {
+  height: 1px;
+  border: 0;
+  background: var(--border-strong);
+  /* Out past the padding to the panel's own edge, and given room to breathe:
+     a section break is a pause, and a pause needs space around it. */
+  margin: 10px calc(var(--tk-md-bleed) * -1);
+  /* Beats the `max-width: 100%` that keeps code blocks in their box. */
+  max-width: none;
+}
+/* Selected in the editor, a divider needs to show it is selected — there is no
+   text in it to highlight. */
+.tk-md hr.ProseMirror-selectednode { background: var(--accent); height: 2px; }
+
+.tk-md a, .tk-md-a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* A name that resolved to a person. It reads as a chip because the rule is
+   binary: this one reaches somebody, and a name spelled almost right is left
+   as plain text so you can see that it will not. */
+.tk-md-at {
+  padding: 0 5px;
+  border-radius: var(--m3-shape-xs);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* --- the editor ------------------------------------------------------------
+   Tiptap is headless: it hands back a contenteditable div and nothing else, so
+   everything visible here is ours and the M3 audit still applies. */
+
+.tk-rt {
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-col);
+  overflow: hidden;
+  transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
+}
+.tk-rt:focus-within { border-color: var(--accent); }
+.tk-rt-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.tk-rt-slot { display: inline-flex; align-items: center; }
+/* The pressed state has to be unmistakable: this toolbar reports what the
+   caret is sitting in, so a button that is on is telling you something. */
+.tkc-tb.on { background: var(--accent-soft); color: var(--accent); }
+
+.tk-rt-body {
+  --tk-md-bleed: 16px;
+  padding: 14px 16px;
+  min-height: 168px;
+  color: var(--text);
+  outline: none;
+}
+.tk-rt-compact .tk-rt-body { --tk-md-bleed: 12px; min-height: 74px; padding: 10px 12px; }
+.tk-rt-body p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+/* --- your version and the team's ------------------------------------------
+   Write and Read are not editor-and-preview: the editor already renders what
+   you type. They are two different documents that happen to share a field —
+   what you have written, and what anybody else opening this issue would see. */
+.tk-two {
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-col);
+  overflow: hidden;
+}
+.tk-two:focus-within { border-color: var(--accent); }
+.tk-two-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+/* The two tabs. A segmented pair rather than an underline, because they are a
+   choice between two documents and not a position in a sequence. */
+.tkc-mode {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  cursor: pointer;
+}
+.tkc-mode.on { background: var(--accent-soft); color: var(--accent); }
+/* The editor inside brings its own border and its own bar; here the wrapper is
+   already both, so it drops them rather than drawing a box inside a box. */
+.tk-two .tk-rt { border: 0; border-radius: 0; background: transparent; }
+.tk-two .tk-rt-bar { padding-top: 0; }
+
+/* Something is written here that nobody else can see yet. A dot rather than a
+   word: it sits on the tab it belongs to, and the sentence beside it says the
+   rest. */
+.tk-two-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: var(--m3-shape-full);
+  background: var(--warn);
+}
+.tk-two-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-right: 2px;
+  min-width: 0;
+  color: var(--text-dim);
+  font-size: var(--m3-font-label-medium);
+}
+/* The sentence gives way first. Discard is the only way to drop a draft, so it
+   is the last thing that may be squeezed — and it never is. */
+.tk-two-note .tk-link { flex: 0 0 auto; }
+.tk-two-words {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tk-two-read {
+  --tk-md-bleed: 16px;
+  padding: 14px 16px;
+  min-height: 168px;
+  /* It is text you can write in, so it says so before you click. */
+  cursor: text;
+}
+.tk-two-read:hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
+/* A link inside keeps its own cursor: clicking it opens the link rather than
+   starting to write, and the pointer has to agree with that. */
+.tk-two-read a { cursor: pointer; }
+
+/* --- saved views ----------------------------------------------------------
+   What you are looking at, next to the project it belongs to — the filters on
+   the other side of the bar are how you got here. */
+.tkv { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.tkv-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  height: var(--m3-control-h-dense);
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-full);
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  cursor: pointer;
+}
+.tkv-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Two words, on one line. The pill beside it already says which view, so this
+   only has to say what the click does — and a three-line button in a wrapping
+   bar lands on top of the project description. */
+.tkv-act { white-space: nowrap; flex: 0 0 auto; }
+/* The board no longer matches the name on the button. Without this the name is
+   a small lie the moment somebody touches a filter. */
+.tkv-changed { color: var(--warn); font-size: var(--m3-font-title-medium); line-height: 0; }
+
+.tkv-menu {
+  position: fixed;
+  z-index: 260;
+  min-width: 300px;
+  max-width: 380px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-m);
+  box-shadow: var(--m3-elev-3);
+}
+.tkv-head {
+  margin: 8px 0 2px;
+  padding: 0 10px;
+  color: var(--text-faint);
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+/* The row and its tools are siblings, so hovering the row does not light up
+   the delete button as though it were part of the same target. */
+.tkv-line { display: flex; align-items: center; gap: 2px; border-radius: var(--m3-shape-s); }
+.tkv-line.on { background: var(--accent-soft); }
+.tkv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.tkv-tick { display: inline-flex; width: 16px; flex: 0 0 16px; color: var(--accent); }
+.tkv-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tkv-hint { font-size: var(--m3-font-label-small); flex: 0 0 auto; }
+.tkv-shared { color: var(--text-faint); flex: 0 0 auto; }
+
+.tkv-tools { display: inline-flex; align-items: center; gap: 2px; padding-right: 4px; }
+.tkv-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.tkv-tool:hover { color: var(--text); }
+/* Deleting a view is small but it is still deleting, so the button says so
+   before the click rather than after. */
+.tkv-drop:hover { color: var(--err); }
+
+.tkv-foot { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+.tkv-naming { display: flex; align-items: center; gap: 8px; padding: 4px; }
+.tkv-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--m3-control-h);
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-s);
+  background: var(--bg-col);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+}
+.tkv-input:focus { outline: none; border-color: var(--accent); }

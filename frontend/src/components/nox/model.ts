@@ -57,6 +57,8 @@ export interface TrackerView {
 }
 
 export interface TrackerMeta {
+  /** Who is asking — for telling "yours" from "somebody else's". */
+  me: number | null;
   projects: TrackerProject[];
   issueTypes: TrackerType[];
   statuses: TrackerStatus[];
@@ -146,8 +148,14 @@ export interface TrackerIssue {
   parent_key: string | null;
   parent_summary: string | null;
   /** Counts a card shows without being opened. `blocked_by` excludes blockers
-   *  that are already finished — those are history, not an obstacle. */
+   *  that are already finished — those are history, not an obstacle, and it
+   *  includes open blocking asks: three things can be in the way and a card
+   *  that is stuck should look stuck whichever it is. */
   blocked_by?: number;
+  /** Open asks on this issue, blocking or not. */
+  open_asks?: number;
+  /** Present on rows and on the issue alike. */
+  labels?: Label[];
   /** Present on board and table rows; the full list is on the issue itself. */
   git_summary?: GitSummary | null;
   link_count?: number;
@@ -169,17 +177,23 @@ export interface TrackerIssue {
   /** Branches and pull requests — the full list on one issue, the summary on a
    *  board card. */
   git?: GitRef[];
+  /** Who is waiting on whom, and for what. */
+  asks?: Ask[];
 }
 
-/** A branch or a pull request, and what git says about it. */
+/** A branch, commit, pull request or build, and what git says about it. */
 export interface GitRef {
   id: number;
-  kind: "branch" | "pr" | "commit";
+  kind: "branch" | "pr" | "commit" | "build";
   repo: string;
   ref: string;
   title: string;
   url: string;
-  /** open | draft | merged | closed. Empty for a branch, which has no state. */
+  /** Reads differently per kind, because the kinds are different things:
+   *  pr — open | draft | merged | closed
+   *  branch — identical | ahead | behind | diverged, against the default branch
+   *  build — running | success | failure | cancelled | skipped
+   *  commit — empty. A commit has no state beyond having happened. */
   state: string;
   /** passing | failing | pending | none. Separate from state on purpose — a
    *  merged PR whose build failed is a thing that happens. */
@@ -581,6 +595,10 @@ export interface MyWorkData {
   paused: QueueIssue[];
   /** Finished in the last fortnight — recent and capped on the server. */
   done: QueueIssue[];
+  /** Open asks directed at you — what other people need, oldest first. */
+  asks: Ask[];
+  /** Open asks you made of somebody else — what you are waiting on. */
+  asked: Ask[];
   team: TrackerTeam | null;
   leads: TrackerTeam | null;
 }
@@ -635,6 +653,154 @@ export interface SearchHit extends TrackerIssue {
   matched?: { where: "description" | "comment"; text: string };
 }
 
+/** What the event log says, rather than what is true right now.
+ *  See docs/ANALYTICS.md. */
+export interface InsightCard {
+  key: string;
+  label: string;
+  value: number;
+  unit: string;
+  hint: string;
+  /** Absent on a card with nothing to compare against. */
+  trend?: { from: number; change: number | null };
+  /** Which direction is the good one — the card knows, the trend does not. */
+  better?: "up" | "down";
+}
+
+export interface InsightsOverview {
+  days: number;
+  cards: InsightCard[];
+  throughput: {
+    buckets: string[];
+    created: number[];
+    finished: number[];
+    by_week: boolean;
+  };
+}
+
+export interface InsightsFlow {
+  days: number;
+  /** The window, ISO. Charts plot against the period, not their own range. */
+  from: string;
+  to: string;
+  /** Worst p85 first: the point is the status with the trapdoor. */
+  waiting: {
+    status: string; category: string; colour: string;
+    median: number; p85: number; issues: number;
+  }[];
+  /** Statuses past the tenth, reported rather than silently dropped. */
+  waiting_hidden: number;
+  cycle: {
+    points: { key: string; hours: number; at: string }[];
+    median: number;
+    p85: number;
+  };
+  actors: {
+    buckets: string[];
+    human: number[];
+    automation: number[];
+    integration: number[];
+    by_week: boolean;
+    automated_share: number;
+    total: number;
+  };
+  moves: {
+    from: string; to: string; total: number;
+    human: number; automation: number; integration: number;
+  }[];
+  interruptions: {
+    issue: string; for: string; reason: string; hours: number; open: boolean;
+  }[];
+}
+
+/** A question, directed at a person, about an issue, with a state.
+ *  See docs/ASKS.md — the thing a comment could never be. */
+export type AskKind = "confirm" | "explain" | "discuss" | "present";
+export type AskState = "open" | "answered" | "declined" | "withdrawn";
+
+export interface Ask {
+  id: number;
+  issue_id: number;
+  kind: AskKind;
+  kind_label: string;
+  question: string;
+  state: AskState;
+  answer: string;
+  /** Whether the work stops until it is answered. */
+  blocking: boolean;
+  asked_at: string;
+  answered_at: string | null;
+  asked_by: number;
+  asked_by_name: string | null;
+  asked_by_avatar: string | null;
+  asked_of: number;
+  asked_of_name: string | null;
+  asked_of_avatar: string | null;
+  answered_by_name: string | null;
+  /** Present on the queue views, absent on an issue's own list. */
+  issue_key?: string;
+  issue_summary?: string;
+}
+
+/** Something that may need your attention. Four kinds and no more. */
+export type NotificationKind = "asked" | "ask_answered" | "assigned" | "mentioned";
+
+export interface Notification {
+  id: number;
+  kind: NotificationKind;
+  /** Written at the moment it happened, not re-derived later. */
+  text: string;
+  at: string;
+  read: boolean;
+  issue_id: number;
+  issue_key: string;
+  issue_summary: string;
+  /** Null when it was an automation or an integration. */
+  actor_name: string | null;
+  actor_avatar: string | null;
+}
+
+export interface NotificationPrefs {
+  [kind: string]: { label: string; on: boolean };
+}
+
+/** The axis nothing else covers — "flaky", "needs-design", "good-first-issue".
+ *  Global, like statuses and fields: a label meaning something different per
+ *  project makes every cross-project filter a guess. */
+export interface Label {
+  id: number;
+  /** Folded on the way in, so "Needs Design" and "needs-design" are one. */
+  key: string;
+  name: string;
+  colour: string;
+  description?: string;
+  /** How many issues wear it. Only on the full list. */
+  count?: number;
+}
+
+/** A board arrangement somebody kept: what to show, and how to show it.
+ *
+ *  Private to whoever made it unless `shared` — see docs/VIEWS.md. */
+export interface SavedView {
+  id: number;
+  /** NULL means it works on any project. */
+  project_id: number | null;
+  name: string;
+  owner_id: number | null;
+  shared: boolean;
+  /** True when this one is yours. Decided by the server, not by comparing ids
+   *  here — the server is the only place that knows who is asking. */
+  mine: boolean;
+  owner_name?: string | null;
+  filter: FilterNode | null;
+  group_by: string;
+  renderer: string;
+  columns: string[];
+  sort: SortSpec[];
+  wip_limits: Record<string, number>;
+  position: number;
+}
+
 export const trackerApi = {
   status: () => request<TrackerStatusInfo>("/api/nox/status"),
 
@@ -645,6 +811,82 @@ export const trackerApi = {
     ),
 
   meta: () => request<TrackerMeta>("/api/nox/meta"),
+
+  labels: () => request<Label[]>("/api/nox/labels"),
+
+  views: (projectId?: number) =>
+    request<SavedView[]>(
+      `/api/nox/views${projectId ? `?project_id=${projectId}` : ""}`),
+
+  createView: (body: Partial<SavedView>) =>
+    request<SavedView>("/api/nox/views",
+      { method: "POST", body: JSON.stringify(body) }),
+
+  patchView: (id: number, body: Partial<SavedView>) =>
+    request<SavedView>(`/api/nox/views/${id}`,
+      { method: "PATCH", body: JSON.stringify(body) }),
+
+  deleteView: (id: number) =>
+    request<{ ok: boolean }>(`/api/nox/views/${id}`, { method: "DELETE" }),
+
+  /** Makes the label if nobody has used the word yet. */
+  addLabel: (issueId: number, name: string) =>
+    request<Label[]>(`/api/nox/issues/${issueId}/labels`,
+      { method: "POST", body: JSON.stringify({ name }) }),
+
+  removeLabel: (issueId: number, labelId: number) =>
+    request<Label[]>(`/api/nox/issues/${issueId}/labels/${labelId}`,
+      { method: "DELETE" }),
+
+  patchLabel: (labelId: number, changes: Partial<Label> & { archived?: boolean }) =>
+    request<Label>(`/api/nox/labels/${labelId}`,
+      { method: "PATCH", body: JSON.stringify(changes) }),
+
+  notifications: () =>
+    request<{ unread: number; items: Notification[] }>("/api/nox/notifications"),
+
+  /** Some, or everything unread when no ids are given. */
+  readNotifications: (ids?: number[]) =>
+    request<{ unread: number; items: Notification[] }>("/api/nox/notifications/read",
+      { method: "POST", body: JSON.stringify(ids ? { ids } : {}) }),
+
+  notificationPrefs: () =>
+    request<NotificationPrefs>("/api/nox/notifications/prefs"),
+
+  setNotificationPref: (kind: string, on: boolean) =>
+    request<NotificationPrefs>(
+      `/api/nox/notifications/prefs/${kind}?on=${on}`, { method: "PUT" }),
+
+  ask: (body: {
+    issue_id: number; asked_of: number; kind: AskKind;
+    question: string; blocking: boolean;
+  }) => request<Ask>("/api/nox/asks", { method: "POST", body: JSON.stringify(body) }),
+
+  answerAsk: (id: number, answer: string) =>
+    request<Ask>(`/api/nox/asks/${id}/answer`,
+      { method: "POST", body: JSON.stringify({ answer }) }),
+
+  declineAsk: (id: number, answer: string) =>
+    request<Ask>(`/api/nox/asks/${id}/decline`,
+      { method: "POST", body: JSON.stringify({ answer }) }),
+
+  withdrawAsk: (id: number) =>
+    request<Ask>(`/api/nox/asks/${id}/withdraw`, { method: "POST" }),
+
+  /** A type's name, mark or colour. Global — this lands on every board. */
+  patchType: (projectId: number, typeId: number,
+              changes: { name?: string; icon?: string; colour?: string }) =>
+    request<ProjectSettingsData>(
+      `/api/nox/projects/${projectId}/types/${typeId}`,
+      { method: "PATCH", body: JSON.stringify(changes) }),
+
+  insightsOverview: (project?: string, days = 30) =>
+    request<InsightsOverview>(
+      `/api/nox/insights/overview?days=${days}${project ? `&project=${project}` : ""}`),
+
+  insightsFlow: (project?: string, days = 30) =>
+    request<InsightsFlow>(
+      `/api/nox/insights/flow?days=${days}${project ? `&project=${project}` : ""}`),
 
   /** Every project, and summary + description + comments. */
   searchEverything: (term: string, limit = 25) =>

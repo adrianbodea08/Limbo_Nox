@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { trackerApi } from "./model";
 import type { TimelineData, TimelineRelease } from "./model";
+import { M3Segmented } from "../M3Segmented";
 
 const DAY = 86_400_000;
 
@@ -129,18 +130,12 @@ export function ReleaseTimeline({ onOpen }: { onOpen: (id: number) => void }) {
     <div className="tkt">
       <div className="tkt-head">
         <h2>Timeline</h2>
-        <div className="tkt-scales">
-          {SCALES.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className={`tkq-tab tk-layer${scale === s.id ? " on" : ""}`}
-              onClick={() => { centred.current = false; setScale(s.id); }}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
+        <M3Segmented
+          label="Timeline scale"
+          value={scale}
+          options={SCALES.map((s) => ({ value: s.id, label: s.label }))}
+          onChange={(next) => { centred.current = false; setScale(next); }}
+        />
         <span className="tk-dim tkt-count">
           {placed.length} releases in {lanes} lane{lanes === 1 ? "" : "s"}
           {data.undated > 0 && ` · ${data.undated} with no date, not shown`}

@@ -547,7 +547,11 @@ database. Nothing here touches `notes.db`.
 | Global search over summary, description and comments | done | `query.search_everything`, `TrackerSearch.tsx` |
 | Git integration | done — PRs, branches, checks, and git triggers for automations | `tracker/git.py`, [docs](GIT.md) |
 | Dynamic field admin UI | done — define a field, and set which types ask for it | `field_defs`, `field_usage` |
-| Saved views as first-class UI | seeded, board uses ad-hoc filters | `views` |
+| Asks, and the four notifications | done — confirm / explain / discuss / present | `nox/asks.py`, `nox/notify.py`, [docs](ASKS.md) |
+| Labels | done — created by use, folded on the way in, filtered by EXISTS | `nox/labels.py`, [docs](LABELS.md) |
+| Text editor | done — Markdown rendered at last, to elements rather than HTML | `Markdown.tsx`, [docs](EDITOR.md) |
+| Insights | done — flow, waiting, automation share | `nox/insights.py`, [docs](ANALYTICS.md) |
+| Saved views as first-class UI | done — private by default, shareable, whole arrangement | `nox/views.py`, [docs](VIEWS.md) |
 
 Verified end to end rather than assumed: issue keys allocate per project from 1;
 a refused transition names what *is* available; only real changes become events;

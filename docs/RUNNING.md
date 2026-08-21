@@ -72,6 +72,24 @@ Gated by the `tracker` account tag, granted in Admin → Accounts. Admins bypass
 it, as with every other tag. The gate is enforced in the auth middleware, so it
 covers every route under `/api/tracker` including ones added later.
 
+### Restarting the api does not sign anybody out
+
+It used to. `docker compose up -d --build web` recreates the api container, and
+if a browser reloaded inside that window `GET /api/auth/me` never completed —
+which the boot check treated as "your session is over" and threw the token away.
+The API log had no 401 in it, because there was nothing there to say no, and the
+session row was good for another 29 days.
+
+Only a **401** means the server stopped believing a session. A network failure
+or a 5xx means the server could not be asked, which is a different sentence, so
+boot now retries (400ms, 1.2s, then every 3s) and shows *"Nox is not answering"*
+while keeping the token. It recovers on its own when the container comes back —
+no reload, no signing in again.
+
+`ApiError` in `api.ts` is what makes the two distinguishable: `status` is what
+the server answered, and status `0` means it never answered. Before that,
+everything arrived as a bare `Error` and no caller *could* tell them apart.
+
 ## Migrations
 
 ```bash

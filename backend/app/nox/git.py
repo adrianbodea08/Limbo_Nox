@@ -85,18 +85,43 @@ def resolve_keys(conn: Connection, found: dict[str, set[str]]) -> dict[int, str]
     return out
 
 
+def live_keys(conn: Connection, candidates: set[str]) -> set[str]:
+    """The subset that are real, open issues.
+
+    Asked before spending a network call on a branch: `release/2.4-RC1` matches
+    the shape of a key and belongs to nobody, and comparing four hundred of
+    those against the default branch is four hundred calls for nothing.
+    """
+    if not candidates:
+        return set()
+    rows = conn.execute(
+        select(issues.c.key)
+        .where(issues.c.key.in_(sorted(candidates)))
+        .where(issues.c.archived_at.is_(None))
+    ).all()
+    return {r[0] for r in rows}
+
+
 # ------------------------------------------------------------- recording --
 
 def record(conn: Connection, actor: Actor, *, kind: str, repo_name: str, ref: str,
            title: str = "", url: str = "", state: str = "", checks: str = "none",
            author: str = "", branch: str = "", opened_at: Any = None,
-           merged_at: Any = None, found: dict[str, set[str]] | None = None) -> dict:
+           merged_at: Any = None, found: dict[str, set[str]] | None = None,
+           announce: bool = True) -> dict:
     """Store a ref and link it to the issues it names.
 
     Idempotent by (repo, kind, ref), because both ways in can deliver the same
     pull request: a webhook fires on every edit, and a sync re-reads everything
     it can see. Re-recording updates the row and re-links, so replaying a day of
     webhooks changes nothing.
+
+    `announce=False` records without writing events. It is for the things a
+    poller *finds* rather than *witnesses*: reading a six-month-old branch for
+    the first time is not that branch being created, and an automation that
+    moves an issue when a branch appears must not fire for two hundred branches
+    the first time somebody connects an organisation. A webhook, which really
+    did witness the event, still announces.
     """
     existing = conn.execute(
         select(git_refs)
@@ -140,7 +165,8 @@ def record(conn: Connection, actor: Actor, *, kind: str, repo_name: str, ref: st
     # never failed as far as any issue was concerned.
     attached = [r[0] for r in conn.execute(
         select(issue_git.c.issue_id).where(issue_git.c.git_ref_id == ref_id)).all()]
-    _announce(conn, actor, ref_id, kind, values, before, attached)
+    if announce:
+        _announce(conn, actor, ref_id, kind, values, before, attached)
     return {"id": ref_id, "issues": attached}
 
 
@@ -163,6 +189,11 @@ def _announce(conn: Connection, actor: Actor, ref_id: int, kind: str,
 
     if kind == "branch" and before is None:
         happenings.append(("branch_created", {"branch": now_values.get("ref")}))
+    # A build ref is a record, not a herald. What an automation listens to is
+    # the *pull request's* check state, which the same sync sets — one event per
+    # real change, from the place that knows which issues it concerns.
+    if kind in ("commit", "build"):
+        return
     if kind == "pr":
         if before is None and state in ("open", "draft"):
             happenings.append(("pr_opened", {"state": state}))
@@ -254,21 +285,43 @@ def from_webhook(conn: Connection, actor: Actor, event: str, payload: dict) -> d
 
     if event == "create" and payload.get("ref_type") == "branch":
         branch = payload.get("ref") or ""
+        # No title: the sync computes "3 ahead, 1 behind" for this row, and a
+        # webhook that knows less must not overwrite it with the branch name.
         return record(conn, actor, kind="branch", repo_name=repo_name, ref=branch,
-                      title=branch, branch=branch,
+                      branch=branch,
                       url=f"https://github.com/{repo_name}/tree/{branch}",
                       found={"branch": keys_in(branch)})
 
-    # A check result arrives against a commit, and reaches an issue through the
-    # pull requests that commit belongs to.
-    if event in ("check_suite", "workflow_run"):
-        body = payload.get("check_suite") or payload.get("workflow_run") or {}
+    # Commits, as they land. The branch is on the delivery, which is how a
+    # commit whose message never mentions a key still reaches its issue.
+    if event == "push":
+        branch = (payload.get("ref") or "").removeprefix("refs/heads/")
+        stored = [record_commit(conn, actor, repo_name, c, branch)
+                  for c in payload.get("commits") or []]
+        return {"commits": len(stored), "branch": branch}
+
+    # A run reaches an issue two ways: through the pull requests it ran for, and
+    # through the branch it ran on. The first is what an automation listens to.
+    if event == "workflow_run":
+        run = payload.get("workflow_run") or {}
+        record_run(conn, actor, repo_name, run)
+        outcome = RUN_CHECKS.get(
+            RUN_STATE.get(run.get("conclusion") or "", "")
+            if run.get("status") == "completed" else "running", "pending")
+        touched = [record(conn, actor, kind="pr", repo_name=repo_name,
+                          ref=str(pr.get("number")), checks=outcome)
+                   for pr in run.get("pull_requests") or []]
+        return {"checks": outcome, "pull_requests": len(touched)}
+
+    # Checks that are not Actions — a third-party CI reporting in. No run to
+    # record, so this reaches an issue only through the pull request.
+    if event == "check_suite":
+        body = payload.get("check_suite") or {}
         outcome = {"success": "passing", "failure": "failing", "timed_out": "failing",
                    "cancelled": "none"}.get(body.get("conclusion") or "", "pending")
-        touched = []
-        for pr in body.get("pull_requests") or []:
-            touched.append(record(conn, actor, kind="pr", repo_name=repo_name,
-                                  ref=str(pr.get("number")), checks=outcome))
+        touched = [record(conn, actor, kind="pr", repo_name=repo_name,
+                          ref=str(pr.get("number")), checks=outcome)
+                   for pr in body.get("pull_requests") or []]
         return {"checks": outcome, "pull_requests": len(touched)}
 
     return {"ignored": event}
@@ -317,6 +370,137 @@ def record_pull(conn: Connection, actor: Actor, repo_name: str, pr: dict) -> dic
         })
 
 
+def record_branch(conn: Connection, actor: Actor, repo_name: str, name: str,
+                  compared: dict | None = None, *, announce: bool = False) -> dict:
+    """A branch, and how far it has run past the default branch.
+
+    The comparison is the useful part. "Exists" is not news — every branch
+    exists. "Four commits ahead, none behind" says the work is live and will
+    merge cleanly, and "eleven behind" says it will not.
+    """
+    compared = compared or {}
+    commits = compared.get("commits") or []
+    tip = commits[-1] if commits else {}
+    ahead, behind = compared.get("ahead") or 0, compared.get("behind") or 0
+
+    if compared:
+        parts = [f"{ahead} ahead"] + ([f"{behind} behind"] if behind else [])
+        title = ", ".join(parts)
+    else:
+        title = ""
+
+    return record(
+        conn, actor, kind="branch", repo_name=repo_name, ref=name,
+        title=title, url=f"https://github.com/{repo_name}/tree/{name}",
+        # GitHub's own word for it: identical, ahead, behind, diverged.
+        state=compared.get("status") or "",
+        author=_commit_author(tip), branch=name,
+        opened_at=_commit_date(tip),
+        found={"branch": keys_in(name)}, announce=announce)
+
+
+def record_commit(conn: Connection, actor: Actor, repo_name: str, commit: dict,
+                  branch: str = "", *, announce: bool = False) -> dict:
+    """One commit.
+
+    Linked through its branch as well as its message, because a commit on
+    `fix/CD-19-…` belongs to CD-19 whether or not whoever wrote it remembered
+    to say so in the message. That is most of them.
+    """
+    body = commit.get("commit") or {}
+    message = body.get("message") or ""
+    first, _, rest = message.partition("\n")
+    return record(
+        conn, actor, kind="commit", repo_name=repo_name,
+        ref=commit.get("sha") or "", title=first.strip(),
+        url=commit.get("html_url") or "",
+        author=_commit_author(commit), branch=branch,
+        opened_at=_commit_date(commit),
+        found={"title": keys_in(first), "body": keys_in(rest),
+               "branch": keys_in(branch)}, announce=announce)
+
+
+# GitHub says "success"; a person reading a column says "passed". The words on
+# the left are the API's, the ones on the right are the product's.
+RUN_STATE = {
+    "success": "success", "failure": "failure", "timed_out": "failure",
+    "startup_failure": "failure", "cancelled": "cancelled",
+    "action_required": "failure", "neutral": "skipped", "skipped": "skipped",
+    "stale": "skipped",
+}
+RUN_CHECKS = {"success": "passing", "failure": "failing", "cancelled": "none",
+              "skipped": "none", "running": "pending"}
+
+
+def record_run(conn: Connection, actor: Actor, repo_name: str, run: dict,
+               *, announce: bool = False) -> dict:
+    """One GitHub Actions run.
+
+    Identified by the run id and not the run number: two workflows in the same
+    repository both have a run #7, and keying on the number would have them
+    overwrite each other for the rest of time.
+    """
+    done = run.get("status") == "completed"
+    state = RUN_STATE.get(run.get("conclusion") or "", "") if done else "running"
+    branch = run.get("head_branch") or ""
+    number = run.get("run_number")
+    name = run.get("name") or run.get("display_title") or "workflow"
+
+    return record(
+        conn, actor, kind="build", repo_name=repo_name, ref=str(run.get("id") or ""),
+        # The number lives in the title because the ref column is spoken for by
+        # the id, and "CI #128" is what somebody is looking for.
+        title=f"{name} #{number}" if number else name,
+        url=run.get("html_url") or "", state=state,
+        checks=RUN_CHECKS.get(state, "none"),
+        author=((run.get("actor") or {}).get("login")) or "",
+        branch=branch, opened_at=run.get("created_at"),
+        merged_at=run.get("updated_at") if done else None,
+        found={"branch": keys_in(branch),
+               "title": keys_in(run.get("display_title") or "")},
+        announce=announce)
+
+
+# A check run says less than a workflow run, and says it in different words.
+CHECK_STATE = {
+    "success": "success", "failure": "failure", "timed_out": "failure",
+    "action_required": "failure", "startup_failure": "failure",
+    "cancelled": "cancelled", "neutral": "skipped", "skipped": "skipped",
+    "stale": "skipped",
+}
+
+
+def record_check(conn: Connection, actor: Actor, repo_name: str, check: dict,
+                 branch: str = "", *, announce: bool = False) -> dict:
+    """One check run — a build, read the way an app without the `actions`
+    permission has to read it."""
+    done = check.get("status") == "completed"
+    state = CHECK_STATE.get(check.get("conclusion") or "", "") if done else "running"
+    producer = ((check.get("app") or {}).get("name")) or ""
+    return record(
+        conn, actor, kind="build", repo_name=repo_name,
+        ref=str(check.get("id") or ""), title=check.get("name") or "check",
+        url=check.get("html_url") or check.get("details_url") or "",
+        state=state, checks=RUN_CHECKS.get(state, "none"),
+        author=producer, branch=branch,
+        opened_at=check.get("started_at"),
+        merged_at=check.get("completed_at") if done else None,
+        found={"branch": keys_in(branch)}, announce=announce)
+
+
+def _commit_author(commit: dict) -> str:
+    """The GitHub login if the commit is attributed to an account, the name in
+    the commit itself otherwise. Plenty of commits are the latter."""
+    account = commit.get("author") or {}
+    if account.get("login"):
+        return account["login"]
+    return ((commit.get("commit") or {}).get("author") or {}).get("name") or ""
+
+
+def _commit_date(commit: dict) -> Any:
+    return ((commit.get("commit") or {}).get("author") or {}).get("date")
+
+
 def _pr_state(pr: dict) -> str:
     if pr.get("merged_at"):
         return "merged"
@@ -325,36 +509,171 @@ def _pr_state(pr: dict) -> str:
     return "draft" if pr.get("draft") else "open"
 
 
+# Per repository, per sync. Reading a pull request's commits or comparing a
+# branch costs one call each, so both are bounded — and when a bound bites, the
+# result says so rather than quietly returning a subset that looks complete.
+COMMIT_BUDGET = 40
+BRANCH_BUDGET = 40
+
+
+def _count(n: int, one: str, many: str = "") -> str:
+    """"1 branch", "2 branches". A summary that says "1 branches" is a summary
+    somebody stops reading."""
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
 async def _sync_via_app(engine, installs: list[dict], only: str | None,
                         pages: int) -> dict:
     """The good path: read as the app, over every repository it can see.
 
     No list to maintain — "all repositories" on the installation means a repo
     created next month is covered without anybody remembering.
+
+    Four passes per repository, in the order that makes each one cheaper than
+    it looks: pull requests, then the commits of the pull requests that
+    actually named an issue, then the branches whose names name a live issue,
+    then the Actions runs. Everything after the first pass is filtered by what
+    the first pass proved is relevant, which is what keeps a repository with
+    four hundred branches from costing four hundred calls.
     """
-    seen, linked, failed, repos_done = 0, 0, {}, []
+    tally = {"pull_requests": 0, "branches": 0, "commits": 0, "builds": 0, "links": 0}
+    failed: dict[str, str] = {}
+    capped: dict[str, str] = {}
+    notes: dict[str, str] = {}
+    repos_done: list[str] = []
+
     for install in installs:
         iid = install["installation_id"]
         try:
-            names = await github_app.repositories(iid)
+            found_repos = await github_app.repositories(iid)
         except github_app.AppError as exc:
             failed[install["account_login"]] = str(exc)
             continue
         if only:
-            names = [n for n in names if n == only]
-        for name in names:
+            found_repos = [r for r in found_repos if r["name"] == only]
+
+        for entry in found_repos:
+            name, base = entry["name"], entry["default_branch"]
             try:
-                pulls = await github_app.pulls(iid, name, pages=pages)
+                await _sync_repo(engine, iid, name, base, pages, tally, capped, notes)
             except github_app.AppError as exc:
+                # Whatever the earlier passes committed is kept. Saying the repo
+                # failed while silently keeping half its data is how somebody
+                # ends up not trusting either number.
                 failed[name] = str(exc)
-                continue
             repos_done.append(name)
-            with engine.begin() as conn:
-                for pull in pulls:
-                    seen += 1
-                    linked += len(record_pull(conn, repo_mod.SYSTEM, name, pull)["issues"])
+
         with engine.begin() as conn:
-            github_app.note_sync(
-                conn, iid, f"{len(repos_done)} repos, {seen} pull requests, {linked} linked")
-    return {"via": "app", "repos": repos_done, "pull_requests": seen,
-            "links": linked, "failed": failed}
+            github_app.note_sync(conn, iid, ", ".join([
+                _count(len(repos_done), "repo"),
+                _count(tally["pull_requests"], "pull request"),
+                _count(tally["branches"], "branch", "branches"),
+                _count(tally["commits"], "commit"),
+                _count(tally["builds"], "build"),
+                f"{tally['links']} linked",
+            ]))
+
+    return {"via": "app", "repos": repos_done, **tally,
+            "failed": failed, "capped": capped, "notes": notes}
+
+
+async def _sync_repo(engine, iid: int, name: str, base: str, pages: int,
+                     tally: dict, capped: dict, notes: dict) -> None:
+    """One repository, read four ways."""
+    system = repo_mod.SYSTEM
+    # sha -> the branch it is the tip of. Collected as we go and spent on the
+    # builds pass, which can only afford to ask about commits that matter.
+    heads: dict[str, str] = {}
+
+    # 1. Pull requests. Everything else narrows down from what these link.
+    pulls = await github_app.pulls(iid, name, pages=pages)
+    linked_pulls: list[dict] = []
+    with engine.begin() as conn:
+        for pull in pulls:
+            tally["pull_requests"] += 1
+            outcome = record_pull(conn, system, name, pull)
+            tally["links"] += len(outcome["issues"])
+            if outcome["issues"]:
+                linked_pulls.append(pull)
+                head = pull.get("head") or {}
+                if head.get("sha"):
+                    heads[head["sha"]] = head.get("ref") or ""
+
+    # 2. The commits inside those pull requests. Asked of the pull request, so
+    #    it still answers for work that merged and had its branch deleted.
+    if len(linked_pulls) > COMMIT_BUDGET:
+        capped[f"{name} commits"] = (
+            f"read the commits of {COMMIT_BUDGET} of {len(linked_pulls)} linked "
+            f"pull requests this pass")
+    for pull in linked_pulls[:COMMIT_BUDGET]:
+        commits = await github_app.pull_commits(iid, name, pull["number"])
+        head = ((pull.get("head") or {}).get("ref")) or ""
+        with engine.begin() as conn:
+            for commit in commits:
+                tally["commits"] += 1
+                record_commit(conn, system, name, commit, head)
+
+    # 3. Branches. Only the ones naming an issue that exists — checked against
+    #    the tracker before spending a call, not after.
+    everything = await github_app.branches(iid, name, pages=1)
+    tips = {b["name"]: ((b.get("commit") or {}).get("sha")) or "" for b in everything}
+    named = {b["name"]: keys_in(b["name"]) for b in everything
+             if b.get("name") and b["name"] != base and keys_in(b["name"])}
+    if named:
+        with engine.begin() as conn:
+            real = live_keys(conn, set().union(*named.values()))
+        wanted = [b for b, keys in named.items() if keys & real]
+        if len(wanted) > BRANCH_BUDGET:
+            capped[f"{name} branches"] = (
+                f"compared {BRANCH_BUDGET} of {len(wanted)} branches this pass")
+        for branch_name in wanted[:BRANCH_BUDGET]:
+            if tips.get(branch_name):
+                heads[tips[branch_name]] = branch_name
+            compared = await github_app.ahead_of(iid, name, base, branch_name)
+            with engine.begin() as conn:
+                tally["branches"] += 1
+                record_branch(conn, system, name, branch_name, compared)
+                for commit in compared.get("commits") or []:
+                    tally["commits"] += 1
+                    record_commit(conn, system, name, commit, branch_name)
+
+    # 4. Builds. Two ways to ask, and the better one needs a permission this
+    #    app does not insist on, so it falls back rather than going blank.
+    try:
+        runs = await github_app.runs(iid, name, pages=1)
+    except github_app.NotPermitted:
+        notes[f"{name} builds"] = (
+            "read through the Checks API — grant this app the Actions "
+            "permission on GitHub for workflow names and numbers")
+        await _builds_via_checks(engine, iid, name, heads, tally)
+        return
+
+    with engine.begin() as conn:
+        for run in runs:
+            tally["builds"] += 1
+            record_run(conn, system, name, run)
+            # The run is a record; the *pull request's* check state is what an
+            # automation listens to, so that goes through the announcing path.
+            checks = RUN_CHECKS.get(
+                RUN_STATE.get(run.get("conclusion") or "", "")
+                if run.get("status") == "completed" else "running", "none")
+            if checks == "none":
+                continue
+            for pull in run.get("pull_requests") or []:
+                record(conn, system, kind="pr", repo_name=name,
+                       ref=str(pull.get("number")), checks=checks)
+
+
+async def _builds_via_checks(engine, iid: int, name: str,
+                             heads: dict[str, str], tally: dict) -> None:
+    """Builds for the commits we already care about, one call each.
+
+    Bounded by `heads` — the tip of every pull request and branch this issue
+    tracker has a reason to know about — rather than by the repository, because
+    asking per commit is only affordable when the commits are chosen.
+    """
+    for sha, branch in list(heads.items())[:COMMIT_BUDGET]:
+        for check in await github_app.check_runs(iid, name, sha):
+            with engine.begin() as conn:
+                tally["builds"] += 1
+                record_check(conn, repo_mod.SYSTEM, name, check, branch)

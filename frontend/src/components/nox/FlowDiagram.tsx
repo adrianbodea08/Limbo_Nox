@@ -13,6 +13,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { M3Select } from "../M3Select";
 import { trackerApi } from "./model";
 import type { ProjectSettingsData } from "./model";
+import { ArrowLeft, X } from "lucide-react";
 
 const NODE_W = 172;
 const NODE_H = 48;
@@ -440,7 +441,7 @@ function StatusPanel({
           </div>
           <div className="tkf-row">
             <button type="button" className="tk-btn tk-layer" disabled={busy || index === 0}
-                    onClick={() => shift(-1)}>← Earlier</button>
+                    onClick={() => shift(-1)}><ArrowLeft size={16} aria-hidden /> Earlier</button>
             <button type="button" className="tk-btn tk-layer" disabled={busy || index === cols.length - 1}
                     onClick={() => shift(1)}>Later →</button>
           </div>
@@ -483,7 +484,7 @@ function StatusPanel({
                              });
                            }} />
                     <button type="button" className="tks-mini tk-layer"
-                            onClick={() => setRenaming(null)}>✕</button>
+                            onClick={() => setRenaming(null)}><X size={16} aria-hidden /></button>
                   </>
                 ) : (
                   <>
@@ -504,9 +505,7 @@ function StatusPanel({
                       disabled={busy}
                       onClick={() => act(() => trackerApi.setTransition(
                         data.project.id, status.id, t.to_status_id, false))}
-                    >
-                      ✕
-                    </button>
+                    ><X size={16} aria-hidden /></button>
                   </>
                 )}
               </div>

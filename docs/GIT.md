@@ -160,26 +160,86 @@ CD-3 start:             To Do
 
 ## 6. What you see
 
-- **On an issue**: a Development panel — pull requests first, branches after,
-  each with its state, its checks, and a link out. Shown only when there is
-  something; an empty box on every issue teaches nothing.
+- **On an issue**: a **Development** line in the side column, beside the
+  status and the assignee rather than under the description — one line saying
+  "1 pull request" and the state that matters (worst news wins: closed, then
+  merged, then draft, then open). Shown only when there is something; an empty
+  box on every issue teaches nothing.
+- **Behind that line**: a dialog with the detail, grouped by repository, with
+  four tabs in the order the work happens — Branches, Commits, Pull requests,
+  Builds. A tab with nothing in it is disabled rather than hidden, so the shape
+  of what Nox reads stays visible. The footer says which field the issue key
+  was found in, because a match on a branch name is the one most likely to be
+  wrong.
+
+  Each tab has its own columns, because the kinds are different things:
+
+  | Tab | Columns |
+  |---|---|
+  | Branches | last commit by · branch · against the default branch · status · updated |
+  | Commits | author · commit · message · branch · committed |
+  | Pull requests | author · id · summary · status · checks · updated |
+  | Builds | triggered by · workflow · branch · status · updated |
+
+  One set of columns wide enough for all four would be mostly empty cells, and
+  an empty cell reads as missing data rather than as a question that does not
+  apply to this row. A commit has no status; a build has no reviewer.
 - **On a board card**: one badge in the footer slot reserved for it. Where an
   issue has several PRs the badge shows the worst news — failing beats pending
   beats passing, open beats merged — for the same reason "blocked" is loud: it
   is the one that changes what somebody does next.
 
-## 7. Deliberately not built
+## 7. What a sync actually reads
+
+Four passes per repository, each one narrowed by the pass before it. That
+ordering is the whole cost control: a repository with four hundred branches
+costs two calls to list them and then nothing at all for the three hundred and
+ninety that name no live issue.
+
+1. **Pull requests** — two pages, most recently updated first. Everything after
+   this is filtered by what these linked.
+2. **Commits**, asked of each pull request that named a live issue. Asked of the
+   pull request and not of the branch, because it keeps answering after the
+   merge: the branch is usually deleted, the pull request never is.
+3. **Branches** — listed once, kept only where the name contains a key that is a
+   real, unarchived issue, then compared against the default branch. The
+   comparison is the useful part: "4 ahead" says the work is live, "11 behind"
+   says it will not merge cleanly. The same call returns the commits that are on
+   the branch and not on the default one, which is how an unmerged branch gets
+   its Commits tab.
+4. **Builds** — from Actions where the app is permitted, from the Checks API
+   where it is not. See below.
+
+Two budgets, both per repository per sync: forty pull requests have their
+commits read, and forty branches are compared. When either bites, the sync
+result says so in `capped` — a truncated read that reports itself as complete is
+worse than no read at all.
+
+### Builds, and the permission that is not required
+
+Reading `/actions/runs` needs the app to hold the **Actions** permission.
+`checks` — which every installation of this app already grants — answers the
+same question for a commit through `/commits/{sha}/check-runs`, so that is the
+fallback, and the sync says which one it used in `notes`.
+
+The fallback costs one call per interesting commit rather than one per
+repository, and a check run is named for the job ("frontend builds") rather than
+for the workflow and its number ("CI #128"). Grant Actions and the rows get
+better. Do not, and builds still appear the day somebody connects, which is
+worth more than the nicer label.
+
+## 8. Deliberately not built
 
 - **Writing to GitHub.** Nothing here creates a branch or a PR. The tracker
   reads what git did; git is not ours to drive.
-- **Commit ingestion.** The `commit` kind exists in the schema and nothing
-  populates it. Squash-merge means the PR already carries the story, and a row
-  per commit is a lot of rows to say the same thing.
+- **Reviewers.** Jira's development dialog has a Reviewer column. Nothing here
+  reads them, so there is no column — an always-empty column reads as "nobody
+  reviewed this" rather than as "not asked".
 - **Deploy events.** `STAGING -> LIVE` is 464 of their moves and belongs here
   eventually, but a deployment is not a GitHub concept in their setup — it needs
   a conversation about where that signal comes from first.
 
-## 8. Configuration
+## 9. Configuration
 
 | | |
 |---|---|
@@ -204,7 +264,7 @@ to `pull_request`, `create` and `check_suite`. Point its webhook at
 `/api/tracker/git/webhook` and set the same secret. The Git page lists these
 steps too, so nobody has to find this file.
 
-## 9. Verified against a live installation
+## 10. Verified against a live installation
 
 Connected to a real GitHub App on 2026-08-21 — `nox-by-limbo`, App ID 4670678,
 installed on `adrianbodea08` with **all repositories**, permissions read-only
@@ -222,7 +282,7 @@ inside `sync()` rather than at module scope, so the function doing the work
 could not see it and the sync answered 500. It had never run before — the app
 Nox was extracted from always took the token path.
 
-## 10. Decision log
+## 11. Decision log
 
 | Date | Decision |
 |---|---|

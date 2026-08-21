@@ -15,14 +15,23 @@
 // Renders as a dialog or as the body of the full page — same component, so the
 // two cannot drift apart.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { M3DatePicker } from "../M3DatePicker";
 import { M3Select } from "../M3Select";
+import { AsksOnIssue } from "./Asks";
+import { LabelEditor } from "./Labels";
+import { Markdown } from "./Markdown";
+import { clearDraft, readDraft, saveDraft } from "./drafts";
+import { Composer } from "./Composer";
+import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
+import { ChevronDown, X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
 import {
   PRIORITIES, PRIORITY_COLOUR, ago, fieldLabel, trackerApi,
-  type GitRef, type IssueField, type LinkType, type ParentCandidate, type TrackerIssue,
+  type IssueField, type LinkType, type ParentCandidate, type TrackerIssue,
   type TrackerMeta, type TrackerTransition, type TrackerUser,
 } from "./model";
 
@@ -54,6 +63,18 @@ export function IssueCard({
   );
   const [summary, setSummary] = useState(issue?.summary ?? "");
   const [description, setDescription] = useState(issue?.description ?? "");
+  // Two versions of the same field, and the tabs are how you see both:
+  //   Read  — what the team can see, straight from the server.
+  //   Write — what you have written, saved or not.
+  // A new issue has nothing to read, so it starts on Write.
+  const [writing, setWriting] = useState(mode === "create");
+  // Whether somebody *asked* to write, as opposed to landing on Write because
+  // a draft was waiting for them. Only the asking puts the caret in the box:
+  // opening an issue should not start typing in it.
+  const [askedToWrite, setAskedToWrite] = useState(false);
+  // Whose drafts these are. Kept out of the render so a draft cannot be written
+  // under the wrong person if `meta` arrives late.
+  const me = meta.me ?? 0;
   const [priority, setPriority] = useState(issue?.priority ?? "medium");
   const [assignee, setAssignee] = useState<number | null>(issue?.assignee_id ?? null);
   const [tester, setTester] = useState<number | null>(issue?.tester_id ?? null);
@@ -81,7 +102,6 @@ export function IssueCard({
   const [menu, setMenu] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (mode !== "edit" || !issue) return;
@@ -91,6 +111,13 @@ export function IssueCard({
         if (!live) return;
         setFull(detail);
         setMoves(transitions);
+        // Pick up where this person left off. Opening on Write when there is
+        // something to continue is the point of keeping it — landing on Read
+        // would hide the very thing that was saved for you.
+        const kept = me ? readDraft(me, detail.id) : null;
+        const saved = detail.description ?? "";
+        setDescription(kept ?? saved);
+        setWriting(kept != null && kept !== saved);
         setCustom(detail.custom ?? {});
       })
       .catch((e) => live && setError(String(e)));
@@ -98,6 +125,23 @@ export function IssueCard({
       live = false;
     };
   }, [mode, issue?.id, issue?.key]);
+
+  // Not on every keystroke: the editor already serialises markdown on each
+  // one, and localStorage is synchronous. A pause is what "I have written
+  // something" actually means anyway.
+  useEffect(() => {
+    if (mode !== "edit" || !full || !me) return;
+    const t = window.setTimeout(
+      () => saveDraft(me, full.id, description, full.description ?? ""),
+      400,
+    );
+    return () => window.clearTimeout(t);
+  }, [description, full, me, mode]);
+
+  function toWrite() {
+    setWriting(true);
+    setAskedToWrite(true);
+  }
 
   async function refresh() {
     if (!issue) return;
@@ -122,23 +166,6 @@ export function IssueCard({
     } finally {
       setBusy(false);
     }
-  }
-
-  // Markdown helpers, same as the My Board card — people already know them.
-  function md(before: string, after = before, line = false) {
-    const ta = bodyRef.current;
-    if (!ta) return;
-    const { selectionStart: s, selectionEnd: e, value } = ta;
-    let next: string;
-    if (line) {
-      const ls = value.lastIndexOf("\n", s - 1) + 1;
-      const block = value.slice(ls, e) || before.trim();
-      next = value.slice(0, ls) + block.split("\n").map((l) => before + l).join("\n") + value.slice(e);
-    } else {
-      next = value.slice(0, s) + before + value.slice(s, e) + after + value.slice(e);
-    }
-    setDescription(next);
-    requestAnimationFrame(() => ta.focus());
   }
 
   async function save() {
@@ -167,9 +194,17 @@ export function IssueCard({
           issue_type_id: typeId,
           custom,
         });
+        // Saved is saved: the two versions are the same again, so the private
+        // one has nothing left to hold.
+        if (me) clearDraft(me, issue.id);
       }
     });
   }
+
+  // Derived rather than stored: "there is a draft" means exactly "what I have
+  // differs from what is saved", and a second copy of that fact would sooner or
+  // later disagree with the first.
+  const hasDraft = mode === "edit" && !!full && description !== (full.description ?? "");
 
   const type = meta.issueTypes.find((t) => t.id === typeId);
   // Whether any type sits above this one. Asked of the types rather than
@@ -192,7 +227,7 @@ export function IssueCard({
     <>
       {error && (
         <div className="tkc-err" onClick={() => setError("")}>
-          {error} ✕
+          {error} <X size={14} aria-hidden />
         </div>
       )}
 
@@ -209,25 +244,79 @@ export function IssueCard({
           </Field>
 
           <Field label="Description">
-            <div className="tkc-desc">
-              <div className="tkc-toolbar">
-                <button type="button" className="tkc-tb tk-layer" title="Bold" onClick={() => md("**")}><b>B</b></button>
-                <button type="button" className="tkc-tb tk-layer" title="Italic" onClick={() => md("*")}><i>I</i></button>
-                <button type="button" className="tkc-tb tk-layer" title="Strikethrough" onClick={() => md("~~")}><s>S</s></button>
-                <span className="tkc-tb-div" />
-                <button type="button" className="tkc-tb tk-layer" title="Bullet list" onClick={() => md("- ", "", true)}>•</button>
-                <button type="button" className="tkc-tb tk-layer" title="Numbered list" onClick={() => md("1. ", "", true)}>1.</button>
-                <span className="tkc-tb-div" />
-                <button type="button" className="tkc-tb tk-layer" title="Quote" onClick={() => md("> ", "", true)}>&rdquo;</button>
-                <button type="button" className="tkc-tb tk-layer" title="Code" onClick={() => md("`")}>&lt;/&gt;</button>
+            {/* Write and Read are not editor-and-preview — the editor already
+                renders what you type. They are *your* version and *the team's*
+                version, which stop being the same thing the moment you type
+                without saving. Read is what anybody else opening this issue
+                sees; Write is what you were in the middle of. */}
+            <div className="tk-two">
+              <div className="tk-two-bar" role="tablist" aria-label="Description">
+                <button type="button" role="tab" aria-selected={writing}
+                        className={`tkc-mode tk-layer${writing ? " on" : ""}`}
+                        onClick={toWrite}>
+                  Write
+                  {/* Marks that the two differ, so an unsaved draft is never a
+                      surprise you find later. */}
+                  {hasDraft && <span className="tk-two-dot" aria-hidden />}
+                </button>
+                <button type="button" role="tab" aria-selected={!writing}
+                        className={`tkc-mode tk-layer${!writing ? " on" : ""}`}
+                        onClick={() => { setWriting(false); setAskedToWrite(false); }}>
+                  Read
+                </button>
+                {hasDraft && (
+                  <span className="tk-two-note">
+                    {/* The words shrink; the button does not. They used to be
+                        one truncating box, which at a narrow width clipped
+                        Discard off the end and left no way to drop a draft. */}
+                    <span className="tk-two-words">Unsaved · kept on this computer</span>
+                    <button type="button" className="tk-link tk-layer"
+                            onClick={() => {
+                              if (!full) return;
+                              clearDraft(me, full.id);
+                              setDescription(full.description ?? "");
+                            }}>
+                      Discard
+                    </button>
+                  </span>
+                )}
               </div>
-              <textarea
-                ref={bodyRef}
-                className="tkc-ta"
-                value={description}
-                placeholder="Describe the work, acceptance criteria, links…"
-                onChange={(e) => setDescription(e.target.value)}
-              />
+
+              {writing ? (
+                <Composer
+                  value={description}
+                  onChange={setDescription}
+                  people={users}
+                  autoFocus={askedToWrite}
+                  placeholder="Describe the work, acceptance criteria, links…"
+                />
+              ) : (
+                // Clicking the text starts writing, the way a document does.
+                // A `div` with a role rather than a `button`, because there are
+                // links and issue keys inside it and nesting those in a button
+                // is both invalid and unusable from a keyboard.
+                <div
+                  className="tk-two-read"
+                  role="button"
+                  tabIndex={0}
+                  title="Click to write"
+                  onClick={(e) => {
+                    // A link inside the text is a link, not a way in.
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    toWrite();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toWrite();
+                    }
+                  }}
+                >
+                  {(full?.description ?? "").trim()
+                    ? <Markdown text={full?.description ?? ""} people={users} />
+                    : <p className="tk-dim">Nothing saved here yet.</p>}
+                </div>
+              )}
             </div>
           </Field>
 
@@ -248,12 +337,42 @@ export function IssueCard({
                 </div>
               )}
 
-              {/* What git is doing about it. Only when there is something —
-                  an empty box on every issue teaches nothing, and most issues
-                  have no branch until somebody starts. */}
-              {!!full.git?.length && (
-                <Field label={`Development (${full.git.length})`}>
-                  <Development refs={full.git} />
+              {/* The words this team invented for itself. Sits with the
+                  issue's own facts rather than in the sidebar of dropdowns:
+                  a label is something somebody typed, not something somebody
+                  configured. */}
+              <Field label="Labels">
+                <LabelEditor
+                  issueId={full.id}
+                  labels={full.labels ?? []}
+                  onChanged={(next) => {
+                    // Locally at once so the chips answer the click, and up to
+                    // the board so the card behind the dialog agrees.
+                    const next_issue = { ...full, labels: next };
+                    setFull(next_issue);
+                    onSaved(next_issue);
+                  }}
+                />
+              </Field>
+
+              {/* Who is waiting on whom. Sits with the issue's facts and above
+                  Links, because an open ask is the reason the thing is not
+                  moving — which is not a remark. Only in edit mode: there is
+                  nothing to ask about an issue that does not exist yet. */}
+              {mode === "edit" && full && (
+                <Field
+                  label={`Asks${
+                    (full.asks ?? []).filter((a) => a.state === "open").length
+                      ? ` (${(full.asks ?? []).filter((a) => a.state === "open").length} open)`
+                      : ""}`}
+                >
+                  <AsksOnIssue
+                    issueId={full.id}
+                    asks={full.asks ?? []}
+                    users={users}
+                    me={meta.me ?? -1}
+                    onChanged={refresh}
+                  />
                 </Field>
               )}
 
@@ -272,9 +391,7 @@ export function IssueCard({
                   <div className="tkl-list">
                     {full.children.map((child) => (
                       <div key={child.id} className="tkl-row">
-                        <span className="tk-type" style={{ color: child.type_colour }}>
-                          {child.type_icon}
-                        </span>
+                        <TypeGlyph icon={child.type_icon} colour={child.type_colour} />
                         <IssueKey issueKey={child.key} />
                         <span className="tkl-sum">{child.summary}</span>
                         <span className="tk-chip"
@@ -319,16 +436,17 @@ export function IssueCard({
                         <Person size={20} name={c.author_name ?? "Someone"} avatar={c.author_avatar} />
                         <span className="tk-dim">{ago(c.created_at)}</span>
                       </header>
-                      <p>{c.body}</p>
+                      <Markdown text={c.body} people={users} />
                     </article>
                   ))}
                   {!(full.comments ?? []).length && <p className="tk-dim">No comments yet.</p>}
                   <div className="tk-comment-new">
-                    <textarea
-                      rows={2}
+                    <Composer
+                      compact
+                      people={users}
                       placeholder="Add a comment…"
                       value={comment}
-                      onChange={(e) => setComment(e.target.value)}
+                      onChange={setComment}
                     />
                     <button
                       type="button"
@@ -511,6 +629,15 @@ export function IssueCard({
             />
           </Field>
 
+          {/* What git is doing about it. Only when there is something — an
+              empty box on every issue teaches nothing, and most issues have no
+              branch until somebody starts. */}
+          {!!full?.git?.length && (
+            <Field label="Development">
+              <DevelopmentSummary refs={full.git} issueKey={full.key} />
+            </Field>
+          )}
+
           {/* The fields this project asks for on this type — decided in project
               settings, not invented here. Fields are global and shared, so a
               new one made up on an issue would land on every board that uses
@@ -663,7 +790,7 @@ export function IssueCard({
       onClose={() => setMenu(null)}
       button={
         <>
-          <span className="tk-type" style={{ color: type?.colour }}>{type?.icon}</span>
+          <TypeGlyph icon={type?.icon ?? ""} colour={type?.colour} />
           <span className="tkc-type-name">{type?.name}</span>
         </>
       }
@@ -673,7 +800,7 @@ export function IssueCard({
         text: t.name,
         node: (
           <>
-            <span className="tk-type" style={{ color: t.colour }}>{t.icon}</span>
+            <TypeGlyph icon={t.icon} colour={t.colour} />
             {t.name}
           </>
         ),
@@ -821,12 +948,30 @@ function Picker({
 }) {
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [box, setBox] = useState<Placement | null>(null);
   const showSearch = items.length >= searchFrom;
 
   useEffect(() => {
     if (open && showSearch) searchRef.current?.focus();
     if (!open) setQuery("");
   }, [open, showSearch]);
+
+  // Measured before paint, so the menu never appears in the wrong place first.
+  useLayoutEffect(() => {
+    if (!open) { setBox(null); return; }
+    const place = () => btnRef.current && setBox(placeMenu(btnRef.current, variant));
+    place();
+    // The dialog behind this scrolls, and so does the page. Following the
+    // trigger beats the alternatives: a menu left behind looks broken, and
+    // closing on any scroll fights a trackpad.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, variant]);
 
   const shown = query.trim()
     ? items.filter((it) => (it.text ?? "").toLowerCase().includes(query.trim().toLowerCase()))
@@ -835,6 +980,7 @@ function Picker({
   return (
     <div className={`tkc-dd-wrap${variant === "chip" ? " tkc-dd-wrap-chip" : ""}`}>
       <button
+        ref={btnRef}
         type="button"
         className={`tkc-dd tk-layer${variant === "chip" ? " tkc-dd-chip" : ""}`}
         onClick={onToggle}
@@ -842,12 +988,12 @@ function Picker({
         title={variant === "chip" ? "Change the issue type" : undefined}
       >
         <span className="tkc-dd-val">{button}</span>
-        <span className="tkc-dd-caret">▾</span>
+        <span className="tkc-dd-caret"><ChevronDown size={16} aria-hidden /></span>
       </button>
-      {open && (
+      {open && box && createPortal(
         <>
           <div className="tkc-pop-back" onClick={onClose} />
-          <div className="tkc-menu">
+          <div className="tkc-menu" style={box.style}>
             {showSearch && (
               <div className="tkc-menu-search">
                 <input
@@ -880,51 +1026,54 @@ function Picker({
             </div>
             {note && <p className="tkc-menu-note">{note}</p>}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );
+}
+
+interface Placement { style: React.CSSProperties }
+
+/** Where the menu goes, in viewport coordinates.
+ *
+ *  Below the trigger when there is room, above it when there is not — and the
+ *  height it is allowed is whatever is actually left, so a menu near an edge
+ *  scrolls internally instead of running off the screen. */
+function placeMenu(trigger: HTMLElement, variant: "field" | "chip"): Placement {
+  const EDGE = 8;   // never touch the viewport edge
+  const GAP = 6;    // the same gap the absolute version used
+  const TALLEST = 320;
+
+  const r = trigger.getBoundingClientRect();
+  const below = window.innerHeight - r.bottom - EDGE - GAP;
+  const above = r.top - EDGE - GAP;
+  // Flip only when below is genuinely cramped *and* above is roomier. A menu
+  // that flips for the sake of twenty more pixels is a menu that jumps around.
+  const flip = below < 200 && above > below;
+
+  const width = variant === "chip" ? Math.max(r.width, 200) : r.width;
+  const left = Math.max(EDGE, Math.min(r.left, window.innerWidth - width - EDGE));
+
+  return {
+    style: {
+      position: "fixed",
+      left,
+      width: variant === "chip" ? undefined : width,
+      minWidth: variant === "chip" ? width : undefined,
+      maxWidth: variant === "chip" ? 320 : undefined,
+      ...(flip
+        ? { bottom: window.innerHeight - r.top + GAP }
+        : { top: r.bottom + GAP }),
+      maxHeight: Math.min(TALLEST, Math.max(120, flip ? above : below)),
+    },
+  };
 }
 
 /** Branches and pull requests on an issue.
  *
  *  Pull requests first and branches after: a PR is the thing with a state
  *  somebody needs to read, and a branch with no PR only says "started". */
-function Development({ refs }: { refs: GitRef[] }) {
-  const order = { pr: 0, commit: 1, branch: 2 } as Record<string, number>;
-  const sorted = [...refs].sort(
-    (a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9)
-      || a.repo.localeCompare(b.repo));
-
-  return (
-    <div className="tkg">
-      {sorted.map((r) => (
-        <a
-          key={r.id}
-          className="tkg-row tk-layer"
-          href={r.url || undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`${r.repo}${r.author ? ` · ${r.author}` : ""}`}
-        >
-          <span className={`tkg-kind tkg-${r.kind}`}>
-            {r.kind === "pr" ? `#${r.ref}` : "branch"}
-          </span>
-          <span className="tkg-title">{r.title || r.ref}</span>
-          {r.state && <span className={`tkg-state tkg-s-${r.state}`}>{r.state}</span>}
-          {/* A merged PR whose build failed is a real thing, so checks are
-              shown next to the state rather than folded into it. */}
-          {r.checks !== "none" && (
-            <span className={`tkg-checks tkg-c-${r.checks}`}
-                  title={`Checks ${r.checks}`}>
-              {r.checks === "passing" ? "✓" : r.checks === "failing" ? "✕" : "…"}
-            </span>
-          )}
-        </a>
-      ))}
-    </div>
-  );
-}
 
 /** A small square icon button that confirms itself after it is pressed. */
 function IconButton({
@@ -986,9 +1135,7 @@ function Links({
           <div className="tkl-list">
             {(list ?? []).map((link) => (
               <div key={link.id} className="tkl-row">
-                <span className="tk-type" style={{ color: link.issue.type_colour }}>
-                  {link.issue.type_icon}
-                </span>
+                <TypeGlyph icon={link.issue.type_icon} colour={link.issue.type_colour} />
                 <IssueKey issueKey={link.issue.key} />
                 <span className="tkl-sum">{link.issue.summary}</span>
                 <span className="tk-chip"
@@ -997,7 +1144,7 @@ function Links({
                 </span>
                 <button type="button" className="tks-mini tks-danger tk-layer"
                         disabled={busy} title="Remove this link"
-                        onClick={() => onRemove(link.id)}>✕</button>
+                        onClick={() => onRemove(link.id)}><X size={16} aria-hidden /></button>
               </div>
             ))}
           </div>
@@ -1066,13 +1213,11 @@ function Parent({
   if (issue.parent) {
     return (
       <div className="tkl-row tkl-parent">
-        <span className="tk-type" style={{ color: issue.parent.type_colour }}>
-          {issue.parent.type_icon}
-        </span>
+        <TypeGlyph icon={issue.parent.type_icon} colour={issue.parent.type_colour} />
         <IssueKey issueKey={issue.parent.key} />
         <span className="tkl-sum">{issue.parent.summary}</span>
         <button type="button" className="tks-mini tks-danger tk-layer" disabled={busy}
-                title="Take it out from under this parent" onClick={() => onSet(null)}>✕</button>
+                title="Take it out from under this parent" onClick={() => onSet(null)}><X size={16} aria-hidden /></button>
       </div>
     );
   }
@@ -1093,7 +1238,7 @@ function Parent({
         text: `${c.key} ${c.summary}`,
         node: (
           <>
-            <span className="tk-type" style={{ color: c.type_colour }}>{c.type_icon}</span>
+            <TypeGlyph icon={c.type_icon} colour={c.type_colour} />
             <span className="tk-key">{c.key}</span>
             <span className="tkl-sum">{c.summary}</span>
           </>

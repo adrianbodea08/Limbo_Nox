@@ -11,6 +11,9 @@ import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { ReleaseTimeline } from "./ReleaseTimeline";
 import { ago, trackerApi } from "./model";
+import { M3Segmented } from "../M3Segmented";
+import { ArrowLeft, X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
 import type {
   ReleaseDetail, ReleaseSummary, TrackerComponent, UnreleasedIssue,
 } from "./model";
@@ -93,18 +96,15 @@ export function Releases({ selectedId, onSelect }: Props) {
     <div className="tk-releases">
       <div className="tk-rel-head">
         <h2>Releases</h2>
-        <div className="tk-rel-views">
-          {(["timeline", "list"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              className={`tkq-tab tk-layer${view === v ? " on" : ""}`}
-              onClick={() => setView(v)}
-            >
-              {v === "timeline" ? "Timeline" : "List"}
-            </button>
-          ))}
-        </div>
+        <M3Segmented
+          label="How to show releases"
+          value={view}
+          options={[
+            { value: "timeline", label: "Timeline" },
+            { value: "list", label: "List" },
+          ] as const}
+          onChange={setView}
+        />
         <button type="button" className="tk-btn tk-layer tk-btn-primary" onClick={() => setCreating(true)}>
           New release
         </button>
@@ -196,9 +196,7 @@ function ReleaseDetailView({
   return (
     <div className="tk-releases">
       <div className="tk-rel-head">
-        <button type="button" className="tk-btn tk-layer" onClick={onBack}>
-          ← Releases
-        </button>
+        <button type="button" className="tk-btn tk-layer" onClick={onBack}><ArrowLeft size={16} aria-hidden /> Releases</button>
         <h2>{release.name}</h2>
         <span className={`tk-state tk-state-${release.state}`}>
           {release.state.replace("_", " ")}
@@ -307,9 +305,7 @@ function ReleaseDetailView({
                   e.preventDefault();
                   onAction(() => trackerApi.removeAction(a.id));
                 }}
-              >
-                ✕
-              </button>
+              ><X size={16} aria-hidden /></button>
             </label>
           ))}
           <div className="tk-artifact-add">
@@ -386,10 +382,10 @@ function ReleaseDetailView({
               {release.issues.map((i) => (
                 <tr key={i.id}>
                   <td className="tk-cell-key">
-                    <span className="tk-type" style={{ color: i.type_colour }}>
-                      {i.type_icon}
+                    <span className="tk-keyline">
+                      <TypeGlyph icon={i.type_icon} colour={i.type_colour} />
+                      <IssueKey issueKey={i.key} />
                     </span>
-                    <IssueKey issueKey={i.key} />
                   </td>
                   <td className="tk-cell-sum">{i.summary}</td>
                   <td>
@@ -407,9 +403,7 @@ function ReleaseDetailView({
                       className="tk-x tk-layer"
                       title="Take off this release"
                       onClick={() => onAction(() => trackerApi.removeReleaseIssue(release.id, i.id))}
-                    >
-                      ✕
-                    </button>
+                    ><X size={16} aria-hidden /></button>
                   </td>
                 </tr>
               ))}
@@ -510,7 +504,7 @@ function AddIssues({
             <div className="tkc-crumb">{release.name.toUpperCase()}</div>
             <h2 className="tkc-title">Add issues</h2>
           </div>
-          <button type="button" className="tk-x tk-layer" onClick={onCancel} aria-label="Close">✕</button>
+          <button type="button" className="tk-x tk-layer" onClick={onCancel} aria-label="Close"><X size={16} aria-hidden /></button>
         </header>
 
         <div className="tks-body">
@@ -540,7 +534,7 @@ function AddIssues({
             {(rows ?? []).map((i) => (
               <label key={i.id} className={`tkr-pick-row tk-layer${picked.has(i.id) ? " on" : ""}`}>
                 <input type="checkbox" checked={picked.has(i.id)} onChange={() => toggle(i.id)} />
-                <span className="tk-type" style={{ color: i.type_colour }}>{i.type_icon}</span>
+                <TypeGlyph icon={i.type_icon} colour={i.type_colour} />
                 <IssueKey issueKey={i.key} className="tkq-key" />
                 <span className="tkr-pick-sum">{i.summary}</span>
                 <span className="tk-chip" style={{ borderColor: i.status_colour, color: i.status_colour }}>

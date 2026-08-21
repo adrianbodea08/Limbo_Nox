@@ -26,8 +26,8 @@ from .repo import CUSTOM_PREFIX
 from .work import PRIORITY_ORDER
 from .schema import (
     board_column_statuses, board_columns, comments, field_defs, field_usage,
-    git_refs, issue_git, issue_links, issues, issue_types, projects,
-    project_workflows, release_issues, releases, statuses, users,
+    git_refs, issue_git, issue_labels, issue_links, issues, issue_types,
+    projects, project_workflows, release_issues, releases, statuses, users,
     workflow_statuses,
 )
 
@@ -112,6 +112,29 @@ def _clause(node: dict):
     field, op, value = node.get("field"), node.get("op", "eq"), node.get("value")
     if not field:
         raise QueryError("a condition needs a field")
+
+    # Labels are many-per-issue, so they are the one filterable thing that is
+    # not a column. An EXISTS rather than a join, because a join would multiply
+    # the row for an issue wearing three of them and every count on the page
+    # would quietly triple.
+    if field == "label_id":
+        wearing = (
+            select(issue_labels.c.issue_id)
+            .where(issue_labels.c.issue_id == issues.c.id))
+        match op:
+            case "in" | "eq":
+                wanted = value if isinstance(value, list) else [value]
+                return wearing.where(issue_labels.c.label_id.in_(wanted or [])).exists()
+            case "not_in" | "ne":
+                unwanted = value if isinstance(value, list) else [value]
+                return ~wearing.where(
+                    issue_labels.c.label_id.in_(unwanted or [])).exists()
+            case "is_empty":
+                return ~wearing.exists()
+            case "is_not_empty":
+                return wearing.exists()
+        raise QueryError(f"a label cannot be compared with {op}")
+
     col = _column(field)
     numeric = field.startswith(CUSTOM_PREFIX) and op in (">", ">=", "<", "<=")
     if numeric:
@@ -265,13 +288,21 @@ def _badges(conn: Connection, items: list[dict]) -> list[dict]:
     # The worst news wins: a failing build outranks an open PR, because that is
     # the one that changes what somebody does next. Same reasoning as blocked.
     git_state: dict[int, dict] = {}
-    for issue_id, state, checks in conn.execute(
-        select(issue_git.c.issue_id, git_refs.c.state, git_refs.c.checks)
+    # Builds come along for the ride so a red pipeline on a branch with no pull
+    # request still reaches the card. Only pull requests are counted, though —
+    # "2 PRs" must not become "5" because the CI ran three times.
+    for issue_id, kind, state, checks in conn.execute(
+        select(issue_git.c.issue_id, git_refs.c.kind, git_refs.c.state,
+               git_refs.c.checks)
         .select_from(issue_git.join(git_refs, issue_git.c.git_ref_id == git_refs.c.id))
         .where(issue_git.c.issue_id.in_(ids))
-        .where(git_refs.c.kind == "pr")
+        .where(git_refs.c.kind.in_(("pr", "build")))
     ).all():
         seen = git_state.setdefault(issue_id, {"prs": 0, "state": "", "checks": "none"})
+        if kind == "build":
+            if CHECK_RANK.get(checks, 0) > CHECK_RANK.get(seen["checks"], 0):
+                seen["checks"] = checks
+            continue
         seen["prs"] += 1
         # Worst news wins on both axes, so one badge can stand for several PRs
         # without hiding the one that needs attention.
@@ -280,9 +311,22 @@ def _badges(conn: Connection, items: list[dict]) -> list[dict]:
         if STATE_RANK.get(state, -1) > STATE_RANK.get(seen["state"], -1):
             seen["state"] = state
 
+    # An open, blocking ask is a third way to be stuck — not another issue and
+    # not your own attention, but somebody who has not answered. It counts
+    # towards the same badge, because a card that is stuck should look stuck
+    # whichever of the three is doing it.
+    from . import asks as asks_mod
+    waiting = asks_mod.blocking_counts(conn, ids)
+    open_asks = asks_mod.open_counts(conn, ids)
+
+    from . import labels as labels_mod
+    wearing = labels_mod.for_issues(conn, ids)
+
     for item in items:
         key = item["id"]
-        item["blocked_by"] = blocked.get(key, 0)
+        item["blocked_by"] = blocked.get(key, 0) + waiting.get(key, 0)
+        item["open_asks"] = open_asks.get(key, 0)
+        item["labels"] = wearing.get(key, [])
         item["link_count"] = linked.get(key, 0)
         item["child_count"] = children.get(key, 0)
         item["comment_count"] = talk.get(key, 0)
@@ -477,6 +521,16 @@ def get_issue(conn: Connection, ident: str | int) -> dict | None:
     # the same reason links is: git reads issues, and issues read git.
     from . import git as git_module
     issue["git"] = git_module.for_issues(conn, [issue["id"]]).get(issue["id"], [])
+
+    # Who is waiting on whom, and for what. Near the issue's own facts rather
+    # than in the discussion — an open ask is the reason the thing is not
+    # moving, which is not a remark.
+    from . import asks as asks_module
+    issue["asks"] = asks_module.for_issue(conn, issue["id"])
+
+    from . import labels as labels_module
+    issue["labels"] = labels_module.for_issues(
+        conn, [issue["id"]]).get(issue["id"], [])
 
     # Which releases carry this issue. Asked constantly ("is my fix in B-34?")
     # and cheap here, where the issue is already loaded.

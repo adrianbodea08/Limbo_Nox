@@ -4,10 +4,14 @@
 // fields, git — is configured where it applies, not in a settings page that
 // becomes the place everything nobody could categorise ends up.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
+import { trackerApi } from "./nox/model";
+import type { NotificationPrefs } from "./nox/model";
 import { TopBar, type ShellProps } from "./TopBar";
+import { TrackerRail } from "./nox/TrackerRail";
 import { THEMES, applyTheme, getTheme, setTheme, type ThemeId } from "../theme";
+import { M3Segmented } from "./M3Segmented";
 
 export function SettingsPage({ shell }: { shell: ShellProps }) {
   const [nickname, setNickname] = useState(shell.user.nickname || "");
@@ -15,6 +19,11 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [theme, setThemeState] = useState<ThemeId>(getTheme());
+  const [prefs, setPrefs] = useState<NotificationPrefs>({});
+
+  useEffect(() => {
+    trackerApi.notificationPrefs().then(setPrefs).catch(() => {});
+  }, []);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,7 +55,17 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
         onLogout={shell.onLogout}
       />
 
-      <div className="tk-canvas tks-main">
+      <div className="tk-shell">
+        <TrackerRail isAdmin={shell.isAdmin} />
+
+        <div className="tk-canvas tks-main">
+        <header className="tk-page-head">
+          <h1>Settings</h1>
+          <p className="tk-dim">
+            Your own account. How Nox works is set where it applies.
+          </p>
+        </header>
+
         {error && <p className="tk-error">{error}</p>}
         {note && <p className="tk-dim">{note}</p>}
 
@@ -75,17 +94,40 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
 
         <section className="tkgs-card">
           <h3>Appearance</h3>
-          <div className="tkt-scales">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`tkq-tab tk-layer${theme === t.id ? " on" : ""}`}
-                onClick={() => { setTheme(t.id); applyTheme(t.id); setThemeState(t.id); }}
-              >
-                {t.label}
-              </button>
+          <M3Segmented
+            label="Theme"
+            value={theme}
+            options={THEMES.map((t) => ({ value: t.id, label: t.label }))}
+            onChange={(next) => { setTheme(next); applyTheme(next); setThemeState(next); }}
+          />
+        </section>
+
+        <section className="tkgs-card">
+          <h3>Notifications</h3>
+          <p className="tk-dim tkn-why">
+            Four things, and that is the whole list — everything here is either
+            somebody waiting on you or somebody answering you. Turn one off and
+            it stops reaching you entirely.
+          </p>
+          <div className="tkn-prefs">
+            {Object.entries(prefs).map(([kind, p]) => (
+              <label key={kind} className="tkn-pref">
+                <span className="tk-toggle">
+                  <input
+                    type="checkbox"
+                    checked={p.on}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setPrefs((was) => ({ ...was, [kind]: { ...p, on } }));
+                      trackerApi.setNotificationPref(kind, on).then(setPrefs)
+                        .catch(() => setPrefs((was) => ({ ...was, [kind]: { ...p, on: !on } })));
+                    }}
+                  />
+                </span>
+                <span className="tkn-pref-label">{p.label}</span>
+              </label>
             ))}
+            {!Object.keys(prefs).length && <p className="tk-dim">Loading…</p>}
           </div>
         </section>
 
@@ -110,6 +152,7 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
             Change it
           </button>
         </section>
+        </div>
       </div>
     </div>
   );

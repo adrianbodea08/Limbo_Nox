@@ -258,6 +258,110 @@ field_usage = Table(
 # have several branches and PRs. So the ref is a row of its own and the link is
 # a join — the same shape as issue_links, and for the same reason: storing the
 # PR once per issue means two copies that disagree the moment one is updated.
+# An ask is a question, directed at a person, about an issue, with a state.
+#
+# The thing comments could never be. There are fifty comments in this database
+# and not one of them is something you can be *waiting on* — no state, no owner,
+# no age. See docs/ASKS.md; the four kinds exist because the answer is a
+# different shape each time.
+asks = Table(
+    "asks", metadata,
+    Column("id", BigInteger, primary_key=True),
+    Column("issue_id", BigInteger, ForeignKey("issues.id", ondelete="CASCADE"),
+           nullable=False),
+    Column("asked_by", Integer, nullable=False),
+    Column("asked_of", Integer, nullable=False),
+    # confirm | explain | discuss | present
+    Column("kind", String(16), nullable=False),
+    # Never empty. An ask with no question is a nudge, and a nudge does not
+    # deserve somebody's attention.
+    Column("question", Text, nullable=False),
+    # open | answered | declined | withdrawn
+    Column("state", String(16), nullable=False, server_default="open"),
+    Column("answer", Text, nullable=False, server_default=""),
+    # Whether the work stops until this is answered. A blocking ask counts
+    # towards the issue's blocked state, alongside a blocking issue link.
+    Column("blocking", Boolean, nullable=False, server_default="false"),
+    _ts("asked_at", nullable=False, server_default=func.now()),
+    _ts("answered_at"),
+    # Who actually answered. Usually the person asked, but a colleague picking
+    # it up is a real thing and pretending otherwise loses the truth.
+    Column("answered_by", Integer),
+)
+# The queue: what is open, on whom, oldest first.
+Index("ix_asks_of_open", asks.c.asked_of, asks.c.state, asks.c.asked_at)
+Index("ix_asks_issue", asks.c.issue_id, asks.c.state)
+
+
+# Something that may need your attention. Four kinds and no more — see
+# docs/ASKS.md section 5. The failure mode of a notification system is not too
+# few; it is somebody who has learned to ignore the badge.
+notifications = Table(
+    "notifications", metadata,
+    Column("id", BigInteger, primary_key=True),
+    # Who is being told.
+    Column("user_id", Integer, nullable=False),
+    # asked | ask_answered | assigned | mentioned
+    Column("kind", String(24), nullable=False),
+    Column("issue_id", BigInteger, ForeignKey("issues.id", ondelete="CASCADE"),
+           nullable=False),
+    # Who caused it. Null when it was an automation or an integration — and the
+    # UI says so rather than inventing a person.
+    Column("actor_id", Integer),
+    # Rendered once, at the moment it happened. A notification that re-derives
+    # its own sentence later is a notification that changes what it said.
+    Column("text", Text, nullable=False, server_default=""),
+    _ts("at", nullable=False, server_default=func.now()),
+    _ts("read_at"),
+)
+# The bell: what is unread for one person, newest first.
+Index("ix_notifications_unread", notifications.c.user_id, notifications.c.read_at,
+      notifications.c.at)
+
+# Which of the four kinds a person wants. Absent means all four, because the
+# list is short enough that the default is "yes" and the setting exists to turn
+# one off rather than to opt in.
+notification_prefs = Table(
+    "notification_prefs", metadata,
+    Column("user_id", Integer, primary_key=True),
+    Column("muted", Text, nullable=False, server_default=""),
+)
+
+
+# The axis nothing else covers.
+#
+# Type says what kind of work it is, status where it has got to, component which
+# part of the system, parent what it belongs to — and none of them can say
+# "flaky", "needs-design" or "good-first-issue". Those are the words a team
+# invents for itself, which is exactly why they are a free-form list rather than
+# another configured taxonomy.
+#
+# Global, like statuses and fields and for the same reason: a label that means
+# something different per project makes every cross-project filter a guess.
+labels = Table(
+    "labels", metadata,
+    Column("id", Integer, primary_key=True),
+    # Lower-cased and hyphenated on the way in, so "Needs Design", "needs
+    # design" and "needs-design" are one label rather than three.
+    Column("key", String(40), nullable=False, unique=True),
+    Column("name", Text, nullable=False),
+    Column("colour", String(9), nullable=False, server_default="#8b949e"),
+    Column("description", Text, nullable=False, server_default=""),
+    _ts("archived_at"),
+)
+
+issue_labels = Table(
+    "issue_labels", metadata,
+    Column("issue_id", BigInteger, ForeignKey("issues.id", ondelete="CASCADE"),
+           primary_key=True),
+    Column("label_id", Integer, ForeignKey("labels.id", ondelete="CASCADE"),
+           primary_key=True),
+    _ts("at", nullable=False, server_default=func.now()),
+)
+# "Everything tagged flaky", across every board.
+Index("ix_issue_labels_label", issue_labels.c.label_id)
+
+
 git_refs = Table(
     "git_refs", metadata,
     Column("id", Integer, primary_key=True),

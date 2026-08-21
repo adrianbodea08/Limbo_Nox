@@ -9,6 +9,9 @@ import type { CSSProperties, DragEvent } from "react";
 import { DropSlot, useBandReorder } from "./useBandReorder";
 import { Face as PersonFace } from "./Face";
 import { IssueKey } from "./IssueKey";
+import { TypeGlyph } from "./TypeGlyph";
+import { LabelChips } from "./Labels";
+import { plain } from "./Markdown";
 import {
   PRIORITY_COLOUR, ago, parentColour,
   type BoardColumn, type BoardData, type TrackerIssue, type TrackerStatus,
@@ -35,7 +38,9 @@ function preview(issue: TrackerIssue): string {
   const withoutTitle = body.startsWith(summary)
     ? body.slice(summary.length).replace(/^[.\s]+/, "")
     : body;
-  return withoutTitle.replace(/\s+/g, " ").trim();
+  // One line with no room to render anything, so the markup comes off rather
+  // than showing as asterisks and hyphens.
+  return plain(withoutTitle);
 }
 
 /** The row along the bottom of a card: what is true about this issue that you
@@ -102,25 +107,54 @@ function Badges({ issue }: { issue: TrackerIssue }) {
           {issue.comment_count}
         </span>
       )}
+      {/* Last, and pushed to the far end. Who owns a card is a fact about it
+          rather than part of its identity line, and the key row was carrying
+          four things competing for one corner. */}
+      {/* A shade smaller here than it was in the key row: beside 13px count
+          badges, 22 was the loudest thing in the footer. */}
+      <span className="tk-card-face"><Face issue={issue} size={20} /></span>
     </div>
   );
 }
 
 function TypeIcon({ issue }: { issue: TrackerIssue }) {
   return (
-    <span className="tk-type" style={{ color: issue.type_colour }} title={issue.type_name}>
-      {issue.type_icon}
+    <TypeGlyph icon={issue.type_icon} colour={issue.type_colour} title={issue.type_name} />
+  );
+}
+
+/** The type, as a band across the card's top-left corner.
+ *
+ *  On a row — a table or a list — the glyph in line with the key is right,
+ *  because a row is read left to right. A column of cards is scanned, and what
+ *  a scan finds is a block of colour in a place that never moves. */
+function TypeCorner({ issue }: { issue: TrackerIssue }) {
+  return (
+    <span
+      className="tk-card-corner"
+      style={{ background: issue.type_colour }}
+      title={issue.type_name}
+    >
+      <TypeGlyph icon={issue.type_icon} size={13} />
     </span>
   );
 }
 
+/** Priority, said rather than hinted.
+ *
+ *  It was a coloured dot, which needs a legend nobody has — six priorities and
+ *  six shades, told apart only by somebody who already knows the order. The
+ *  word is the thing a board is actually scanned for. */
 function Priority({ value }: { value: string }) {
+  const colour = PRIORITY_COLOUR[value] ?? PRIORITY_COLOUR.medium;
   return (
     <span
-      className="tk-prio"
+      className={`tk-card-prio tk-prio-${value}`}
       title={`Priority: ${value}`}
-      style={{ background: PRIORITY_COLOUR[value] ?? PRIORITY_COLOUR.medium }}
-    />
+      style={{ "--prio": colour } as CSSProperties}
+    >
+      {value}
+    </span>
   );
 }
 
@@ -230,13 +264,14 @@ export function ColumnsBoard({
                   className={`tk-card tk-layer${selectedId === issue.id ? " tk-card-on" : ""}${
                     dragging?.id === issue.id ? " tk-card-dragging" : ""
                   }`}
+
                   {...band.rowProps(issue, String(col.key), col.issues, index)}
                   onDragStart={(e) => start(issue, String(col.key), e)}
                   onDragEnd={end}
                   onClick={() => onOpen(issue)}
                 >
+                  <TypeCorner issue={issue} />
                   <div className="tk-card-top">
-                    <TypeIcon issue={issue} />
                     <IssueKey issueKey={issue.key} />
                     {/* What this is part of, alongside what it is called. It
                         gives up its width first — the priority and the face
@@ -251,9 +286,12 @@ export function ColumnsBoard({
                       </span>
                     )}
                     <Priority value={issue.priority} />
-                    <Face issue={issue} />
                   </div>
                   <p className="tk-card-sum">{issue.summary}</p>
+                  {/* Under the summary, above the description: the words a
+                      team invented for itself qualify what the thing is, so
+                      they read with the title rather than with the counts. */}
+                  <LabelChips labels={issue.labels ?? []} max={3} />
                   {preview(issue) && <p className="tk-card-desc">{preview(issue)}</p>}
                   <Badges issue={issue} />
                 </article>
@@ -316,8 +354,10 @@ export function TableBoard({ issues, selectedId, onOpen, sortBy, sortDir, onSort
               onClick={() => onOpen(issue)}
             >
               <td className="tk-cell-key">
-                <TypeIcon issue={issue} />
-                <IssueKey issueKey={issue.key} />
+                <span className="tk-keyline">
+                  <TypeIcon issue={issue} />
+                  <IssueKey issueKey={issue.key} />
+                </span>
               </td>
               <td className="tk-cell-sum">{issue.summary}</td>
               <td>

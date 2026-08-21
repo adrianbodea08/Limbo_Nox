@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const POP_W = 312;
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
@@ -112,16 +113,12 @@ export function M3DatePicker({
             >
               <div className="m3mp-yearnav">
                 <button type="button" className="m3mp-nav" aria-label="Previous month"
-                        onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}>
-                  ‹
-                </button>
+                        onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}><ChevronLeft size={18} aria-hidden /></button>
                 <span className="m3mp-year">
                   {cursor.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
                 </span>
                 <button type="button" className="m3mp-nav" aria-label="Next month"
-                        onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}>
-                  ›
-                </button>
+                        onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight size={18} aria-hidden /></button>
               </div>
 
               <div className="m3dp-weekdays">

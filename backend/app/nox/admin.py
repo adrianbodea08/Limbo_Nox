@@ -431,6 +431,38 @@ def types_and_fields(conn: Connection, project_id: int) -> list[dict]:
     return out
 
 
+def update_type(conn: Connection, issue_type_id: int, changes: dict) -> None:
+    """A type's name, mark or colour.
+
+    Global, like statuses and fields: an issue type is how reports tell planned
+    work from bug work, and a type that means something different per project
+    would make every cross-project number a guess. The UI says so before this
+    is called.
+
+    The mark is a name — `lucide:Bug` — and this does not check it resolves.
+    A name the client cannot draw falls back to rendering as text, which is the
+    same forgiving behaviour that lets a pre-existing character keep working.
+    """
+    values: dict[str, Any] = {}
+    if "name" in changes:
+        name = str(changes["name"]).strip()
+        if not name:
+            raise SettingsError("A type needs a name.")
+        values["name"] = name
+    if "icon" in changes:
+        values["icon"] = str(changes["icon"] or "")
+    if "colour" in changes:
+        colour = str(changes["colour"] or "").strip()
+        if not colour.startswith("#"):
+            raise SettingsError(f"{colour!r} is not a colour.")
+        values["colour"] = colour
+    if not values:
+        return
+    conn.execute(issue_types.update()
+                 .where(issue_types.c.id == issue_type_id)
+                 .values(**values))
+
+
 def set_types(conn: Connection, project_id: int, type_ids: list[int]) -> None:
     """Which types this board offers, in order.
 

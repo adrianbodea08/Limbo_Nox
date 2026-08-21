@@ -27,6 +27,9 @@ import { IssueKey } from "./IssueKey";
 import { useIssueDialog } from "./useIssueDialog";
 import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
 import type { QueueIssue, TeamQueueData, TrackerTeam } from "./model";
+import { M3Segmented } from "../M3Segmented";
+import { X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
 
 // `urgent` is missing on purpose: it is not picked from a dropdown, it is set
 // with a reason attached.
@@ -165,28 +168,18 @@ export function TeamQueuePage({ shell }: { shell: ShellProps }) {
 
         <div className="tkq">
         <header className="tkq-head">
-          <div className="tkq-tabs">
-            {/* All first: "what are we carrying between us" is the question
-                that had no page at all before. */}
-            <button
-              type="button"
-              className={`tkq-tab tk-layer${tab === "ALL" ? " on" : ""}`}
-              onClick={() => setParams({}, { replace: true })}
-            >
-              All
-            </button>
-            {teams.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`tkq-tab tk-layer${t.key === tab ? " on" : ""}`}
-                style={t.key === tab ? { borderColor: t.colour, color: t.colour } : undefined}
-                onClick={() => setParams({ tab: t.key }, { replace: true })}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
+          {/* All first: "what are we carrying between us" is the question
+              that had no page at all before. */}
+          <M3Segmented
+            label="Which team"
+            value={tab}
+            options={[
+              { value: "ALL", label: "All" },
+              ...teams.map((t) => ({ value: t.key, label: t.name })),
+            ]}
+            onChange={(next) =>
+              setParams(next === "ALL" ? {} : { tab: next }, { replace: true })}
+          />
           {readOnly && <span className="tk-chip tk-chip-quiet">read only</span>}
           {tab === "ALL" && !readOnly && (
             <span className="tk-dim tkq-scope">
@@ -195,7 +188,7 @@ export function TeamQueuePage({ shell }: { shell: ShellProps }) {
           )}
         </header>
 
-        {error && <div className="tkc-err" onClick={() => setError("")}>{error} ✕</div>}
+        {error && <div className="tkc-err" onClick={() => setError("")}>{error} <X size={14} aria-hidden /></div>}
         {!data && <p className="tk-dim">Loading…</p>}
 
         {data && stats && (
@@ -470,8 +463,8 @@ function Row({
           its own flex box drops out of the table's column sizing. */}
       <td className="tkq-td-key">
         <span className="tkq-keyline">
-          <span className="tk-type" style={{ color: issue.type_colour }}
-                title={issue.type_name}>{issue.type_icon}</span>
+          <TypeGlyph icon={issue.type_icon} colour={issue.type_colour}
+                     title={issue.type_name} />
           <IssueKey issueKey={issue.key} className="tkq-key tk-layer" />
         </span>
       </td>

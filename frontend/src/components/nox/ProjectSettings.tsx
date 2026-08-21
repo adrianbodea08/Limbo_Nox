@@ -27,6 +27,9 @@ import { TrackerSearch } from "./TrackerSearch";
 import { FlowDiagram } from "./FlowDiagram";
 import { trackerApi } from "./model";
 import type { FieldDefinition, ProjectSettingsData, TrackerUser } from "./model";
+import { M3Segmented } from "../M3Segmented";
+import { X } from "lucide-react";
+import { GlyphPicker, TypeGlyph } from "./TypeGlyph";
 
 type Tab = "columns" | "flow" | "access" | "types" | "fields";
 
@@ -175,7 +178,7 @@ export function ProjectSettings({
         ))}
       </nav>
 
-      {error && <div className="tkc-err" onClick={() => setError("")}>{error} ✕</div>}
+      {error && <div className="tkc-err" onClick={() => setError("")}>{error} <X size={14} aria-hidden /></div>}
 
       <div className="tks-body">
         {!data && <p className="tk-dim">Loading…</p>}
@@ -339,9 +342,7 @@ function Columns({ data, busy, act }: { data: ProjectSettingsData; busy: boolean
                   setHidden([...hidden, ...column.statuses]);
                   save(columns.filter((c) => c.id !== column.id));
                 }}
-              >
-                ✕
-              </button>
+              ><X size={16} aria-hidden /></button>
             </header>
 
             {column.statuses.map((st) => (
@@ -412,16 +413,15 @@ function Flow({ data, busy, act }: { data: ProjectSettingsData; busy: boolean; a
   return (
     <div className="tks-pane tks-pane-wide">
       <div className="tkf-switch">
-        {(["diagram", "grid"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            className={`tkf-switch-btn tk-layer${view === v ? " on" : ""}`}
-            onClick={() => setView(v)}
-          >
-            {v === "diagram" ? "Diagram" : "Grid"}
-          </button>
-        ))}
+        <M3Segmented
+          label="How to show the workflow"
+          value={view}
+          options={[
+            { value: "diagram", label: "Diagram" },
+            { value: "grid", label: "Grid" },
+          ] as const}
+          onChange={setView}
+        />
         <span className="tk-dim">
           {view === "diagram"
             ? "Click a status for its settings. Drag to rearrange."
@@ -618,9 +618,7 @@ function Access({
                     setEntries(next);
                     if (next.length) save("restricted", next);
                   }}
-                >
-                  ✕
-                </button>
+                ><X size={16} aria-hidden /></button>
               </span>
             ))}
             {entries.length === 0 && (
@@ -677,6 +675,7 @@ function Access({
 
 function Types({ data, busy, act }: { data: ProjectSettingsData; busy: boolean; act: Act }) {
   const [open, setOpen] = useState<number | null>(data.types[0]?.id ?? null);
+  const [marking, setMarking] = useState<number | null>(null);
   const [addType, setAddType] = useState("");
   const [addField, setAddField] = useState("");
   const [newField, setNewField] = useState(false);
@@ -702,7 +701,15 @@ function Types({ data, busy, act }: { data: ProjectSettingsData; busy: boolean; 
               className={`tks-row tks-pick tk-layer${open === t.id ? " on" : ""}`}
               onClick={() => setOpen(t.id)}
             >
-              <span className="tk-type" style={{ color: t.colour }}>{t.icon}</span>
+              <button
+                type="button"
+                className="tks-mark tk-layer"
+                title={`Change how ${t.name} is marked`}
+                aria-label={`Change how ${t.name} is marked`}
+                onClick={(e) => { e.stopPropagation(); setMarking(t.id); }}
+              >
+                <TypeGlyph icon={t.icon} colour={t.colour} size={16} />
+              </button>
               <span className="tks-row-name">{t.name}</span>
               <span className="tk-dim">{t.fields.length} field{t.fields.length === 1 ? "" : "s"}</span>
               <button
@@ -715,12 +722,64 @@ function Types({ data, busy, act }: { data: ProjectSettingsData; busy: boolean; 
                   act(() => trackerApi.setTypes(
                     data.project.id, data.types.filter((x) => x.id !== t.id).map((x) => x.id)));
                 }}
-              >
-                ✕
-              </button>
+              ><X size={16} aria-hidden /></button>
             </li>
           ))}
         </ol>
+        {marking != null && (() => {
+          const t = data.types.find((x) => x.id === marking);
+          if (!t) return null;
+          return (
+            <div className="tkc-scrim" onClick={() => setMarking(null)}>
+              <div className="tkd tks-mark-dialog" onClick={(e) => e.stopPropagation()}
+                   role="dialog" aria-modal="true">
+                <header className="tkd-head">
+                  <h2>How {t.name} is marked</h2>
+                  <button type="button" className="tk-x tk-layer"
+                          onClick={() => setMarking(null)} aria-label="Close">
+                    <X size={16} aria-hidden />
+                  </button>
+                </header>
+                <div className="tkd-body">
+                  <p className="tk-dim tks-mark-note">
+                    Types are shared by every board, the same as statuses — a Bug has
+                    to mean a Bug everywhere or no cross-project number means
+                    anything. This changes {t.name} on all of them.
+                  </p>
+
+                  <div className="tkc-field">
+                    <span className="tkc-label">Colour</span>
+                    <span className="tkf-colours">
+                      {["#8b949e", "#5b8cff", "#a371f7", "#d29922", "#3fb950",
+                        "#2dd4bf", "#f0883e", "#f85149", "#6e7681"].map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          className={`tkf-swatch${t.colour === c ? " on" : ""}`}
+                          style={{ background: c }}
+                          title={c}
+                          onClick={() => act(() =>
+                            trackerApi.patchType(data.project.id, t.id, { colour: c }))}
+                        />
+                      ))}
+                    </span>
+                  </div>
+
+                  <div className="tkc-field">
+                    <span className="tkc-label">Mark</span>
+                    <GlyphPicker
+                      value={t.icon}
+                      colour={t.colour}
+                      onPick={(icon) => act(() =>
+                        trackerApi.patchType(data.project.id, t.id, { icon }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {spareTypes.length > 0 && (
           <div className="tks-add">
             <M3Select
@@ -782,9 +841,7 @@ function Types({ data, busy, act }: { data: ProjectSettingsData; busy: boolean; 
                         .filter((x) => x.id !== f.id)
                         .map((x) => ({ field_id: x.id, required: x.required })))
                     }
-                  >
-                    ✕
-                  </button>
+                  ><X size={16} aria-hidden /></button>
                 </li>
               ))}
               {current.fields.length === 0 && <p className="tk-dim">No fields on this type.</p>}
@@ -899,7 +956,7 @@ function Fields({ onChanged }: { onChanged: () => void }) {
           New field
         </button>
       </div>
-      {error && <div className="tkc-err" onClick={() => setError("")}>{error} ✕</div>}
+      {error && <div className="tkc-err" onClick={() => setError("")}>{error} <X size={14} aria-hidden /></div>}
 
       <div className="tks-fields">
         {shown.map((f) => {
