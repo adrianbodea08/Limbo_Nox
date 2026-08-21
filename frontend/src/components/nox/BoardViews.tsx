@@ -103,6 +103,10 @@ function Badges({ issue }: { issue: TrackerIssue }) {
           {issue.comment_count}
         </span>
       )}
+      {/* Last, and pushed to the far end. Who owns a card is a fact about it
+          rather than part of its identity line, and the key row was carrying
+          four things competing for one corner. */}
+      <span className="tk-card-face"><Face issue={issue} /></span>
     </div>
   );
 }
@@ -130,13 +134,21 @@ function TypeCorner({ issue }: { issue: TrackerIssue }) {
   );
 }
 
+/** Priority, said rather than hinted.
+ *
+ *  It was a coloured dot, which needs a legend nobody has — six priorities and
+ *  six shades, told apart only by somebody who already knows the order. The
+ *  word is the thing a board is actually scanned for. */
 function Priority({ value }: { value: string }) {
+  const colour = PRIORITY_COLOUR[value] ?? PRIORITY_COLOUR.medium;
   return (
     <span
-      className="tk-prio"
+      className={`tk-card-prio tk-prio-${value}`}
       title={`Priority: ${value}`}
-      style={{ background: PRIORITY_COLOUR[value] ?? PRIORITY_COLOUR.medium }}
-    />
+      style={{ "--prio": colour } as CSSProperties}
+    >
+      {value}
+    </span>
   );
 }
 
@@ -268,7 +280,6 @@ export function ColumnsBoard({
                       </span>
                     )}
                     <Priority value={issue.priority} />
-                    <Face issue={issue} />
                   </div>
                   <p className="tk-card-sum">{issue.summary}</p>
                   {preview(issue) && <p className="tk-card-desc">{preview(issue)}</p>}
