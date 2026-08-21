@@ -18,7 +18,6 @@ has provisioned Postgres.
 from __future__ import annotations
 
 import logging
-import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -42,8 +41,6 @@ auth = AuthStore(config.auth_db_path)
 PUBLIC_PATHS = {
     "/api/auth/login",
     "/api/auth/register",
-    "/api/auth/invite/check",
-    "/api/auth/invite/accept",
     "/api/health",
     "/api/setup/status",
     "/api/nox/git/webhook",
@@ -117,20 +114,6 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=6)
 
 
-class InviteRequest(BaseModel):
-    email: str
-    role: str = "member"
-    """Which existing tracker person this account should become, if any."""
-    claims: int | None = None
-    note: str = ""
-
-
-class AcceptRequest(BaseModel):
-    token: str
-    username: str
-    password: str = Field(min_length=6)
-
-
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -153,108 +136,6 @@ def require_admin(request: Request) -> dict:
     if user.get("role") != "admin":
         raise HTTPException(403, "Only an admin can do that.")
     return user
-
-
-# ---------------------------------------------------------------- invites --
-
-@app.get("/api/auth/invite/check")
-async def check_invite(token: str) -> dict:
-    """Is this link still good?
-
-    The reasons are separate on purpose. "Invalid" tells somebody holding a
-    link nothing they can act on; "this was already used" and "this expired on
-    the 3rd" each tell them exactly who to go back to and what to ask for.
-    """
-    invite = auth.invite(token)
-    if not invite:
-        raise HTTPException(404, "That invitation link is not one of ours.")
-    if invite["used_at"]:
-        raise HTTPException(410, "That invitation has already been used.")
-    if invite["expires_at"] < time.time():
-        raise HTTPException(410, "That invitation has expired — ask for a new one.")
-    # The name, not the id: this is read by somebody deciding whether the link
-    # is really for them, and "900016" answers nothing.
-    becomes = None
-    if invite["claims"]:
-        try:
-            from .nox import identity
-            becomes = next((p["display_name"] for p in identity.unclaimed()
-                            if p["id"] == invite["claims"]), None)
-        except Exception:
-            logging.exception("invite check: could not name person %s", invite["claims"])
-    return {"email": invite["email"], "role": invite["role"],
-            "note": invite["note"], "becomes": becomes}
-
-
-@app.post("/api/auth/invite/accept")
-async def accept_invite(req: AcceptRequest) -> dict:
-    """Join. The password is chosen here and never travels anywhere else.
-
-    Approved on arrival: an admin already said who may join when they made the
-    invitation, and asking them to say it twice is a queue for no reason.
-    """
-    invite = auth.invite(req.token)
-    if not invite or invite["used_at"] or invite["expires_at"] < time.time():
-        raise HTTPException(410, "That invitation is no longer usable.")
-
-    username = req.username.strip()
-    if not username:
-        raise HTTPException(400, "Pick a username.")
-    if auth.by_username(username):
-        raise HTTPException(400, "That username is taken.")
-    if auth.by_email(invite["email"]):
-        raise HTTPException(400, "That email already has an account — sign in instead.")
-
-    user = auth.create_user(username, invite["email"], req.password,
-                            role=invite["role"], status="approved")
-    auth.spend_invite(req.token, user["id"])
-
-    # Whoever they were invited as, they now are. Done here rather than left
-    # for an admin to remember, because an account that arrives detached from
-    # its own history is the thing this was built to avoid.
-    if invite["claims"]:
-        try:
-            from .nox import identity
-            done = identity.claim(user["id"], int(invite["claims"]))
-            # On the *account*, not on the tracker's copy of them. The tracker
-            # projects display_name from the account on every request, so a name
-            # written straight into the projection is overwritten by the first
-            # thing this person clicks — they would arrive as "ana" owning eight
-            # issues that all say Ana Mihalache.
-            auth.update_profile(user["id"], done["name"], done["avatar"])
-        except Exception:
-            logging.exception("invite %s: could not claim person %s",
-                              req.token[:8], invite["claims"])
-
-    row = auth.by_id(user["id"])
-    return {"token": auth.create_session(user["id"]), "user": auth._public(row)}
-
-
-@app.get("/api/admin/invites")
-async def list_invites(request: Request) -> list[dict]:
-    require_admin(request)
-    return auth.invites()
-
-
-@app.post("/api/admin/invites")
-async def make_invite(req: InviteRequest, request: Request) -> dict:
-    admin = require_admin(request)
-    email = req.email.strip().lower()
-    if not email or "@" not in email:
-        raise HTTPException(400, "That is not an email address.")
-    if auth.by_email(email):
-        raise HTTPException(400, "That email already has an account.")
-    if req.role not in ("admin", "member"):
-        raise HTTPException(400, f"{req.role!r} is not a role.")
-    return auth.create_invite(email=email, role=req.role, claims=req.claims,
-                              note=req.note.strip(), created_by=admin["id"])
-
-
-@app.delete("/api/admin/invites/{token}")
-async def drop_invite(token: str, request: Request) -> dict:
-    require_admin(request)
-    auth.revoke_invite(token)
-    return {"ok": True}
 
 
 @app.post("/api/auth/register")

@@ -53,7 +53,6 @@ will not be picked up and Nox will still report that no App is registered.
 | [docs/EDITOR.md](docs/EDITOR.md) | The text editor, and why it renders to elements not HTML |
 | [docs/LABELS.md](docs/LABELS.md) | Labels, and why nobody creates one |
 | [docs/VIEWS.md](docs/VIEWS.md) | Saved views — yours unless you say otherwise |
-| [docs/JOINING.md](docs/JOINING.md) | Invitations, and claiming the work already under your name |
 | [docs/ANALYTICS.md](docs/ANALYTICS.md) | Insights, and the numbers behind each chart |
 | [docs/DESIGN_M3.md](docs/DESIGN_M3.md) | The Material 3 rules the interface follows |
 | [docs/RUNNING.md](docs/RUNNING.md) | Local development |

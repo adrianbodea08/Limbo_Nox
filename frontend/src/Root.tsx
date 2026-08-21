@@ -12,7 +12,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { ApiError, api, getAuthToken, setAuthToken, setUnauthorizedHandler } from "./api";
 import { AuthPage } from "./components/AuthPage";
-import { JoinPage } from "./components/JoinPage";
 import { AccountsPage } from "./components/AccountsPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { TrackerPage } from "./components/nox/TrackerPage";
@@ -101,23 +100,6 @@ export default function Root() {
     ask();
     return () => { alive = false; window.clearTimeout(timer); };
   }, [tryAgain]);
-
-  // Before anything else, including the token check: somebody following an
-  // invitation has no account, and a stale token in this browser must not send
-  // them to a board instead of the screen they were sent to.
-  const joining = new URLSearchParams(window.location.search).get("token");
-  if (window.location.pathname === "/join" && joining) {
-    return (
-      <JoinPage
-        token={joining}
-        onJoined={(t, who) => {
-          setAuthToken(t);
-          setUser(who);
-          navigate("/", { replace: true });
-        }}
-      />
-    );
-  }
 
   if (checking) return <div className="tk-blank">…</div>;
 

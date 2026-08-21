@@ -96,19 +96,6 @@ async function http<T>(url: string, init?: RequestInit): Promise<T> {
 
 export { http as request };
 
-export interface Invite {
-  token: string;
-  email: string;
-  role: string;
-  /** Which tracker person this account becomes on arrival, if any. */
-  claims: number | null;
-  note: string;
-  created_at: number;
-  expires_at: number;
-  used_at: number | null;
-  used_by: number | null;
-}
-
 export interface LoginResult {
   token: string;
   user: User;
@@ -141,18 +128,6 @@ export const api = {
 
   logout: () => http<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
 
-  /** Whether an invitation link is still good. Asked before anybody signs in,
-   *  because the whole point is that they have no account yet. */
-  checkInvite: (token: string) =>
-    http<{ email: string; role: string; note: string; becomes: string | null }>(
-      `/api/auth/invite/check?token=${encodeURIComponent(token)}`),
-
-  acceptInvite: (token: string, username: string, password: string) =>
-    http<LoginResult>("/api/auth/invite/accept", {
-      method: "POST",
-      body: JSON.stringify({ token, username, password }),
-    }),
-
   me: () => http<User>("/api/auth/me"),
 
   changePassword: (currentPassword: string, newPassword: string) =>
@@ -164,21 +139,6 @@ export const api = {
   // --- admin ---
 
   users: () => http<User[]>("/api/admin/users"),
-
-  invites: () => http<Invite[]>("/api/admin/invites"),
-
-  invite: (body: { email: string; role: string; claims: number | null; note: string }) =>
-    http<Invite>("/api/admin/invites", { method: "POST", body: JSON.stringify(body) }),
-
-  revokeInvite: (token: string) =>
-    http<{ ok: boolean }>(`/api/admin/invites/${encodeURIComponent(token)}`,
-      { method: "DELETE" }),
-
-  /** People in the tracker nobody signs in as — the seeded ones. Offered when
-   *  writing an invitation so "you are this person" is a pick, not an id. */
-  unclaimed: () =>
-    http<{ id: number; display_name: string; avatar: string; issues: number }[]>(
-      "/api/nox/people/unclaimed"),
 
   setUserStatus: (id: number, status: string) =>
     http<User>(`/api/admin/users/${id}/status?status=${status}`, { method: "PUT" }),

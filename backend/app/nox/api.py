@@ -468,14 +468,6 @@ async def git_sync(request: Request, repo_name: str | None = None,
 
 # -------------------------------------------------------------------- labels --
 
-@router.get("/people/unclaimed")
-async def unclaimed_people(request: Request) -> list[dict]:
-    """The seeded people nobody signs in as, for the invitation form."""
-    _actor(request)
-    from . import identity
-    return identity.unclaimed()
-
-
 # ------------------------------------------------------------------ views --
 
 @router.get("/views")
