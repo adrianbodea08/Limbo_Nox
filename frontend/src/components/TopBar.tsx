@@ -10,6 +10,7 @@ import type { User } from "../types";
 import { AccountMenu } from "./AccountMenu";
 import LogoMark from "./LogoMark";
 import { ArrowLeft } from "lucide-react";
+import { NotificationBell } from "./nox/Notifications";
 
 /** What every page needs from the shell. Passed down from Root so a page never
  *  reaches for global state to find out who is signed in. */
@@ -71,6 +72,7 @@ export function TopBar({
 
       <div className="topbar-right">
         {rightExtra}
+        <NotificationBell />
         <AccountMenu
           user={user}
           isAdmin={isAdmin}

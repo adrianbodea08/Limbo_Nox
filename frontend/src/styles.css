@@ -4865,3 +4865,148 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   white-space: nowrap;
 }
 .tka-queued .tka-card { border-radius: 0 0 var(--m3-shape-m) var(--m3-shape-m); }
+
+/* --- notifications --------------------------------------------------------
+   Four kinds and no more. See docs/ASKS.md section 5 — the failure mode is not
+   too few, it is somebody who has learned to ignore the badge. */
+.tkn { position: relative; }
+.tkn-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.tkn-bell:hover { color: var(--text); }
+.tkn-bell.has { color: var(--text); }
+.tkn-count {
+  position: absolute;
+  top: 3px;
+  right: 2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--m3-shape-full);
+  background: var(--err);
+  color: var(--m3-on-accent);
+  font-size: var(--m3-font-label-small);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tkn-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 251;
+  width: min(400px, calc(100vw - 32px));
+  max-height: 460px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-l);
+  box-shadow: var(--m3-elev-3);
+  overflow: hidden;
+  animation: tk-dialog var(--m3-dur-short) var(--m3-ease-decel);
+}
+.tkn-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.tkn-head h2 {
+  margin: 0;
+  font-size: var(--m3-font-title-medium);
+  font-weight: 600;
+  letter-spacing: 0.15px;
+}
+.tkn-readall {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tkn-list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.tkn-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--m3-shape-m);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* Read ones stay, dimmed. A list that empties as you read it leaves nowhere to
+   go back to, and "what was that thing I dismissed" is a real question. */
+.tkn-row.read { opacity: 0.55; }
+.tkn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+}
+.tkn-t-ask { color: var(--accent); }
+.tkn-t-answer { color: var(--ok); }
+.tkn-t-assign { color: var(--warn); }
+.tkn-t-mention { color: var(--merged); }
+
+.tkn-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tkn-text { font-size: var(--m3-font-body-medium); line-height: 1.4; }
+.tkn-sub {
+  font-size: var(--m3-font-label-medium);
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tkn-empty {
+  margin: 0;
+  padding: 34px 20px;
+  text-align: center;
+  font-size: var(--m3-font-body-medium);
+  line-height: 1.55;
+  color: var(--text-faint);
+}
+
+/* The four switches, in Settings. */
+.tkn-prefs { display: flex; flex-direction: column; gap: 4px; }
+.tkn-pref {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  padding: 0 4px;
+  font-size: var(--m3-font-body-medium);
+}
+.tkn-pref-label { flex: 1; min-width: 0; }
+.tkn-why { margin: 0 0 14px; max-width: 62ch; font-size: var(--m3-font-label-medium); line-height: 1.55; }

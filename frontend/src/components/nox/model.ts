@@ -740,6 +740,28 @@ export interface Ask {
   issue_summary?: string;
 }
 
+/** Something that may need your attention. Four kinds and no more. */
+export type NotificationKind = "asked" | "ask_answered" | "assigned" | "mentioned";
+
+export interface Notification {
+  id: number;
+  kind: NotificationKind;
+  /** Written at the moment it happened, not re-derived later. */
+  text: string;
+  at: string;
+  read: boolean;
+  issue_id: number;
+  issue_key: string;
+  issue_summary: string;
+  /** Null when it was an automation or an integration. */
+  actor_name: string | null;
+  actor_avatar: string | null;
+}
+
+export interface NotificationPrefs {
+  [kind: string]: { label: string; on: boolean };
+}
+
 export const trackerApi = {
   status: () => request<TrackerStatusInfo>("/api/nox/status"),
 
@@ -750,6 +772,21 @@ export const trackerApi = {
     ),
 
   meta: () => request<TrackerMeta>("/api/nox/meta"),
+
+  notifications: () =>
+    request<{ unread: number; items: Notification[] }>("/api/nox/notifications"),
+
+  /** Some, or everything unread when no ids are given. */
+  readNotifications: (ids?: number[]) =>
+    request<{ unread: number; items: Notification[] }>("/api/nox/notifications/read",
+      { method: "POST", body: JSON.stringify(ids ? { ids } : {}) }),
+
+  notificationPrefs: () =>
+    request<NotificationPrefs>("/api/nox/notifications/prefs"),
+
+  setNotificationPref: (kind: string, on: boolean) =>
+    request<NotificationPrefs>(
+      `/api/nox/notifications/prefs/${kind}?on=${on}`, { method: "PUT" }),
 
   ask: (body: {
     issue_id: number; asked_of: number; kind: AskKind;

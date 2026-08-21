@@ -21,7 +21,7 @@ from sqlalchemy import select, text
 from .. import db
 from . import (
     admin, asks as asks_mod, automation, git, github_app, insights, links, mock,
-    query, releases as rel, repo, seed, work,
+    notify, query, releases as rel, repo, seed, work,
 )
 from .admin import SettingsError
 from .links import LinkError
@@ -463,6 +463,51 @@ async def git_sync(request: Request, repo_name: str | None = None,
         raise HTTPException(400, str(exc))
     except git.NoCredentials as exc:
         raise HTTPException(503, str(exc))
+
+
+# ------------------------------------------------------------- notifications --
+
+@router.get("/notifications")
+async def list_notifications(request: Request, limit: int = 30) -> dict:
+    """The bell: what is unread, and what recently was."""
+    actor = _actor(request)
+    with _engine().connect() as conn:
+        return {
+            "unread": notify.unread_count(conn, actor.id),
+            "items": notify.recent(conn, actor.id, min(max(limit, 1), 100)),
+        }
+
+
+@router.post("/notifications/read")
+async def read_notifications(request: Request, body: dict | None = None) -> dict:
+    """Mark some read, or everything if no ids are given."""
+    actor = _actor(request)
+    ids = (body or {}).get("ids") or None
+    with _engine().begin() as conn:
+        notify.mark_read(conn, actor.id, ids)
+        return {
+            "unread": notify.unread_count(conn, actor.id),
+            "items": notify.recent(conn, actor.id),
+        }
+
+
+@router.get("/notifications/prefs")
+async def get_notification_prefs(request: Request) -> dict:
+    """Four switches. The list is short enough that the default is on and the
+    setting exists to turn one off rather than to opt in."""
+    actor = _actor(request)
+    with _engine().connect() as conn:
+        return notify.prefs(conn, actor.id)
+
+
+@router.put("/notifications/prefs/{kind}")
+async def set_notification_pref(kind: str, request: Request, on: bool = True) -> dict:
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return notify.set_pref(conn, actor.id, kind, on)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
 
 
 # ---------------------------------------------------------------------- asks --

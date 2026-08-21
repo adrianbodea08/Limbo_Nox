@@ -6,7 +6,8 @@
 > with the four things it is actually for. Two of them are not reviews.
 >
 > `backend/app/nox/asks.py` owns it, `frontend/src/components/nox/Asks.tsx`
-> draws it. Notifications (section 5) are the next piece and are not built.
+> draws it. Notifications (section 5) are built too —
+> `backend/app/nox/notify.py` and `Notifications.tsx`.
 
 ---
 
@@ -146,6 +147,32 @@ the badge.
 
 Everything on the list is either somebody waiting on you or somebody answering
 you. Anything that fails that test needs an argument before it is added.
+
+### How it is wired
+
+**One funnel.** `notify.consider` is called from `repo.write_event`, so every
+notification this product sends is decided in one place and the four triggers
+cannot drift apart between the four callers that cause them. The overwhelming
+majority of events reach it and fall straight through without disturbing
+anybody, which is the intended shape.
+
+Three rules earn their place there:
+
+- **Never tell somebody about their own doing.** Without this, every trigger
+  fires on the person who caused it and the badge becomes an echo.
+- **Backfills are silent.** `write_event` takes an `at` for imports and
+  generated data; when it is set, nothing rings. History should not ring a bell.
+- **Automations count.** Being handed work by a rule is exactly as worth knowing
+  as being handed it by a person, so an automated assignment notifies — and
+  says "Something" rather than inventing a person to blame.
+
+**Mentions** match `@Name` against display names, longest first, so
+`@Ana Mihalache` reaches Ana rather than every Ana. An ambiguous first name
+reaches nobody rather than the wrong person, and a name matching nobody is left
+alone — an email address in a comment is not a mention.
+
+**Four switches** in Settings, defaulting to on. The list is short enough that
+the setting exists to turn one off, not to opt in.
 
 ---
 

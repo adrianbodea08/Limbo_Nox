@@ -293,6 +293,41 @@ Index("ix_asks_of_open", asks.c.asked_of, asks.c.state, asks.c.asked_at)
 Index("ix_asks_issue", asks.c.issue_id, asks.c.state)
 
 
+# Something that may need your attention. Four kinds and no more — see
+# docs/ASKS.md section 5. The failure mode of a notification system is not too
+# few; it is somebody who has learned to ignore the badge.
+notifications = Table(
+    "notifications", metadata,
+    Column("id", BigInteger, primary_key=True),
+    # Who is being told.
+    Column("user_id", Integer, nullable=False),
+    # asked | ask_answered | assigned | mentioned
+    Column("kind", String(24), nullable=False),
+    Column("issue_id", BigInteger, ForeignKey("issues.id", ondelete="CASCADE"),
+           nullable=False),
+    # Who caused it. Null when it was an automation or an integration — and the
+    # UI says so rather than inventing a person.
+    Column("actor_id", Integer),
+    # Rendered once, at the moment it happened. A notification that re-derives
+    # its own sentence later is a notification that changes what it said.
+    Column("text", Text, nullable=False, server_default=""),
+    _ts("at", nullable=False, server_default=func.now()),
+    _ts("read_at"),
+)
+# The bell: what is unread for one person, newest first.
+Index("ix_notifications_unread", notifications.c.user_id, notifications.c.read_at,
+      notifications.c.at)
+
+# Which of the four kinds a person wants. Absent means all four, because the
+# list is short enough that the default is "yes" and the setting exists to turn
+# one off rather than to opt in.
+notification_prefs = Table(
+    "notification_prefs", metadata,
+    Column("user_id", Integer, primary_key=True),
+    Column("muted", Text, nullable=False, server_default=""),
+)
+
+
 git_refs = Table(
     "git_refs", metadata,
     Column("id", Integer, primary_key=True),

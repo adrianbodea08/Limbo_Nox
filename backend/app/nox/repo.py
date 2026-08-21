@@ -122,6 +122,22 @@ def write_event(
         **extra,
     ))
 
+    # One funnel. Every notification this product sends is decided here, so the
+    # four triggers cannot drift apart between the four callers that cause
+    # them — and the overwhelming majority of events fall straight through
+    # without disturbing anybody, which is the intended shape.
+    #
+    # Backfills are silent: an import or generated demo data is history, and
+    # history should not ring a bell.
+    if at is None:
+        from . import notify
+
+        notify.consider(
+            conn, actor_id=actor.id, actor_kind=actor.kind,
+            entity_type=entity_type, entity_id=entity_id, kind=kind,
+            field=field, to_value=to_value, payload=payload,
+        )
+
 
 # --------------------------------------------------------------------- issues
 
