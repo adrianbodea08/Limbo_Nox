@@ -24,6 +24,7 @@ from . import (
     labels as labels_mod, links, mock, notify, query, releases as rel, repo,
     seed, views as views_mod, work,
 )
+from . import audit
 from .admin import SettingsError
 from .links import LinkError
 from .work import WorkError
@@ -459,10 +460,23 @@ async def name_person_on_project(user_id: int, project_id: int,
                                  request: Request, body: dict) -> list[dict]:
     """Name somebody on a project, or take them off it."""
     who = _admin(request)
+    granted = bool(body.get("granted"))
     with _engine().begin() as conn:
-        admin.name_on_project(conn, project_id, user_id,
-                              bool(body.get("granted")), who["id"])
-        return admin.seen_by(conn, user_id, _tags_of(user_id))
+        admin.name_on_project(conn, project_id, user_id, granted, who["id"])
+        seen = admin.seen_by(conn, user_id, _tags_of(user_id))
+        names = {
+            "project": conn.execute(select(projects.c.key)
+                                    .where(projects.c.id == project_id)).scalar(),
+            "subject": conn.execute(select(users.c.display_name)
+                                    .where(users.c.id == user_id)).scalar(),
+        }
+    # Outside the transaction: the audit is its own write and must not be able
+    # to roll back the thing it is recording.
+    audit.record(who["id"], "project_access",
+                 subject_type=audit.ACCOUNT, subject_id=user_id,
+                 field="project", now="named" if granted else "removed",
+                 project=names["project"], subject=names["subject"])
+    return seen
 
 
 def _tags_of(user_id: int) -> set[str]:
@@ -1583,11 +1597,22 @@ async def patch_project(project_id: int, body: ProjectPatch, request: Request) -
 async def put_access(project_id: int, body: AccessIn, request: Request) -> dict:
     user = _admin(request)
     with _engine().begin() as conn:
+        was = conn.execute(select(projects.c.visibility, projects.c.key)
+                           .where(projects.c.id == project_id)).first()
         try:
             admin.set_access(conn, project_id, body.visibility, body.entries, user.get("id"))
         except SettingsError as exc:
             raise HTTPException(400, str(exc))
-        return admin.settings(conn, project_id)
+        settings = admin.settings(conn, project_id)
+    audit.record(user.get("id"), "project_visibility",
+                 subject_type=audit.PROJECT, subject_id=project_id,
+                 field="visibility",
+                 was=was[0] if was else None, now=body.visibility,
+                 project=was[1] if was else str(project_id),
+                 # Who is on the list afterwards, because "restricted" on its
+                 # own does not say who it was restricted to.
+                 named=[f"{e.get('kind')}:{e.get('value')}" for e in body.entries])
+    return settings
 
 
 class BoardLayout(BaseModel):

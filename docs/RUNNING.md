@@ -183,9 +183,11 @@ docker compose run --rm test          # everything
 docker compose run --rm test -k auth  # or a slice
 ```
 
-Thirty of them, over the three things where a silent regression is a security
-incident: **auth** (hashing, sessions, suspension taking effect now rather than
-in thirty days), **the rate limiter**, and **who can see which project**.
+Thirty-nine of them, over the four things where a silent regression is a
+security incident: **auth** (hashing, sessions, suspension taking effect now
+rather than in thirty days), **the rate limiter**, **who can see which project**,
+and **the audit log** — which fails in the quietest way of all, by answering
+"nothing happened" to a question where something did.
 
 Three facts about how they run, each of them deliberate:
 

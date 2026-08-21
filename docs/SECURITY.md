@@ -85,10 +85,49 @@ Worth writing down, so the next review does not start from zero.
 
 ---
 
+### Admin actions were invisible — fixed
+
+The tracker's event log recorded every ticket move, every reassignment, every
+comment — eight hundred rows of it — and was **completely silent about
+permissions**. Approving an account, making somebody an admin, letting a person
+into a restricted project: none of it was written down anywhere.
+
+That is the wrong way round. Who moved a ticket on Tuesday is interesting; who
+gave themselves admin on Tuesday is the question somebody asks under pressure,
+and it was unanswerable.
+
+`audit.py` writes to the **same** `events` table rather than a new one. It has
+carried `entity_type` since the first migration — the comment on the column says
+releases and projects emit events too — so an account event is what it was built
+for, and one append-only log means one set of guarantees instead of two.
+
+Six kinds, a closed list so the reader can group rather than guess at spellings:
+a status changed, a role changed, an account created or deleted, who can see a
+project, and a project's visibility. Each row keeps the **before** as well as
+the after, because *"changed a role"* is not an answer and *"member to admin"*
+is. Readable at Accounts → *Show what admins have changed*, admin-only, since it
+is a list of who has power.
+
+Three decisions inside it:
+
+- **Recorded after the change**, so an attempt that was refused leaves no trace
+  of having happened.
+- **It can never fail the thing it records.** An audit write that could break a
+  request teaches people to route around it; a missing row is a smaller problem
+  than an admin who cannot approve somebody because the log is unhappy. It is
+  shouted into the log file instead, because a silently empty audit trail is the
+  worst of the three.
+- **The `actor_id` foreign key means an admin who granted something cannot be
+  quietly deleted.** A side effect of moving accounts into Postgres, and a
+  welcome one: you cannot remove the record of who handed out power by removing
+  the person who did.
+
+---
+
 ## 3. It is now watched
 
-`backend/tests` — thirty tests over auth, the rate limiter, and who can see
-which project. Run with `docker compose run --rm test`, and in CI on every push.
+`backend/tests` — thirty-nine tests over auth, the rate limiter, who can see
+which project, and the audit log. Run with `docker compose run --rm test`, and in CI on every push.
 
 Both findings above are regression tests, and both have been **proved to fail**
 against the code as it was before the fix: putting the visibility bug back made
@@ -114,7 +153,5 @@ oversight.
 - **Passwords need six characters** and nothing else.
 - **No HTTPS**, because there is no deployment. This is also what makes real
   push notifications impossible — see [ASKS.md](ASKS.md) §5.
-- **No audit of admin actions.** The tracker's own event log is thorough;
-  changing somebody's role or approving an account is not in it.
 - **Backups are not scheduled.** The flow exists and has been restored end to
   end; nothing runs it on a timer yet.

@@ -96,6 +96,22 @@ async function http<T>(url: string, init?: RequestInit): Promise<T> {
 
 export { http as request };
 
+/** One admin action: a permission that changed, and who changed it. */
+export interface AuditEntry {
+  id: number;
+  at: string;
+  kind: string;
+  /** Already a sentence — "changed a role" — so the screen does not have to
+   *  keep its own copy of the vocabulary. */
+  what: string;
+  actor: string;
+  subject: string;
+  subject_type: string;
+  was: string | null;
+  now: string | null;
+  detail: Record<string, unknown>;
+}
+
 export interface LoginResult {
   token: string;
   user: User;
@@ -139,6 +155,9 @@ export const api = {
   // --- admin ---
 
   users: () => http<User[]>("/api/admin/users"),
+
+  /** Who granted what. Admin-only, because it is a list of who has power. */
+  audit: (limit = 100) => http<AuditEntry[]>(`/api/admin/audit?limit=${limit}`),
 
   setUserStatus: (id: number, status: string) =>
     http<User>(`/api/admin/users/${id}/status?status=${status}`, { method: "PUT" }),

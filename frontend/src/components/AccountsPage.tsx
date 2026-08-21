@@ -11,7 +11,8 @@ import { M3Select } from "./M3Select";
 import { TopBar, type ShellProps } from "./TopBar";
 import { TrackerRail } from "./nox/TrackerRail";
 import type { User } from "../types";
-import { trackerApi, type ProjectAccess } from "./nox/model";
+import type { AuditEntry } from "../api";
+import { ago, trackerApi, type ProjectAccess } from "./nox/model";
 
 const STATUSES = ["approved", "pending", "suspended", "banned"] as const;
 const ROLES = ["member", "admin"] as const;
@@ -22,6 +23,8 @@ const asOptions = (values: readonly string[]) =>
 export function AccountsPage({ shell }: { shell: ShellProps }) {
   const [users, setUsers] = useState<User[]>([]);
   const [openFor, setOpenFor] = useState<number | null>(null);
+  const [log, setLog] = useState<AuditEntry[]>([]);
+  const [showLog, setShowLog] = useState(false);
   const [seen, setSeen] = useState<ProjectAccess[]>([]);
   const [error, setError] = useState("");
   const [, setBusy] = useState(false);
@@ -30,6 +33,11 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
     api.users().then(setUsers).catch((e) => setError(String(e.message ?? e)));
   }, []);
   useEffect(load, [load]);
+
+  useEffect(() => {
+    if (!showLog) return;
+    api.audit(50).then(setLog).catch(() => setLog([]));
+  }, [showLog, users]);
 
   useEffect(() => {
     if (openFor == null) { setSeen([]); return; }
@@ -76,6 +84,38 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
         </header>
 
         {error && <p className="tk-error">{error}</p>}
+
+        {/* Every permission that has changed, and who changed it. The
+            tracker records every ticket move and recorded none of this until
+            2026-08-22 — which is the wrong way round, because "who gave
+            themselves admin" is the question somebody asks under pressure. */}
+        <section className="tk-audit">
+          <button type="button" className="tk-audit-toggle tk-layer"
+                  onClick={() => setShowLog((v) => !v)}>
+            {showLog ? "Hide" : "Show"} what admins have changed
+          </button>
+          {showLog && (
+            <ol className="tk-audit-list">
+              {log.map((e) => (
+                <li key={e.id} className="tk-audit-row">
+                  <span className="tk-audit-who">{e.actor}</span>
+                  <span className="tk-audit-what">{e.what}</span>
+                  {e.subject && <span className="tk-audit-subject">{e.subject}</span>}
+                  {/* The before as well as the after. "changed a role" is not
+                      an answer; "member to admin" is. */}
+                  {e.was && e.now && (
+                    <span className="tk-dim tk-audit-move">{e.was} → {e.now}</span>
+                  )}
+                  {!e.was && e.now && <span className="tk-dim tk-audit-move">{e.now}</span>}
+                  <span className="tk-dim tk-audit-when">{ago(e.at)}</span>
+                </li>
+              ))}
+              {!log.length && (
+                <li className="tk-dim">Nothing has been changed yet.</li>
+              )}
+            </ol>
+          )}
+        </section>
 
         {/* Anybody waiting comes first. A request nobody sees is a person who
             thinks the tool is broken. */}

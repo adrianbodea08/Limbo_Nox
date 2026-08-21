@@ -5733,3 +5733,47 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-col);
   font-size: var(--m3-font-label-small);
 }
+
+/* --- what admins have changed --------------------------------------------
+   The tracker records every ticket move and recorded none of this until it was
+   asked to. Permissions are the thing somebody needs to be able to answer
+   under pressure, so they get a plain readable list rather than a table. */
+.tk-audit { margin-bottom: 18px; }
+.tk-audit-toggle {
+  height: var(--m3-control-h-dense);
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-full);
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  cursor: pointer;
+}
+.tk-audit-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.tk-audit-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--m3-font-body-medium);
+}
+.tk-audit-who { font-weight: 600; }
+.tk-audit-subject {
+  padding: 0 6px;
+  border-radius: var(--m3-shape-xs);
+  background: var(--bg-col);
+  font-size: var(--m3-font-label-medium);
+}
+/* The before as well as the after: "changed a role" is not an answer. */
+.tk-audit-move { font-size: var(--m3-font-label-medium); }
+.tk-audit-when { margin-left: auto; font-size: var(--m3-font-label-small); }

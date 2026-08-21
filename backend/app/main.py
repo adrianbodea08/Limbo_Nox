@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from . import db
 from . import ratelimit
+from .nox import audit
 from .auth_store import AuthStore
 from .config import config
 from .nox import worker as nox_worker
@@ -146,16 +147,26 @@ async def make_placeholder_accounts(request: Request) -> dict:
     Lives with the accounts rather than with the tracker because that is what it
     creates. Nobody can sign in as them — see `placeholders.py`.
     """
-    require_admin(request)
+    admin = require_admin(request)
     from .nox import placeholders
-    return placeholders.create(auth)
+    made = placeholders.create(auth)
+    for name in made["made"]:
+        audit.record(admin["id"], "account_created",
+                     subject_type=audit.ACCOUNT, subject_id=0,
+                     now=name, subject=name, why="placeholder")
+    return made
 
 
 @app.delete("/api/admin/placeholder-accounts")
 async def drop_placeholder_accounts(request: Request) -> dict:
-    require_admin(request)
+    admin = require_admin(request)
     from .nox import placeholders
-    return placeholders.remove(auth)
+    gone = placeholders.remove(auth)
+    for name in gone["removed"]:
+        audit.record(admin["id"], "account_deleted",
+                     subject_type=audit.ACCOUNT, subject_id=0,
+                     was=name, subject=name, why="placeholder")
+    return gone
 
 
 @app.post("/api/auth/register")
@@ -270,9 +281,15 @@ async def set_status(user_id: int, request: Request, status: str) -> dict:
         raise HTTPException(400, "You cannot lock yourself out.")
     if status not in ("approved", "pending", "suspended", "banned"):
         raise HTTPException(400, f"unknown status: {status}")
+    was = auth.by_id(user_id)
     updated = auth.set_status(user_id, status)
     if not updated:
         raise HTTPException(404, "No such account.")
+    # After the change, so a failed one leaves no trace of having happened.
+    audit.record(admin["id"], "account_status",
+                 subject_type=audit.ACCOUNT, subject_id=user_id,
+                 field="status", was=was["status"], now=status,
+                 subject=updated["username"])
     return updated
 
 
@@ -283,10 +300,23 @@ async def set_role(user_id: int, request: Request, role: str) -> dict:
         raise HTTPException(400, "You cannot remove your own admin.")
     if role not in ("admin", "member"):
         raise HTTPException(400, f"unknown role: {role}")
+    was = auth.by_id(user_id)
     updated = auth.set_role(user_id, role)
     if not updated:
         raise HTTPException(404, "No such account.")
+    # The one people would actually come looking for.
+    audit.record(admin["id"], "account_role",
+                 subject_type=audit.ACCOUNT, subject_id=user_id,
+                 field="role", was=was["role"], now=role,
+                 subject=updated["username"])
     return updated
+
+
+@app.get("/api/admin/audit")
+async def read_audit(request: Request, limit: int = 100) -> list[dict]:
+    """Who granted what. Admin-only, because it is a list of who has power."""
+    require_admin(request)
+    return audit.recent(limit)
 
 
 @app.get("/api/status")
