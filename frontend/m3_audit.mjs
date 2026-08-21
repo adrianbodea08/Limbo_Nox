@@ -63,10 +63,15 @@ root.walkDecls((decl) => {
     }
   }
 
-  // 4. Font sizes come from the type scale.
-  if (prop === "font-size") {
+  // 4. Font sizes name a type token.
+  //
+  // Checking only that the *value* is on the scale let `font-size: 11px` pass,
+  // which is on the scale and still a literal — it cannot be retuned and it
+  // does not say which role it is. The doc says the rule is the token; this is
+  // now the rule the doc says.
+  if (prop === "font-size" && !value.includes("--m3-font")) {
     const n = Number((value.match(/^(\d+(?:\.\d+)?)px$/) || [])[1]);
-    if (n && !TYPE.has(n)) findings.type.push(where(decl));
+    if (n) findings.type.push(`${where(decl)}${TYPE.has(n) ? "   (on the scale, but not a token)" : ""}`);
   }
 
   // 5. Colours come from variables, so all three themes follow.

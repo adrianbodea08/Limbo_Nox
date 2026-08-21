@@ -15,6 +15,7 @@ import { ColumnsBoard, ListBoard, TableBoard, type Renderer } from "./BoardViews
 import { IssueCard } from "./IssueCard";
 import { Automations } from "./Automations";
 import { GitSettings } from "./GitSettings";
+import { Insights } from "./Insights";
 import { Releases } from "./Releases";
 import { TrackerRail } from "./TrackerRail";
 import {
@@ -65,7 +66,8 @@ export function TrackerPage({ shell }: Props) {
   const sectionParam = params.get("section");
   const section =
     sectionParam === "releases" || sectionParam === "automations"
-    || sectionParam === "git" ? sectionParam : "issues";
+    || sectionParam === "git" || sectionParam === "insights"
+      ? sectionParam : "issues";
   const releaseId = params.get("release") ? Number(params.get("release")) : null;
   const renderer = (params.get("view") as Renderer) || "columns";
   // Not a control any more: a project's board columns decide what the columns
@@ -333,9 +335,7 @@ export function TrackerPage({ shell }: Props) {
       {top}
       <div className="tk-shell">
         <TrackerRail
-          active={section === "releases" ? "releases"
-            : section === "automations" ? "automations"
-            : section === "git" ? "git"
+          active={section !== "issues" ? section
             : projectKey ? `project:${projectKey}` : ""}
           isAdmin={shell.isAdmin}
           projects={meta?.projects}
@@ -372,6 +372,8 @@ export function TrackerPage({ shell }: Props) {
                 />
               ) : section === "git" ? (
                 <GitSettings isAdmin={shell.isAdmin} />
+              ) : section === "insights" ? (
+                <Insights projects={meta.projects} />
               ) : (
                 <Automations meta={meta} />
               )}

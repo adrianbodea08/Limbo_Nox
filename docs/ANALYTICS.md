@@ -1,8 +1,14 @@
 # Analytics
 
-> **Status:** designed, not built. Written 2026-08-21 after reading how
+> **Status:** built and running, 2026-08-21. Designed first, after reading how
 > [Plane](https://github.com/makeplane/plane) and
 > [Devlane](https://github.com/Devlaner/devlane) do theirs.
+>
+> `backend/app/nox/insights.py` computes it, `frontend/src/components/nox/`
+> `Insights.tsx` and `Charts.tsx` draw it, and it lives in the rail as
+> **Insights** — the room, with **Overview** and **Flow** as its two tabs. The
+> doc originally called the room "Flow" too, which would have been a room and a
+> tab inside it sharing a name.
 
 ---
 
@@ -57,6 +63,18 @@ retro, and the page exists to answer them.
 `events where kind='field_changed' and field='status_id'`, ordered by `at`. Each
 consecutive pair is an interval; the last one runs to `resolved_at` or to now.
 Sum per status, per issue.
+
+The first interval is the one nothing recorded: an issue is created *in* a
+status and the log only writes on change, so the opening status is the
+`from_value` of the earliest transition — or, for an issue that has never moved,
+simply where it still is.
+
+Intervals are counted **in full, not clipped to the window**. Clipping was the
+first implementation and it made every stale status report exactly the window
+length: a wall of identical "4w / 4w" bars that said nothing. Something that has
+sat for six months waited six months whichever thirty days you happen to be
+looking at. The window decides which spans are *relevant*, not how long they
+were.
 
 Shown as a horizontal bar per status — median and the p85 next to it, because
 the mean is the number that hides the problem. A column whose median is four

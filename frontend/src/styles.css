@@ -4475,3 +4475,147 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   cursor: pointer;
 }
 .acct-row:hover { background: var(--m3-state-hover); }
+
+/* --- insights -------------------------------------------------------------
+   The page that reads the event log. See docs/ANALYTICS.md. */
+.tki { display: flex; flex-direction: column; gap: 20px; max-width: 1100px; }
+.tki-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin: 0; }
+.tki-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* An insight card. The number is the point, the comparison is what makes it
+   actionable, and the label is smaller than both. */
+.tki-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.tki-card {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-card);
+  box-shadow: var(--m3-elev-1);
+}
+.tki-card h3 {
+  margin: 0 0 6px;
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.tki-card-value {
+  font-size: var(--m3-font-headline-medium);
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.tki-card-unit {
+  margin-left: 6px;
+  font-size: var(--m3-font-label-medium);
+  font-weight: 500;
+  color: var(--text-faint);
+}
+.tki-trend { margin: 6px 0 0; font-size: var(--m3-font-label-medium); color: var(--text-dim); }
+/* Green and red mean "the direction this metric wanted" and "the other one",
+   which is why the card says which way is up rather than the trend guessing. */
+.tki-trend.good { color: var(--ok); }
+.tki-trend.bad { color: var(--err); }
+
+.tki-section {
+  padding: 18px 20px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-card);
+}
+.tki-section h2 {
+  margin: 0;
+  font-size: var(--m3-font-title-medium);
+  font-weight: 600;
+  letter-spacing: 0.15px;
+}
+/* Every chart says what it shows and what a bad shape looks like. A chart
+   nobody can read is decoration. */
+.tki-note {
+  margin: 6px 0 16px;
+  max-width: 74ch;
+  font-size: var(--m3-font-label-medium);
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.tki-empty {
+  margin: 8px 0 0;
+  padding: 28px 0;
+  text-align: center;
+  font-size: var(--m3-font-body-medium);
+  color: var(--text-faint);
+}
+
+.tki-chart { width: 100%; }
+.tki-chart svg { display: block; overflow: visible; }
+.tki-axis { fill: var(--text-faint); font-size: var(--m3-font-label-small); }
+.tki-value {
+  fill: var(--text-dim);
+  font-size: var(--m3-font-label-small);
+  font-variant-numeric: tabular-nums;
+}
+.tki-faint { fill: var(--text-faint); }
+.tki-grid { stroke: var(--border); stroke-width: 1; }
+/* A reference line is read across the whole plot, so it is dashed — a solid one
+   at this weight reads as another series. */
+.tki-rule { stroke: var(--border-strong); stroke-width: 1; stroke-dasharray: 3 4; }
+.tki-dot { fill: var(--accent); opacity: 0.75; }
+.tki-dot-click { cursor: pointer; }
+.tki-dot-click:hover { opacity: 1; r: 7; }
+
+.tki-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+.tki-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--m3-font-label-medium);
+  color: var(--text-dim);
+}
+.tki-swatch { width: 10px; height: 10px; border-radius: var(--m3-shape-xs); }
+
+.tki-scroll { margin-top: 16px; border: 1px solid var(--border); border-radius: var(--m3-shape-m); overflow-x: auto; }
+.tki-table { font-size: var(--m3-font-body-medium); }
+.tki-table td { padding: 10px 14px; }
+.tki-table tbody tr { height: auto; cursor: default; }
+.tki-move { font-weight: 500; }
+
+/* How much of a transition runs itself, as a bar rather than a number: the
+   comparison between rows is the finding, and eyes compare lengths faster than
+   they compare percentages. */
+.tki-split {
+  display: inline-block;
+  width: 90px;
+  height: 6px;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+  vertical-align: middle;
+  overflow: hidden;
+}
+.tki-split-fill { display: block; height: 100%; border-radius: var(--m3-shape-full); }
+.tki-split-label {
+  margin-left: 10px;
+  font-size: var(--m3-font-label-medium);
+  /* "always automatic" wrapped and made every other row a different
+     height, which turned a table meant for comparing rows into a ragged
+     list. */
+  white-space: nowrap;
+}
+
+.tki-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  cursor: pointer;
+}
+.tki-link:hover { text-decoration: underline; }
+.tki-cap { margin: 12px 0 0; font-size: var(--m3-font-label-medium); }
+/* "31h so far" is one phrase, not two lines. */
+.tki-cost { white-space: nowrap; }

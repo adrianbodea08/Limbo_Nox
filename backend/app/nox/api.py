@@ -20,8 +20,8 @@ from sqlalchemy import select, text
 
 from .. import db
 from . import (
-    admin, automation, git, github_app, links, mock, query, releases as rel, repo,
-    seed, work,
+    admin, automation, git, github_app, insights, links, mock, query,
+    releases as rel, repo, seed, work,
 )
 from .admin import SettingsError
 from .links import LinkError
@@ -459,6 +459,40 @@ async def git_sync(request: Request, repo_name: str | None = None,
         raise HTTPException(400, str(exc))
     except git.NoCredentials as exc:
         raise HTTPException(503, str(exc))
+
+
+# ------------------------------------------------------------------ insights --
+
+@router.get("/insights/overview")
+async def insights_overview(request: Request, project: str | None = None,
+                            days: int = 30) -> dict:
+    """Four numbers with a comparison, and created versus finished."""
+    _actor(request)
+    with _engine().connect() as conn:
+        return insights.overview(
+            conn, project_id=insights.project_id_for(conn, project),
+            days=_period(days))
+
+
+@router.get("/insights/flow")
+async def insights_flow(request: Request, project: str | None = None,
+                        days: int = 30) -> dict:
+    """Where work waits, how long it takes, and who is moving it."""
+    _actor(request)
+    with _engine().connect() as conn:
+        return insights.flow(
+            conn, project_id=insights.project_id_for(conn, project),
+            days=_period(days))
+
+
+def _period(days: int) -> int:
+    """A window somebody asked for, clamped to one somebody can read.
+
+    The upper bound is not a performance guard — it is that a year of daily
+    buckets is a texture, not a chart, and the page already switches to weeks
+    past six weeks.
+    """
+    return max(7, min(int(days), 365))
 
 
 @router.get("/git/refs")

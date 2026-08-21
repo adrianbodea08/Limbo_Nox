@@ -23,7 +23,9 @@
 // It fetches what it needs itself. One small request per page beats threading
 // projects and teams through every screen that happens to render a sidebar.
 
-import { GitBranch, LayoutGrid, MoreVertical, Rocket, Users, Workflow, Zap } from "lucide-react";
+import {
+  Activity, GitBranch, LayoutGrid, MoreVertical, Rocket, Users, Workflow, Zap,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trackerApi } from "./model";
@@ -53,6 +55,7 @@ const DESTINATIONS = [
   { id: "releases", Icon: Rocket, label: "Releases", to: "/?section=releases" },
   { id: "automations", Icon: Zap, label: "Automations", to: "/?section=automations" },
   { id: "git", Icon: GitBranch, label: "Git", to: "/?section=git" },
+  { id: "insights", Icon: Activity, label: "Insights", to: "/?section=insights" },
 ] as const;
 
 export function TrackerRail({

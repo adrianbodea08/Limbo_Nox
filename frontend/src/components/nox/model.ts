@@ -639,6 +639,66 @@ export interface SearchHit extends TrackerIssue {
   matched?: { where: "description" | "comment"; text: string };
 }
 
+/** What the event log says, rather than what is true right now.
+ *  See docs/ANALYTICS.md. */
+export interface InsightCard {
+  key: string;
+  label: string;
+  value: number;
+  unit: string;
+  hint: string;
+  /** Absent on a card with nothing to compare against. */
+  trend?: { from: number; change: number | null };
+  /** Which direction is the good one — the card knows, the trend does not. */
+  better?: "up" | "down";
+}
+
+export interface InsightsOverview {
+  days: number;
+  cards: InsightCard[];
+  throughput: {
+    buckets: string[];
+    created: number[];
+    finished: number[];
+    by_week: boolean;
+  };
+}
+
+export interface InsightsFlow {
+  days: number;
+  /** The window, ISO. Charts plot against the period, not their own range. */
+  from: string;
+  to: string;
+  /** Worst p85 first: the point is the status with the trapdoor. */
+  waiting: {
+    status: string; category: string; colour: string;
+    median: number; p85: number; issues: number;
+  }[];
+  /** Statuses past the tenth, reported rather than silently dropped. */
+  waiting_hidden: number;
+  cycle: {
+    points: { key: string; hours: number; at: string }[];
+    median: number;
+    p85: number;
+  };
+  actors: {
+    buckets: string[];
+    human: number[];
+    automation: number[];
+    integration: number[];
+    by_week: boolean;
+    automated_share: number;
+    total: number;
+  };
+  moves: {
+    from: string; to: string; total: number;
+    human: number; automation: number; integration: number;
+  }[];
+  interruptions: {
+    issue: string; for: string; reason: string; hours: number; open: boolean;
+  }[];
+}
+
 export const trackerApi = {
   status: () => request<TrackerStatusInfo>("/api/nox/status"),
 
@@ -649,6 +709,14 @@ export const trackerApi = {
     ),
 
   meta: () => request<TrackerMeta>("/api/nox/meta"),
+
+  insightsOverview: (project?: string, days = 30) =>
+    request<InsightsOverview>(
+      `/api/nox/insights/overview?days=${days}${project ? `&project=${project}` : ""}`),
+
+  insightsFlow: (project?: string, days = 30) =>
+    request<InsightsFlow>(
+      `/api/nox/insights/flow?days=${days}${project ? `&project=${project}` : ""}`),
 
   /** Every project, and summary + description + comments. */
   searchEverything: (term: string, limit = 25) =>
