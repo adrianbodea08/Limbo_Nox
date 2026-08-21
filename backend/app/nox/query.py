@@ -288,9 +288,18 @@ def _badges(conn: Connection, items: list[dict]) -> list[dict]:
         if STATE_RANK.get(state, -1) > STATE_RANK.get(seen["state"], -1):
             seen["state"] = state
 
+    # An open, blocking ask is a third way to be stuck — not another issue and
+    # not your own attention, but somebody who has not answered. It counts
+    # towards the same badge, because a card that is stuck should look stuck
+    # whichever of the three is doing it.
+    from . import asks as asks_mod
+    waiting = asks_mod.blocking_counts(conn, ids)
+    open_asks = asks_mod.open_counts(conn, ids)
+
     for item in items:
         key = item["id"]
-        item["blocked_by"] = blocked.get(key, 0)
+        item["blocked_by"] = blocked.get(key, 0) + waiting.get(key, 0)
+        item["open_asks"] = open_asks.get(key, 0)
         item["link_count"] = linked.get(key, 0)
         item["child_count"] = children.get(key, 0)
         item["comment_count"] = talk.get(key, 0)
@@ -485,6 +494,12 @@ def get_issue(conn: Connection, ident: str | int) -> dict | None:
     # the same reason links is: git reads issues, and issues read git.
     from . import git as git_module
     issue["git"] = git_module.for_issues(conn, [issue["id"]]).get(issue["id"], [])
+
+    # Who is waiting on whom, and for what. Near the issue's own facts rather
+    # than in the discussion — an open ask is the reason the thing is not
+    # moving, which is not a remark.
+    from . import asks as asks_module
+    issue["asks"] = asks_module.for_issue(conn, issue["id"])
 
     # Which releases carry this issue. Asked constantly ("is my fix in B-34?")
     # and cheap here, where the issue is already loaded.

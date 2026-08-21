@@ -20,8 +20,8 @@ from sqlalchemy import select, text
 
 from .. import db
 from . import (
-    admin, automation, git, github_app, insights, links, mock, query,
-    releases as rel, repo, seed, work,
+    admin, asks as asks_mod, automation, git, github_app, insights, links, mock,
+    query, releases as rel, repo, seed, work,
 )
 from .admin import SettingsError
 from .links import LinkError
@@ -118,7 +118,7 @@ async def setup(request: Request) -> dict:
 async def meta(request: Request) -> dict:
     """Everything the UI needs to render forms and boards without a round trip
     per dropdown: projects, types, statuses, fields and views."""
-    _actor(request)
+    actor = _actor(request)
     with _engine().connect() as conn:
         allowed = admin.visible_project_ids(conn, request.state.user)
         project_q = (select(projects).where(projects.c.archived_at.is_(None))
@@ -126,6 +126,10 @@ async def meta(request: Request) -> dict:
         if allowed is not None:
             project_q = project_q.where(projects.c.id.in_(sorted(allowed) or [0]))
         return {
+            # Who is asking. Needed wherever the UI has to tell "yours" from
+            # "somebody else's" — an ask directed at you is answerable, one
+            # directed at a colleague is only readable.
+            "me": actor.id,
             "projects": [dict(r) for r in conn.execute(project_q).mappings()],
             "issueTypes": [dict(r) for r in conn.execute(
                 select(issue_types).where(issue_types.c.archived_at.is_(None))
@@ -459,6 +463,74 @@ async def git_sync(request: Request, repo_name: str | None = None,
         raise HTTPException(400, str(exc))
     except git.NoCredentials as exc:
         raise HTTPException(503, str(exc))
+
+
+# ---------------------------------------------------------------------- asks --
+
+class AskNew(BaseModel):
+    issue_id: int
+    asked_of: int
+    kind: str
+    question: str = Field(min_length=1, max_length=2000)
+    blocking: bool = False
+
+
+class AskAnswer(BaseModel):
+    answer: str = Field(default="", max_length=4000)
+
+
+@router.get("/asks/kinds")
+async def ask_kinds(request: Request) -> dict:
+    """The four shapes, and what coming back looks like for each."""
+    _actor(request)
+    return asks_mod.KINDS
+
+
+@router.post("/asks")
+async def create_ask(body: AskNew, request: Request) -> dict:
+    """Ask somebody something about an issue."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return asks_mod.ask(
+                conn, actor, issue_id=body.issue_id, asked_of=body.asked_of,
+                kind=body.kind, question=body.question, blocking=body.blocking)
+        except asks_mod.AskError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@router.post("/asks/{ask_id}/answer")
+async def answer_ask(ask_id: int, body: AskAnswer, request: Request) -> dict:
+    """Come back to somebody."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return asks_mod.answer(conn, actor, ask_id, body.answer)
+        except asks_mod.AskError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@router.post("/asks/{ask_id}/decline")
+async def decline_ask(ask_id: int, body: AskAnswer, request: Request) -> dict:
+    """Say no, or say it is not yours. Kept apart from answering because a
+    queue that cannot tell them apart is a queue people clear badly."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return asks_mod.decline(conn, actor, ask_id, body.answer)
+        except asks_mod.AskError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@router.post("/asks/{ask_id}/withdraw")
+async def withdraw_ask(ask_id: int, request: Request) -> dict:
+    """Take it back. Only the person who asked may."""
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return asks_mod.withdraw(conn, actor, ask_id)
+        except asks_mod.AskError as exc:
+            raise HTTPException(400, str(exc))
 
 
 # ------------------------------------------------------------------ insights --

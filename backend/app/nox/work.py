@@ -452,9 +452,16 @@ def my_work(conn: Connection, user_id: int) -> dict:
     person = conn.execute(
         select(users.c.display_name, users.c.avatar)
         .where(users.c.id == user_id)).mappings().first()
+
+    # What other people need from you. My work answered "what am I doing" and
+    # "what is next" and nothing about this, which is most of what a day
+    # actually contains.
+    from . import asks as asks_mod
     return {
         "who": person["display_name"] if person else None,
         "avatar": person["avatar"] if person else None,
+        "asks": asks_mod.waiting_on(conn, user_id),
+        "asked": asks_mod.asked_by(conn, user_id),
         "done": done,
         "urgent": urgent,
         "inProgress": [r for r in live if r["status_category"] == "in_progress"],

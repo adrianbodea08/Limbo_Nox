@@ -57,6 +57,8 @@ export interface TrackerView {
 }
 
 export interface TrackerMeta {
+  /** Who is asking — for telling "yours" from "somebody else's". */
+  me: number | null;
   projects: TrackerProject[];
   issueTypes: TrackerType[];
   statuses: TrackerStatus[];
@@ -146,8 +148,12 @@ export interface TrackerIssue {
   parent_key: string | null;
   parent_summary: string | null;
   /** Counts a card shows without being opened. `blocked_by` excludes blockers
-   *  that are already finished — those are history, not an obstacle. */
+   *  that are already finished — those are history, not an obstacle, and it
+   *  includes open blocking asks: three things can be in the way and a card
+   *  that is stuck should look stuck whichever it is. */
   blocked_by?: number;
+  /** Open asks on this issue, blocking or not. */
+  open_asks?: number;
   /** Present on board and table rows; the full list is on the issue itself. */
   git_summary?: GitSummary | null;
   link_count?: number;
@@ -169,6 +175,8 @@ export interface TrackerIssue {
   /** Branches and pull requests — the full list on one issue, the summary on a
    *  board card. */
   git?: GitRef[];
+  /** Who is waiting on whom, and for what. */
+  asks?: Ask[];
 }
 
 /** A branch, commit, pull request or build, and what git says about it. */
@@ -585,6 +593,10 @@ export interface MyWorkData {
   paused: QueueIssue[];
   /** Finished in the last fortnight — recent and capped on the server. */
   done: QueueIssue[];
+  /** Open asks directed at you — what other people need, oldest first. */
+  asks: Ask[];
+  /** Open asks you made of somebody else — what you are waiting on. */
+  asked: Ask[];
   team: TrackerTeam | null;
   leads: TrackerTeam | null;
 }
@@ -699,6 +711,35 @@ export interface InsightsFlow {
   }[];
 }
 
+/** A question, directed at a person, about an issue, with a state.
+ *  See docs/ASKS.md — the thing a comment could never be. */
+export type AskKind = "confirm" | "explain" | "discuss" | "present";
+export type AskState = "open" | "answered" | "declined" | "withdrawn";
+
+export interface Ask {
+  id: number;
+  issue_id: number;
+  kind: AskKind;
+  kind_label: string;
+  question: string;
+  state: AskState;
+  answer: string;
+  /** Whether the work stops until it is answered. */
+  blocking: boolean;
+  asked_at: string;
+  answered_at: string | null;
+  asked_by: number;
+  asked_by_name: string | null;
+  asked_by_avatar: string | null;
+  asked_of: number;
+  asked_of_name: string | null;
+  asked_of_avatar: string | null;
+  answered_by_name: string | null;
+  /** Present on the queue views, absent on an issue's own list. */
+  issue_key?: string;
+  issue_summary?: string;
+}
+
 export const trackerApi = {
   status: () => request<TrackerStatusInfo>("/api/nox/status"),
 
@@ -709,6 +750,22 @@ export const trackerApi = {
     ),
 
   meta: () => request<TrackerMeta>("/api/nox/meta"),
+
+  ask: (body: {
+    issue_id: number; asked_of: number; kind: AskKind;
+    question: string; blocking: boolean;
+  }) => request<Ask>("/api/nox/asks", { method: "POST", body: JSON.stringify(body) }),
+
+  answerAsk: (id: number, answer: string) =>
+    request<Ask>(`/api/nox/asks/${id}/answer`,
+      { method: "POST", body: JSON.stringify({ answer }) }),
+
+  declineAsk: (id: number, answer: string) =>
+    request<Ask>(`/api/nox/asks/${id}/decline`,
+      { method: "POST", body: JSON.stringify({ answer }) }),
+
+  withdrawAsk: (id: number) =>
+    request<Ask>(`/api/nox/asks/${id}/withdraw`, { method: "POST" }),
 
   /** A type's name, mark or colour. Global — this lands on every board. */
   patchType: (projectId: number, typeId: number,

@@ -702,7 +702,11 @@ body {
 .m3sel-pop { z-index: 251; max-height: 340px; overflow-y: auto;
   background: var(--bg-elev); border: 1px solid var(--border-strong); border-radius: var(--m3-shape-l);;
   box-shadow: var(--m3-elev-3); padding: 8px; }
-.m3sel-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+/* A row, not a column. The label and its hint already stack inside
+   .m3sel-item-text; leaving the item itself as a column put a person's face
+   above their name instead of beside it — invisible until an option list had
+   faces in it, which nothing did until asks. */
+.m3sel-item { display: flex; align-items: center; gap: 10px;
   width: 100%; text-align: left; border: none; border-radius: var(--m3-shape-s);; background: transparent;
   color: var(--text-dim); font-family: inherit; font-size: var(--m3-font-body-medium); font-weight: 600;
   padding: 10px 12px; cursor: pointer; transition: background var(--m3-dur-short) var(--m3-ease-standard), color var(--m3-dur-short) var(--m3-ease-standard); }
@@ -4702,3 +4706,162 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    rather than described. */
 .tkg-pick-cell.on { border-color: currentColor; background: var(--m3-state-hover); }
 .tkg-pick-none { grid-column: 1 / -1; padding: 24px 0; text-align: center; }
+
+/* --- asks ----------------------------------------------------------------
+   Somebody needs a named person to look at something and come back. See
+   docs/ASKS.md — the thing a comment could never be. */
+.tka { display: flex; flex-direction: column; gap: 10px; }
+
+.tka-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  background: var(--bg-col);
+}
+/* An ask that stops the work wears the same edge a blocker does. */
+.tka-blocking { border-left: 3px solid var(--warn); }
+.tka-answered, .tka-declined, .tka-withdrawn { opacity: 0.72; }
+
+.tka-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tka-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+/* Each kind wants a different shape of answer, so each reads differently. */
+.tka-k-confirm { color: var(--accent); }
+.tka-k-explain { color: var(--ok); }
+.tka-k-discuss { color: var(--merged); }
+.tka-k-present { color: var(--warn); }
+
+.tka-stops {
+  padding: 1px 8px;
+  border: 1px solid var(--warn);
+  border-radius: var(--m3-shape-full);
+  color: var(--warn);
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.tka-waited {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: var(--m3-font-label-medium);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* Three days is where a question stops being a question and starts being a
+   thing somebody is stuck behind. */
+.tka-waited.late { color: var(--warn); font-weight: 600; }
+.tka-settled-when { margin-left: auto; font-size: var(--m3-font-label-medium); }
+
+.tka-question {
+  margin: 0;
+  font-size: var(--m3-font-body-medium);
+  line-height: 1.55;
+  letter-spacing: 0.15px;
+}
+.tka-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--m3-font-label-medium);
+}
+.tka-answer {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--m3-shape-s);
+  background: var(--bg-card);
+  font-size: var(--m3-font-body-medium);
+  line-height: 1.55;
+}
+.tka-error { margin: 0; }
+
+.tka-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.tka-reply { display: flex; flex-direction: column; gap: 10px; }
+.tka-ta {
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 12px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.tka-new, .tka-more {
+  align-self: flex-start;
+  padding: 8px 14px;
+  min-height: 40px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  cursor: pointer;
+}
+.tka-new:hover, .tka-more:hover { color: var(--text); border-color: var(--text-faint); }
+.tka-more { border-style: solid; }
+
+/* The composer names what the person is being asked *for*, rather than
+   leaving them to guess what "confirm" wants back. */
+.tka-compose { border-color: var(--border-strong); background: var(--bg-card); }
+.tka-kinds { display: flex; gap: 6px; flex-wrap: wrap; }
+.tka-kind-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  font-weight: 500;
+  cursor: pointer;
+}
+.tka-kind-pick.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.tka-field { display: flex; flex-direction: column; gap: 6px; }
+.tka-blocking-pick { align-self: flex-start; }
+
+/* On My work: what other people need, with the issue it is about. */
+.tka-band .tka { margin-top: 4px; }
+.tka-queued { display: flex; flex-direction: column; gap: 0; }
+.tka-queued-issue {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--m3-shape-m) var(--m3-shape-m) 0 0;
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.tka-queued-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tka-queued .tka-card { border-radius: 0 0 var(--m3-shape-m) var(--m3-shape-m); }

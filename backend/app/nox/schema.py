@@ -258,6 +258,41 @@ field_usage = Table(
 # have several branches and PRs. So the ref is a row of its own and the link is
 # a join — the same shape as issue_links, and for the same reason: storing the
 # PR once per issue means two copies that disagree the moment one is updated.
+# An ask is a question, directed at a person, about an issue, with a state.
+#
+# The thing comments could never be. There are fifty comments in this database
+# and not one of them is something you can be *waiting on* — no state, no owner,
+# no age. See docs/ASKS.md; the four kinds exist because the answer is a
+# different shape each time.
+asks = Table(
+    "asks", metadata,
+    Column("id", BigInteger, primary_key=True),
+    Column("issue_id", BigInteger, ForeignKey("issues.id", ondelete="CASCADE"),
+           nullable=False),
+    Column("asked_by", Integer, nullable=False),
+    Column("asked_of", Integer, nullable=False),
+    # confirm | explain | discuss | present
+    Column("kind", String(16), nullable=False),
+    # Never empty. An ask with no question is a nudge, and a nudge does not
+    # deserve somebody's attention.
+    Column("question", Text, nullable=False),
+    # open | answered | declined | withdrawn
+    Column("state", String(16), nullable=False, server_default="open"),
+    Column("answer", Text, nullable=False, server_default=""),
+    # Whether the work stops until this is answered. A blocking ask counts
+    # towards the issue's blocked state, alongside a blocking issue link.
+    Column("blocking", Boolean, nullable=False, server_default="false"),
+    _ts("asked_at", nullable=False, server_default=func.now()),
+    _ts("answered_at"),
+    # Who actually answered. Usually the person asked, but a colleague picking
+    # it up is a real thing and pretending otherwise loses the truth.
+    Column("answered_by", Integer),
+)
+# The queue: what is open, on whom, oldest first.
+Index("ix_asks_of_open", asks.c.asked_of, asks.c.state, asks.c.asked_at)
+Index("ix_asks_issue", asks.c.issue_id, asks.c.state)
+
+
 git_refs = Table(
     "git_refs", metadata,
     Column("id", Integer, primary_key=True),

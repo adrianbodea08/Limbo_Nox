@@ -37,6 +37,7 @@ import type { MyWorkData, QueueIssue } from "./model";
 import { M3Segmented } from "../M3Segmented";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { TypeGlyph } from "./TypeGlyph";
+import { AsksBand } from "./Asks";
 
 export function MyWorkPage({ shell }: { shell: ShellProps }) {
   const nav = useNavigate();
@@ -236,6 +237,23 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                   </button>
                 )}
               />
+
+              {/* What other people need from you, before what you had planned
+
+                  to do next — somebody is held up until you come back. */}
+
+              <AsksBand
+
+                asks={data.asks ?? []}
+
+                me={shell.user.id}
+
+                onOpen={(key) => issueDialog.open(key)}
+
+                onChanged={load}
+
+              />
+
 
               <Band
                 layout={layout}

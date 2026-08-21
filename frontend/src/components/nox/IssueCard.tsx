@@ -19,6 +19,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { M3DatePicker } from "../M3DatePicker";
 import { M3Select } from "../M3Select";
+import { AsksOnIssue } from "./Asks";
 import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
@@ -250,6 +251,27 @@ export function IssueCard({
                     </span>
                   ))}
                 </div>
+              )}
+
+              {/* Who is waiting on whom. Sits with the issue's facts and above
+                  Links, because an open ask is the reason the thing is not
+                  moving — which is not a remark. Only in edit mode: there is
+                  nothing to ask about an issue that does not exist yet. */}
+              {mode === "edit" && full && (
+                <Field
+                  label={`Asks${
+                    (full.asks ?? []).filter((a) => a.state === "open").length
+                      ? ` (${(full.asks ?? []).filter((a) => a.state === "open").length} open)`
+                      : ""}`}
+                >
+                  <AsksOnIssue
+                    issueId={full.id}
+                    asks={full.asks ?? []}
+                    users={users}
+                    me={meta.me ?? -1}
+                    onChanged={refresh}
+                  />
+                </Field>
               )}
 
               <Field label={`Links${full.links?.length ? ` (${full.links.length})` : ""}`}>

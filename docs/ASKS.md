@@ -1,9 +1,12 @@
 # Asks
 
-> **Status:** designed, not built. Written 2026-08-21.
+> **Status:** built and running, 2026-08-21. Designed first.
 >
 > Filed under "review" in conversation, and the name did not survive contact
 > with the four things it is actually for. Two of them are not reviews.
+>
+> `backend/app/nox/asks.py` owns it, `frontend/src/components/nox/Asks.tsx`
+> draws it. Notifications (section 5) are the next piece and are not built.
 
 ---
 
