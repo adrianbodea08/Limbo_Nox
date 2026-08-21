@@ -204,7 +204,25 @@ to `pull_request`, `create` and `check_suite`. Point its webhook at
 `/api/tracker/git/webhook` and set the same secret. The Git page lists these
 steps too, so nobody has to find this file.
 
-## 9. Decision log
+## 9. Verified against a live installation
+
+Connected to a real GitHub App on 2026-08-21 — `nox-by-limbo`, App ID 4670678,
+installed on `adrianbodea08` with **all repositories**, permissions read-only
+throughout (contents, pull requests, checks, metadata).
+
+  - `GET /app` returns 200, which is the proof the App ID and the private key
+    are a matching pair and the RS256 JWT is well formed.
+  - The installation token exchange works and the token is scoped to the
+    installation, an hour at a time.
+  - Repository listing comes from the installation rather than a maintained
+    list, so a repo created next month is covered without anybody remembering.
+
+One bug surfaced the first time the App path ran: `github_app` was imported
+inside `sync()` rather than at module scope, so the function doing the work
+could not see it and the sync answered 500. It had never run before — the app
+Nox was extracted from always took the token path.
+
+## 10. Decision log
 
 | Date | Decision |
 |---|---|
