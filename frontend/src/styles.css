@@ -1013,18 +1013,22 @@ body {
   /* Scrolls only when a workspace has enough projects to need it. */
   overflow-y: auto;
 }
+/* The row you aim at and the indicator you see are different boxes.
+   Forty-four pixels of filled pill around fourteen pixels of text reads as
+   heavy — but shrinking the row to fix that would put the target under the
+   forty-pixel floor. So the row keeps its height for the pointer and the
+   indicator is inset inside it, which is how the spec handles a dense
+   navigation item. */
 .tk-nav-item {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
   padding: 0 16px;
   border: 0;
-  /* The selected state is a full-round indicator behind the whole row — the
-     spec's own anatomy for a drawer item, not a background colour change on
-     something square. */
-  border-radius: var(--m3-shape-full);
   background: transparent;
   color: var(--text-dim);
   font: inherit;
@@ -1033,13 +1037,23 @@ body {
   letter-spacing: 0.1px;
   text-align: left;
   cursor: pointer;
-  transition: background var(--m3-dur-short) var(--m3-ease-standard),
-              color var(--m3-dur-short) var(--m3-ease-standard);
+  transition: color var(--m3-dur-short) var(--m3-ease-standard);
+}
+.tk-nav-item::before {
+  content: "";
+  position: absolute;
+  inset: 4px 0;
+  z-index: -1;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  transition: background var(--m3-dur-short) var(--m3-ease-standard);
 }
 .tk-nav-item svg { flex: 0 0 auto; }
 .tk-nav-label { flex: 1; min-width: 0; }
-.tk-nav-item:hover { color: var(--text); background: var(--m3-state-hover); }
-.tk-nav-item.on { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.tk-nav-item:hover { color: var(--text); }
+.tk-nav-item:hover::before { background: var(--m3-state-hover); }
+.tk-nav-item.on { color: var(--accent); font-weight: 600; }
+.tk-nav-item.on::before { background: var(--accent-soft); }
 
 /* Projects is a room and a disclosure. The row navigates, the twist opens —
    two jobs that would fight if one control did both, because "show me the
@@ -1078,12 +1092,27 @@ body {
 }
 .tk-rail-line { display: flex; align-items: center; gap: 2px; }
 .tk-rail-line .tk-rail-item {
+  position: relative;
+  isolation: isolate;
   flex: 1;
   min-width: 0;
   min-height: 40px;
   padding: 0 10px;
   gap: 8px;
+  /* Same trick as the rooms: the target stays forty, the indicator is inset. */
+  background: transparent;
 }
+.tk-rail-line .tk-rail-item::before {
+  content: "";
+  position: absolute;
+  inset: 4px 0;
+  z-index: -1;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  transition: background var(--m3-dur-short) var(--m3-ease-standard);
+}
+.tk-rail-line .tk-rail-on { background: transparent; }
+.tk-rail-line .tk-rail-on::before { background: var(--accent-soft); }
 .tk-rail-cog {
   display: inline-flex;
   align-items: center;
