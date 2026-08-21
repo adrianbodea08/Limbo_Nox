@@ -55,6 +55,7 @@ will not be picked up and Nox will still report that no App is registered.
 | [docs/VIEWS.md](docs/VIEWS.md) | Saved views — yours unless you say otherwise |
 | [docs/ANALYTICS.md](docs/ANALYTICS.md) | Insights, and the numbers behind each chart |
 | [docs/DESIGN_M3.md](docs/DESIGN_M3.md) | The Material 3 rules the interface follows |
+| [docs/SECURITY.md](docs/SECURITY.md) | What was checked, what was found, and what is knowingly accepted |
 | [docs/RUNNING.md](docs/RUNNING.md) | Local development |
 
 ## History

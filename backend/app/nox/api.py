@@ -1409,7 +1409,11 @@ async def my_work(request: Request, user_id: int | None = None) -> dict:
     """One developer's screen. Defaults to whoever is asking."""
     actor = _actor(request)
     with _engine().connect() as conn:
-        return work.my_work(conn, user_id or actor.id)
+        # The projects the *asker* may see, never the person being looked at:
+        # this route takes a user_id, so without it asking for a colleague's
+        # queue was a way into a project you had been kept out of.
+        return work.my_work(conn, user_id or actor.id,
+                            admin.visible_project_ids(conn, request.state.user))
 
 
 @router.get("/team-queue")
@@ -1425,7 +1429,9 @@ async def team_queue(request: Request, team_id: int | None = None) -> dict:
     _actor(request)
     with _engine().connect() as conn:
         try:
-            queue = work.team_queue(conn, team_id)
+            queue = work.team_queue(
+                conn, team_id,
+                admin.visible_project_ids(conn, request.state.user))
         except WorkError as exc:
             raise HTTPException(404, str(exc))
         user = getattr(request.state, "user", {})
@@ -1451,7 +1457,8 @@ async def plan(request: Request, project_id: int | None = None) -> dict:
     """The PO's screen — everything open, in the order teams should pick it up."""
     _actor(request)
     with _engine().connect() as conn:
-        return work.plan(conn, project_id=project_id)
+        return work.plan(conn, project_id=project_id,
+                         allowed=admin.visible_project_ids(conn, request.state.user))
 
 
 @router.post("/issues/{issue_id}/assign")

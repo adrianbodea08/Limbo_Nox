@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from . import db
+from . import ratelimit
 from .auth_store import AuthStore
 from .config import config
 from .nox import worker as nox_worker
@@ -158,7 +159,17 @@ async def drop_placeholder_accounts(request: Request) -> dict:
 
 
 @app.post("/api/auth/register")
-async def register(req: RegisterRequest) -> dict:
+async def register(req: RegisterRequest, request: Request) -> dict:
+    # Not guessing, so the count is generous — this is only here so one machine
+    # cannot fill the accounts table overnight.
+    here = f"register:ip:{ratelimit.address(request)}"
+    try:
+        ratelimit.check(here, ratelimit.BY_REGISTRATION)
+    except ratelimit.TooMany as e:
+        raise HTTPException(
+            429, "That is a lot of accounts. Try again later.",
+            headers={"Retry-After": str(e.retry_after)}) from e
+    ratelimit.record(here, ratelimit.BY_REGISTRATION)
     username = req.username.strip()
     email = req.email.strip().lower()
     if not username or not email or not req.password:
@@ -183,10 +194,31 @@ async def register(req: RegisterRequest) -> dict:
 
 
 @app.post("/api/auth/login")
-async def login(req: LoginRequest) -> dict:
-    row = auth.by_username(req.username.strip())
+async def login(req: LoginRequest, request: Request) -> dict:
+    username = req.username.strip()
+    here = f"login:ip:{ratelimit.address(request)}"
+    whom = f"login:user:{username.lower()}"
+
+    # Checked before the password is verified, so a refused attempt costs
+    # nothing — Argon2 is 14ms a go and that is the CPU an attacker is spending
+    # on our behalf.
+    for key, rule in ((here, ratelimit.BY_ADDRESS), (whom, ratelimit.BY_USERNAME)):
+        try:
+            ratelimit.check(key, rule)
+        except ratelimit.TooMany as e:
+            raise HTTPException(
+                429, "Too many attempts. Try again in a minute.",
+                headers={"Retry-After": str(e.retry_after)}) from e
+
+    row = auth.by_username(username)
     if not row or not auth.verify(row, req.password):
+        ratelimit.record(here, ratelimit.BY_ADDRESS)
+        ratelimit.record(whom, ratelimit.BY_USERNAME)
+        # The same sentence either way: which half was wrong is not somebody
+        # else's business, and answering it turns this into a way to find out
+        # who has an account.
         raise HTTPException(401, "Invalid username or password.")
+    ratelimit.clear(here, whom)
     if row["status"] == "pending":
         raise HTTPException(403, "Your account is awaiting admin approval.")
     if row["status"] != "approved":

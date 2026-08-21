@@ -30,6 +30,7 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy import Connection, and_, delete, func, or_, select, text
+from sqlalchemy import true as sa_true
 
 from . import repo
 from .repo import Actor, TrackerError
@@ -308,8 +309,16 @@ def interruption_cost(conn: Connection, *, team_id: int | None = None,
 
 # -------------------------------------------------------------------- queues --
 
-def _queue_select():
-    """Issues with everything a queue card needs, and nothing it does not."""
+def _queue_select(allowed: set[int] | None = None):
+    """Issues with everything a queue card needs, and nothing it does not.
+
+    `allowed` is the set of projects the person *asking* may see — `None` for an
+    admin, who may see all of them. It is a parameter rather than something the
+    callers remember to apply because both screens here take a `user_id` and
+    show somebody else's work: without it, asking for a colleague's queue was a
+    way to read a project you had been explicitly kept out of. Every query in
+    this file goes through here, so this is the one place it has to be right.
+    """
     return (
         select(
             issues.c.id, issues.c.key, issues.c.summary, issues.c.priority,
@@ -338,6 +347,8 @@ def _queue_select():
             .outerjoin(users, issues.c.assignee_id == users.c.id)
             .outerjoin(teams, issues.c.team_id == teams.c.id)
         )
+        .where(issues.c.project_id.in_(allowed) if allowed is not None
+               else sa_true())
         .where(issues.c.archived_at.is_(None))
     )
 
@@ -417,7 +428,8 @@ def _sorted(rows: list[dict]) -> list[dict]:
                                        r["rank"] or "", r["id"]))
 
 
-def my_work(conn: Connection, user_id: int) -> dict:
+def my_work(conn: Connection, user_id: int,
+            allowed: set[int] | None = None) -> dict:
     """One developer's screen.
 
     Four bands and no filters to set. Developers do not pull work here — only a
@@ -425,7 +437,7 @@ def my_work(conn: Connection, user_id: int) -> dict:
     "available" band to distract from the one question this screen answers.
     """
     rows = [dict(r) for r in conn.execute(
-        _queue_select()
+        _queue_select(allowed)
         .where(issues.c.assignee_id == user_id)
         .where(statuses.c.category != "done")).mappings()]
     rows = _sorted(_decorate(conn, rows))
@@ -435,7 +447,7 @@ def my_work(conn: Connection, user_id: int) -> dict:
     # left. Recent and capped, because a growing list of everything ever done
     # stops meaning anything by the second month.
     done = _decorate(conn, [dict(r) for r in conn.execute(
-        _queue_select()
+        _queue_select(allowed)
         .where(issues.c.assignee_id == user_id)
         .where(statuses.c.category == "done")
         .where(issues.c.resolved_at > text("now() - interval '14 days'"))
@@ -472,7 +484,8 @@ def my_work(conn: Connection, user_id: int) -> dict:
     }
 
 
-def team_queue(conn: Connection, team_id: int | None) -> dict:
+def team_queue(conn: Connection, team_id: int | None,
+               allowed: set[int] | None = None) -> dict:
     """A team lead's screen.
 
     The load-bearing one. If keeping this in order takes more than half a
@@ -492,14 +505,14 @@ def team_queue(conn: Connection, team_id: int | None) -> dict:
     scope = (issues.c.team_id == team_id if team_id is not None
              else issues.c.team_id.isnot(None))
     mine = [dict(r) for r in conn.execute(
-        _queue_select().where(scope)
+        _queue_select(allowed).where(scope)
         .where(statuses.c.category != "done")).mappings()]
     mine = _decorate(conn, mine)
 
     # Free-for-all: planned by the PO for nobody in particular. Only a lead
     # sees this, and taking one stamps the team so the other lead sees it go.
     pool = _decorate(conn, [dict(r) for r in conn.execute(
-        _queue_select().where(issues.c.team_id.is_(None))
+        _queue_select(allowed).where(issues.c.team_id.is_(None))
         .where(statuses.c.category != "done")).mappings()])
     pool.sort(key=lambda r: (PRIORITY_RANK.get(r["plan_priority"], 9), r["id"]))
 
@@ -589,9 +602,10 @@ def team_queue(conn: Connection, team_id: int | None) -> dict:
     }
 
 
-def plan(conn: Connection, *, project_id: int | None = None) -> dict:
+def plan(conn: Connection, *, project_id: int | None = None,
+         allowed: set[int] | None = None) -> dict:
     """The PO's screen: everything, and which team is to pick it up."""
-    q = _queue_select().where(statuses.c.category != "done")
+    q = _queue_select(allowed).where(statuses.c.category != "done")
     if project_id:
         q = q.where(issues.c.project_id == project_id)
     rows = _decorate(conn, [dict(r) for r in conn.execute(q).mappings()])
