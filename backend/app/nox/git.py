@@ -30,6 +30,7 @@ from typing import Any
 
 from sqlalchemy import Connection, select, text
 
+from . import github_app
 from . import repo as repo_mod
 from .repo import Actor
 from .schema import components, git_refs, issue_git, issues
@@ -290,8 +291,6 @@ async def sync(engine, *, only: str | None = None, pages: int = 2) -> dict:
     installation can see — including ones created after somebody stopped
     maintaining a list.
     """
-    from . import github_app
-
     with engine.connect() as conn:
         installs = github_app.live(conn)
     if not installs:
