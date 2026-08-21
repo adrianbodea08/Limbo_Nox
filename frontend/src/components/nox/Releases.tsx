@@ -13,6 +13,7 @@ import { ReleaseTimeline } from "./ReleaseTimeline";
 import { ago, trackerApi } from "./model";
 import { M3Segmented } from "../M3Segmented";
 import { ArrowLeft, X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
 import type {
   ReleaseDetail, ReleaseSummary, TrackerComponent, UnreleasedIssue,
 } from "./model";
@@ -382,9 +383,7 @@ function ReleaseDetailView({
                 <tr key={i.id}>
                   <td className="tk-cell-key">
                     <span className="tk-keyline">
-                      <span className="tk-type" style={{ color: i.type_colour }}>
-                        {i.type_icon}
-                      </span>
+                      <TypeGlyph icon={i.type_icon} colour={i.type_colour} />
                       <IssueKey issueKey={i.key} />
                     </span>
                   </td>
@@ -535,7 +534,7 @@ function AddIssues({
             {(rows ?? []).map((i) => (
               <label key={i.id} className={`tkr-pick-row tk-layer${picked.has(i.id) ? " on" : ""}`}>
                 <input type="checkbox" checked={picked.has(i.id)} onChange={() => toggle(i.id)} />
-                <span className="tk-type" style={{ color: i.type_colour }}>{i.type_icon}</span>
+                <TypeGlyph icon={i.type_icon} colour={i.type_colour} />
                 <IssueKey issueKey={i.key} className="tkq-key" />
                 <span className="tkr-pick-sum">{i.summary}</span>
                 <span className="tk-chip" style={{ borderColor: i.status_colour, color: i.status_colour }}>

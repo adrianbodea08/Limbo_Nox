@@ -710,6 +710,13 @@ export const trackerApi = {
 
   meta: () => request<TrackerMeta>("/api/nox/meta"),
 
+  /** A type's name, mark or colour. Global — this lands on every board. */
+  patchType: (projectId: number, typeId: number,
+              changes: { name?: string; icon?: string; colour?: string }) =>
+    request<ProjectSettingsData>(
+      `/api/nox/projects/${projectId}/types/${typeId}`,
+      { method: "PATCH", body: JSON.stringify(changes) }),
+
   insightsOverview: (project?: string, days = 30) =>
     request<InsightsOverview>(
       `/api/nox/insights/overview?days=${days}${project ? `&project=${project}` : ""}`),

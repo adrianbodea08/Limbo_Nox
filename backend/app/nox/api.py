@@ -1526,6 +1526,24 @@ async def put_types(project_id: int, body: OrderIn, request: Request) -> dict:
         return admin.settings(conn, project_id)
 
 
+@router.patch("/projects/{project_id}/types/{issue_type_id}")
+async def patch_type(project_id: int, issue_type_id: int, body: dict,
+                     request: Request) -> dict:
+    """Rename, re-mark or recolour an issue type.
+
+    Types are global for the same reason statuses are: a Bug has to mean a Bug
+    on every board or no cross-project number means anything. This lands
+    everywhere, and the UI says so first.
+    """
+    _admin(request)
+    with _engine().begin() as conn:
+        try:
+            admin.update_type(conn, issue_type_id, body)
+        except SettingsError as exc:
+            raise HTTPException(400, str(exc))
+        return admin.settings(conn, project_id)
+
+
 @router.put("/projects/{project_id}/types/{issue_type_id}/fields")
 async def put_type_fields(project_id: int, issue_type_id: int,
                           body: TypeFieldsIn, request: Request) -> dict:

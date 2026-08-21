@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { trackerApi, type SearchHit } from "./model";
 import { X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
 
 const DEBOUNCE_MS = 180;
 
@@ -141,7 +142,7 @@ export function TrackerSearch() {
                 onClick={() => go(hit)}
               >
                 <span className="tkf-hit-top">
-                  <span className="tk-type" style={{ color: hit.type_colour }}>{hit.type_icon}</span>
+                  <TypeGlyph icon={hit.type_icon} colour={hit.type_colour} />
                   <span className="tkf-hit-key">{hit.key}</span>
                   <span className="tkf-hit-sum">{hit.summary}</span>
                   <span className="tk-chip"

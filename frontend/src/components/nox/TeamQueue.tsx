@@ -29,6 +29,7 @@ import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
 import type { QueueIssue, TeamQueueData, TrackerTeam } from "./model";
 import { M3Segmented } from "../M3Segmented";
 import { X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
 
 // `urgent` is missing on purpose: it is not picked from a dropdown, it is set
 // with a reason attached.
@@ -462,8 +463,8 @@ function Row({
           its own flex box drops out of the table's column sizing. */}
       <td className="tkq-td-key">
         <span className="tkq-keyline">
-          <span className="tk-type" style={{ color: issue.type_colour }}
-                title={issue.type_name}>{issue.type_icon}</span>
+          <TypeGlyph icon={issue.type_icon} colour={issue.type_colour}
+                     title={issue.type_name} />
           <IssueKey issueKey={issue.key} className="tkq-key tk-layer" />
         </span>
       </td>

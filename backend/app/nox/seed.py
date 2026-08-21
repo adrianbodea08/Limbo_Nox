@@ -30,17 +30,36 @@ from .schema import (
 # The union of what the four Jira projects actually use. DRC's Defect, Hotfix,
 # Live Bug and Add-on Task are real types there and are kept — they are how bug
 # work is told apart from planned work, which several reports depend on.
+# The mark is a named icon — `lucide:Bug` — not a character. See
+# frontend/src/components/nox/TypeGlyph.tsx for why, and for the set a type may
+# choose from. The column is still TEXT and a bare character still renders, so
+# an installation that predates this keeps its marks until somebody changes one.
 ISSUE_TYPES = [
-    ("epic",        "Epic",         "◆", "#a371f7", 2),
-    ("story",       "Story",        "▣", "#3fb950", 1),
-    ("task",        "Task",         "▢", "#5b8cff", 1),
-    ("bug",         "Bug",          "▲", "#f85149", 1),
-    ("defect",      "Defect",       "▼", "#d29922", 1),
-    ("live_bug",    "Live Bug",     "●", "#f85149", 1),
-    ("hotfix",      "Hotfix",       "⬟", "#f0883e", 1),
-    ("addon_task",  "Add-on Task",  "◈", "#2dd4bf", 1),
-    ("subtask",     "Sub-task",     "▫", "#8b949e", 0),
+    ("epic",        "Epic",         "lucide:Layers",          "#a371f7", 2),
+    ("story",       "Story",        "lucide:Bookmark",        "#3fb950", 1),
+    ("task",        "Task",         "lucide:SquareCheck",     "#5b8cff", 1),
+    ("bug",         "Bug",          "lucide:Bug",             "#f85149", 1),
+    ("defect",      "Defect",       "lucide:TriangleAlert",   "#d29922", 1),
+    ("live_bug",    "Live Bug",     "lucide:Siren",           "#f85149", 1),
+    ("hotfix",      "Hotfix",       "lucide:Flame",           "#f0883e", 1),
+    ("addon_task",  "Add-on Task",  "lucide:Puzzle",          "#2dd4bf", 1),
+    ("subtask",     "Sub-task",     "lucide:CornerDownRight", "#8b949e", 0),
 ]
+
+# What each of those characters used to be, so an existing database comes
+# across on the next start. Keyed by the glyph rather than by the type key,
+# because somebody may have made their own type using one of them.
+GLYPH_TO_ICON = {
+    "◆": "lucide:Layers",
+    "▣": "lucide:Bookmark",
+    "▢": "lucide:SquareCheck",
+    "▲": "lucide:Bug",
+    "▼": "lucide:TriangleAlert",
+    "●": "lucide:Siren",
+    "⬟": "lucide:Flame",
+    "◈": "lucide:Puzzle",
+    "▫": "lucide:CornerDownRight",
+}
 
 # Which types each board offers, mirroring the Jira project it came from.
 PROJECT_TYPES = {
@@ -103,6 +122,13 @@ def run(conn: Connection) -> dict:
                              "hierarchy_level": level})
         for key, name, icon, colour, level in ISSUE_TYPES
     }
+    # Types created before the marks were named still hold a character. Swap
+    # the ones we recognise; leave anything else alone, because a character
+    # somebody chose deliberately is still a valid mark.
+    for glyph, icon in GLYPH_TO_ICON.items():
+        conn.execute(issue_types.update()
+                     .where(issue_types.c.icon == glyph)
+                     .values(icon=icon))
 
     field_ids = {
         key: _get_or_create(conn, field_defs, {"key": key},

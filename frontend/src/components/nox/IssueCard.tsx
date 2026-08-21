@@ -23,6 +23,7 @@ import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { ChevronDown, X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
 import {
   PRIORITIES, PRIORITY_COLOUR, ago, fieldLabel, trackerApi,
   type IssueField, type LinkType, type ParentCandidate, type TrackerIssue,
@@ -266,9 +267,7 @@ export function IssueCard({
                   <div className="tkl-list">
                     {full.children.map((child) => (
                       <div key={child.id} className="tkl-row">
-                        <span className="tk-type" style={{ color: child.type_colour }}>
-                          {child.type_icon}
-                        </span>
+                        <TypeGlyph icon={child.type_icon} colour={child.type_colour} />
                         <IssueKey issueKey={child.key} />
                         <span className="tkl-sum">{child.summary}</span>
                         <span className="tk-chip"
@@ -666,7 +665,7 @@ export function IssueCard({
       onClose={() => setMenu(null)}
       button={
         <>
-          <span className="tk-type" style={{ color: type?.colour }}>{type?.icon}</span>
+          <TypeGlyph icon={type?.icon ?? ""} colour={type?.colour} />
           <span className="tkc-type-name">{type?.name}</span>
         </>
       }
@@ -676,7 +675,7 @@ export function IssueCard({
         text: t.name,
         node: (
           <>
-            <span className="tk-type" style={{ color: t.colour }}>{t.icon}</span>
+            <TypeGlyph icon={t.icon} colour={t.colour} />
             {t.name}
           </>
         ),
@@ -1011,9 +1010,7 @@ function Links({
           <div className="tkl-list">
             {(list ?? []).map((link) => (
               <div key={link.id} className="tkl-row">
-                <span className="tk-type" style={{ color: link.issue.type_colour }}>
-                  {link.issue.type_icon}
-                </span>
+                <TypeGlyph icon={link.issue.type_icon} colour={link.issue.type_colour} />
                 <IssueKey issueKey={link.issue.key} />
                 <span className="tkl-sum">{link.issue.summary}</span>
                 <span className="tk-chip"
@@ -1091,9 +1088,7 @@ function Parent({
   if (issue.parent) {
     return (
       <div className="tkl-row tkl-parent">
-        <span className="tk-type" style={{ color: issue.parent.type_colour }}>
-          {issue.parent.type_icon}
-        </span>
+        <TypeGlyph icon={issue.parent.type_icon} colour={issue.parent.type_colour} />
         <IssueKey issueKey={issue.parent.key} />
         <span className="tkl-sum">{issue.parent.summary}</span>
         <button type="button" className="tks-mini tks-danger tk-layer" disabled={busy}
@@ -1118,7 +1113,7 @@ function Parent({
         text: `${c.key} ${c.summary}`,
         node: (
           <>
-            <span className="tk-type" style={{ color: c.type_colour }}>{c.type_icon}</span>
+            <TypeGlyph icon={c.type_icon} colour={c.type_colour} />
             <span className="tk-key">{c.key}</span>
             <span className="tkl-sum">{c.summary}</span>
           </>

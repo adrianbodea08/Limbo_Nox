@@ -9,6 +9,7 @@ import type { CSSProperties, DragEvent } from "react";
 import { DropSlot, useBandReorder } from "./useBandReorder";
 import { Face as PersonFace } from "./Face";
 import { IssueKey } from "./IssueKey";
+import { TypeGlyph } from "./TypeGlyph";
 import {
   PRIORITY_COLOUR, ago, parentColour,
   type BoardColumn, type BoardData, type TrackerIssue, type TrackerStatus,
@@ -108,9 +109,7 @@ function Badges({ issue }: { issue: TrackerIssue }) {
 
 function TypeIcon({ issue }: { issue: TrackerIssue }) {
   return (
-    <span className="tk-type" style={{ color: issue.type_colour }} title={issue.type_name}>
-      {issue.type_icon}
-    </span>
+    <TypeGlyph icon={issue.type_icon} colour={issue.type_colour} title={issue.type_name} />
   );
 }
 
@@ -126,7 +125,7 @@ function TypeCorner({ issue }: { issue: TrackerIssue }) {
       style={{ background: issue.type_colour }}
       title={issue.type_name}
     >
-      {issue.type_icon}
+      <TypeGlyph icon={issue.type_icon} size={13} />
     </span>
   );
 }

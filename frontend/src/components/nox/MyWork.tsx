@@ -36,6 +36,7 @@ import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
 import type { MyWorkData, QueueIssue } from "./model";
 import { M3Segmented } from "../M3Segmented";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { TypeGlyph } from "./TypeGlyph";
 
 export function MyWorkPage({ shell }: { shell: ShellProps }) {
   const nav = useNavigate();
@@ -371,7 +372,7 @@ function Card({ issue, onOpen, hideWhy }: { issue: QueueIssue; onOpen: () => voi
   return (
     <button type="button" className="tkw-card-main tk-layer" onClick={onOpen}>
       <span className="tkw-card-top">
-        <span className="tk-type" style={{ color: issue.type_colour }}>{issue.type_icon}</span>
+        <TypeGlyph icon={issue.type_icon} colour={issue.type_colour} />
         <IssueKey issueKey={issue.key} />
         <span className="tk-chip" style={{ borderColor: issue.status_colour, color: issue.status_colour }}>
           {issue.status_name}
