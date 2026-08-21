@@ -4291,44 +4291,29 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkt-key-dot { width: 12px; height: 12px; border-radius: 3px; border: 1px solid; }
 
 /* --- development: branches and pull requests on an issue ----------------- */
-.tkg { display: flex; flex-direction: column; gap: 6px; }
-.tkg-row {
+/* In the side column, one line. The detail lives in the dialog below it. */
+.tkd-summary {
   display: flex;
   align-items: center;
   gap: 9px;
-  min-width: 0;
-  padding: 8px 10px;
+  width: 100%;
+  min-height: var(--m3-control-h);
+  padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-s);
   background: var(--bg-col);
-  color: inherit;
-  text-decoration: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
   transition: border-color var(--m3-dur-short) var(--m3-ease-standard);
 }
-.tkg-row:hover { border-color: var(--border-strong); }
+.tkd-summary:hover { border-color: var(--border-strong); }
+.tkd-summary svg { flex: 0 0 auto; color: var(--text-faint); }
+.tkd-summary-label { flex: 1; min-width: 0; }
 
-.tkg-kind {
-  flex: 0 0 auto;
-  padding: 1px 7px;
-  border-radius: var(--m3-shape-full);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-.tkg-pr { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
-.tkg-branch { background: var(--m3-state-hover); color: var(--text-faint); }
-
-.tkg-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-
-.tkg-state {
+.tkd-state {
   flex: 0 0 auto;
   padding: 1px 8px;
   border-radius: var(--m3-shape-full);
@@ -4337,20 +4322,182 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   font-weight: 700;
   letter-spacing: 0.3px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
-.tkg-s-open { border-color: var(--ok); color: var(--ok); }
-.tkg-s-draft { border-color: var(--border-strong); color: var(--text-faint); }
-.tkg-s-merged {
+/* Pull requests. */
+.tkd-s-open { border-color: var(--ok); color: var(--ok); }
+.tkd-s-draft { border-color: var(--border-strong); color: var(--text-faint); }
+.tkd-s-merged {
   border-color: color-mix(in srgb, #a371f7 60%, transparent);
   color: #a371f7;
 }
-.tkg-s-closed { border-color: var(--err); color: var(--err); }
+.tkd-s-closed { border-color: var(--err); color: var(--err); }
+
+/* Branches, against the default branch. Ahead is the healthy one — work is
+   happening and it will merge. Behind and diverged are the ones that cost
+   somebody an afternoon, so they carry the warning colour. */
+.tkd-s-ahead { border-color: var(--accent); color: var(--accent); }
+.tkd-s-behind { border-color: var(--warn); color: var(--warn); }
+.tkd-s-diverged { border-color: var(--warn); color: var(--warn); }
+.tkd-s-identical { border-color: var(--border-strong); color: var(--text-faint); }
+
+/* Builds. */
+.tkd-s-success { border-color: var(--ok); color: var(--ok); }
+.tkd-s-failure { border-color: var(--err); color: var(--err); }
+.tkd-s-running { border-color: var(--accent); color: var(--accent); }
+.tkd-s-cancelled { border-color: var(--border-strong); color: var(--text-faint); }
+.tkd-s-skipped { border-color: var(--border-strong); color: var(--text-faint); }
 
 /* Its own column, because a merged PR with a red build is a real state. */
-.tkg-checks { flex: 0 0 auto; font-size: 13px; font-weight: 700; }
-.tkg-c-passing { color: var(--ok); }
-.tkg-c-failing { color: var(--err); }
-.tkg-c-pending { color: var(--text-faint); }
+.tkd-checks { font-size: 14px; font-weight: 700; }
+.tkd-c-passing { color: var(--ok); }
+.tkd-c-failing { color: var(--err); }
+.tkd-c-pending { color: var(--text-faint); }
+
+/* --- the development dialog ---------------------------------------------- */
+/* Above the issue card, which is itself a dialog when opened from a board.
+   It also drops the shared view-transition-name: two live elements claiming
+   the same name is an error, and the card is already using it. */
+.tkd-scrim { z-index: 120; view-transition-name: none; }
+.tkd {
+  width: min(940px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-xl);
+  box-shadow: var(--m3-elev-3);
+  overflow: hidden;
+  animation: tk-dialog var(--m3-dur-medium) var(--m3-ease-decel);
+}
+
+.tkd-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 14px 14px 24px;
+}
+.tkd-head h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* M3 primary tabs: the indicator is the active state, not a filled pill. */
+.tkd-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.tkd-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--m3-shape-s) var(--m3-shape-s) 0 0;
+  background: transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+}
+.tkd-tab:disabled { opacity: 0.45; cursor: default; }
+.tkd-tab.on { color: var(--accent); }
+.tkd-tab.on::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+}
+.tkd-tab-n {
+  padding: 0 6px;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tkd-body { padding: 8px 24px 20px; overflow-y: auto; }
+.tkd-none { padding: 32px 0; text-align: center; }
+
+/* Repository first: "which repo was that in" comes before any other question. */
+.tkd-repo { margin-top: 16px; }
+.tkd-repo-head {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+.tkd-repo-name { font-weight: 600; }
+
+/* The table can be wider than the dialog — a branch name and a commit message
+   are both as long as somebody felt like making them. It scrolls in its own
+   box so the dialog itself never does. */
+.tkd-scroll {
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-m);
+  overflow-x: auto;
+}
+.tkd-table { font-size: 13px; }
+.tkd-table thead th { height: 44px; padding: 0 14px; }
+/* Nothing here selects a row — only the links inside one do. */
+.tkd-table tbody tr { height: auto; cursor: default; }
+.tkd-table td { padding: 12px 14px; vertical-align: top; }
+.tkd-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--accent);
+  text-decoration: none;
+}
+.tkd-id:hover { text-decoration: underline; }
+.tkd-title {
+  display: block;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.tkd-title:hover { color: var(--accent); text-decoration: underline; }
+.tkd-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.tkd-branch {
+  display: inline-block;
+  margin-top: 5px;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: var(--m3-shape-full);
+  background: var(--m3-state-hover);
+  color: var(--text-faint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.tkd-foot {
+  padding: 12px 24px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .tkd-head { padding: 14px 8px 10px 16px; }
+  .tkd-tabs, .tkd-body, .tkd-foot { padding-left: 16px; padding-right: 16px; }
+  .tkd-tab { padding: 0 10px; font-size: 13px; }
+}
 
 /* A merged PR on a board card reads as settled, not as news. */
 .tk-badge-done { color: #a371f7; }

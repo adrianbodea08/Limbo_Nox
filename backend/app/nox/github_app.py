@@ -175,18 +175,18 @@ async def describe(installation_id: int) -> dict:
     }
 
 
-async def repositories(installation_id: int) -> list[str]:
-    """Every repository this installation can see.
+async def repositories(installation_id: int) -> list[dict]:
+    """Every repository this installation can see, with its default branch.
 
     This is what replaces the hand-kept list: choose "all repositories" once and
     a repo created next month is covered without anybody remembering.
+
+    The default branch rides along rather than costing a call per repository —
+    it is needed to ask how far ahead a branch has run, and this listing already
+    carries it.
     """
-    token = await installation_token(installation_id)
-    headers = {"Authorization": f"Bearer {token}",
-               "Accept": "application/vnd.github+json",
-               "X-GitHub-Api-Version": "2022-11-28"}
-    names: list[str] = []
-    async with httpx.AsyncClient(base_url=API, headers=headers, timeout=40.0) as client:
+    out: list[dict] = []
+    async with _reader(installation_id) as client:
         for page in range(1, 11):
             resp = await client.get("/installation/repositories",
                                     params={"per_page": 100, "page": page})
@@ -194,29 +194,159 @@ async def repositories(installation_id: int) -> list[str]:
                 raise AppError(f"listing repositories failed: {resp.status_code} "
                                f"{resp.text[:160]}")
             batch = resp.json().get("repositories") or []
-            names.extend(r["full_name"] for r in batch)
+            out.extend({"name": r["full_name"],
+                        "default_branch": r.get("default_branch") or "main"}
+                       for r in batch)
             if len(batch) < 100:
                 break
-    return names
+    return out
+
+
+def _reader(installation_id: int):
+    """An HTTP client authenticated as the installation.
+
+    One place that knows the headers, so a new read cannot get them subtly
+    wrong. The token is fetched when the context is entered, which is what lets
+    an async call sit behind a plain `async with`.
+    """
+
+    class _Reader:
+        async def __aenter__(self):
+            token = await installation_token(installation_id)
+            self._client = httpx.AsyncClient(
+                base_url=API, timeout=40.0,
+                headers={"Authorization": f"Bearer {token}",
+                         "Accept": "application/vnd.github+json",
+                         "X-GitHub-Api-Version": "2022-11-28"})
+            return self._client
+
+        async def __aexit__(self, *exc):
+            await self._client.aclose()
+            return False
+
+    return _Reader()
+
+
+async def _paged(client, path: str, pages: int, params: dict | None = None,
+                 what: str = "") -> list[dict]:
+    """A list endpoint, followed until it runs out or the page budget does."""
+    out: list[dict] = []
+    for page in range(1, pages + 1):
+        resp = await client.get(path, params={"per_page": 100, "page": page,
+                                              **(params or {})})
+        if resp.status_code >= 400:
+            raise AppError(f"{what or path}: {resp.status_code} {resp.text[:120]}")
+        batch = resp.json()
+        if not isinstance(batch, list) or not batch:
+            break
+        out.extend(batch)
+        if len(batch) < 100:
+            break
+    return out
 
 
 async def pulls(installation_id: int, repo_name: str, pages: int = 2) -> list[dict]:
     """Recent pull requests, read as the app rather than as a person."""
-    token = await installation_token(installation_id)
-    headers = {"Authorization": f"Bearer {token}",
-               "Accept": "application/vnd.github+json",
-               "X-GitHub-Api-Version": "2022-11-28"}
+    async with _reader(installation_id) as client:
+        return await _paged(client, f"/repos/{repo_name}/pulls", pages,
+                            {"state": "all", "sort": "updated", "direction": "desc"},
+                            repo_name)
+
+
+async def branches(installation_id: int, repo_name: str, pages: int = 2) -> list[dict]:
+    """Every branch in the repository — name and tip sha, nothing else.
+
+    Cheap on purpose. Which of these are worth keeping is decided against the
+    live issue keys and not here, so a repo with four hundred branches still
+    costs two calls.
+    """
+    async with _reader(installation_id) as client:
+        return await _paged(client, f"/repos/{repo_name}/branches", pages,
+                            what=f"{repo_name} branches")
+
+
+async def ahead_of(installation_id: int, repo_name: str, base: str,
+                   head: str) -> dict:
+    """How far `head` has run past `base`, and the commits that did it.
+
+    One call answers both questions a branch raises — "is this going anywhere"
+    and "what is on it" — and it answers the second correctly: comparing
+    against the base excludes the entire history of the default branch, which
+    is what simply listing the branch's commits would hand back.
+    """
+    async with _reader(installation_id) as client:
+        resp = await client.get(f"/repos/{repo_name}/compare/{base}...{head}")
+        if resp.status_code == 404:
+            # The branch is gone — merged and deleted, most likely. Not a fault.
+            return {}
+        if resp.status_code >= 400:
+            raise AppError(f"{repo_name} {base}...{head}: {resp.status_code} "
+                           f"{resp.text[:120]}")
+        body = resp.json()
+    return {"status": body.get("status") or "", "ahead": body.get("ahead_by") or 0,
+            "behind": body.get("behind_by") or 0,
+            "commits": body.get("commits") or []}
+
+
+async def pull_commits(installation_id: int, repo_name: str,
+                       number: int | str) -> list[dict]:
+    """The commits a pull request is made of.
+
+    Asked of the pull request rather than of the branch because it keeps
+    answering after the merge: the branch is usually deleted, the pull request
+    never is.
+    """
+    async with _reader(installation_id) as client:
+        return await _paged(client, f"/repos/{repo_name}/pulls/{number}/commits", 1,
+                            what=f"{repo_name}#{number} commits")
+
+
+class NotPermitted(AppError):
+    """The installation cannot read this. A permission to grant, not a fault."""
+
+
+async def check_runs(installation_id: int, repo_name: str, sha: str) -> list[dict]:
+    """What CI made of one commit, read through the Checks API.
+
+    The fallback for builds, and the reason it exists: reading
+    `/actions/runs` needs an `actions` permission, and `checks` — which every
+    install of this app already grants — answers the same question for a commit
+    we care about. Less pretty (a check run is named for the job, not the
+    workflow) and more calls, but it works the day somebody connects rather
+    than after a round of permission approvals.
+    """
+    async with _reader(installation_id) as client:
+        resp = await client.get(f"/repos/{repo_name}/commits/{sha}/check-runs",
+                                params={"per_page": 100})
+        if resp.status_code in (403, 404):
+            return []
+        if resp.status_code >= 400:
+            raise AppError(f"{repo_name} checks for {sha[:7]}: {resp.status_code} "
+                           f"{resp.text[:120]}")
+        return resp.json().get("check_runs") or []
+
+
+async def runs(installation_id: int, repo_name: str, pages: int = 1) -> list[dict]:
+    """Recent GitHub Actions runs, newest first.
+
+    Runs, not check suites: a run is the thing with a name somebody recognises
+    ("CI", "Deploy staging"), a number and a page to open. Check suites are the
+    plumbing underneath and read as anonymous.
+    """
     out: list[dict] = []
-    async with httpx.AsyncClient(base_url=API, headers=headers, timeout=40.0) as client:
+    async with _reader(installation_id) as client:
         for page in range(1, pages + 1):
-            resp = await client.get(f"/repos/{repo_name}/pulls", params={
-                "state": "all", "per_page": 100, "page": page,
-                "sort": "updated", "direction": "desc"})
+            resp = await client.get(f"/repos/{repo_name}/actions/runs",
+                                    params={"per_page": 100, "page": page})
+            if resp.status_code == 404:
+                return []  # Actions is switched off here. Not a fault.
+            if resp.status_code == 403:
+                # No `actions` permission. The caller has another way to ask.
+                raise NotPermitted(f"{repo_name}: the app cannot read Actions")
             if resp.status_code >= 400:
-                raise AppError(f"{repo_name}: {resp.status_code} {resp.text[:120]}")
-            batch = resp.json()
-            if not isinstance(batch, list) or not batch:
-                break
+                raise AppError(f"{repo_name} runs: {resp.status_code} "
+                               f"{resp.text[:120]}")
+            batch = resp.json().get("workflow_runs") or []
             out.extend(batch)
             if len(batch) < 100:
                 break

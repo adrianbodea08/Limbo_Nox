@@ -171,15 +171,19 @@ export interface TrackerIssue {
   git?: GitRef[];
 }
 
-/** A branch or a pull request, and what git says about it. */
+/** A branch, commit, pull request or build, and what git says about it. */
 export interface GitRef {
   id: number;
-  kind: "branch" | "pr" | "commit";
+  kind: "branch" | "pr" | "commit" | "build";
   repo: string;
   ref: string;
   title: string;
   url: string;
-  /** open | draft | merged | closed. Empty for a branch, which has no state. */
+  /** Reads differently per kind, because the kinds are different things:
+   *  pr — open | draft | merged | closed
+   *  branch — identical | ahead | behind | diverged, against the default branch
+   *  build — running | success | failure | cancelled | skipped
+   *  commit — empty. A commit has no state beyond having happened. */
   state: string;
   /** passing | failing | pending | none. Separate from state on purpose — a
    *  merged PR whose build failed is a thing that happens. */

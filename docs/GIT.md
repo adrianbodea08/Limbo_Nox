@@ -160,9 +160,17 @@ CD-3 start:             To Do
 
 ## 6. What you see
 
-- **On an issue**: a Development panel — pull requests first, branches after,
-  each with its state, its checks, and a link out. Shown only when there is
-  something; an empty box on every issue teaches nothing.
+- **On an issue**: a **Development** line in the side column, beside the
+  status and the assignee rather than under the description — one line saying
+  "1 pull request" and the state that matters (worst news wins: closed, then
+  merged, then draft, then open). Shown only when there is something; an empty
+  box on every issue teaches nothing.
+- **Behind that line**: a dialog with the detail — a tab per kind, grouped by
+  repository, a row per pull request with its author, number, title, source
+  branch, state, checks and when it last moved, each linking out to GitHub. A
+  tab with nothing in it is disabled rather than hidden, so the shape of what
+  Nox reads stays visible. The footer says which field the issue key was found
+  in, because a match on a branch name is the one most likely to be wrong.
 - **On a board card**: one badge in the footer slot reserved for it. Where an
   issue has several PRs the badge shows the worst news — failing beats pending
   beats passing, open beats merged — for the same reason "blocked" is loud: it

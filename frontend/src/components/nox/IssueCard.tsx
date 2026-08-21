@@ -18,11 +18,12 @@
 import { useEffect, useRef, useState } from "react";
 import { M3DatePicker } from "../M3DatePicker";
 import { M3Select } from "../M3Select";
+import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
 import {
   PRIORITIES, PRIORITY_COLOUR, ago, fieldLabel, trackerApi,
-  type GitRef, type IssueField, type LinkType, type ParentCandidate, type TrackerIssue,
+  type IssueField, type LinkType, type ParentCandidate, type TrackerIssue,
   type TrackerMeta, type TrackerTransition, type TrackerUser,
 } from "./model";
 
@@ -246,15 +247,6 @@ export function IssueCard({
                     </span>
                   ))}
                 </div>
-              )}
-
-              {/* What git is doing about it. Only when there is something —
-                  an empty box on every issue teaches nothing, and most issues
-                  have no branch until somebody starts. */}
-              {!!full.git?.length && (
-                <Field label={`Development (${full.git.length})`}>
-                  <Development refs={full.git} />
-                </Field>
               )}
 
               <Field label={`Links${full.links?.length ? ` (${full.links.length})` : ""}`}>
@@ -510,6 +502,15 @@ export function IssueCard({
               ]}
             />
           </Field>
+
+          {/* What git is doing about it. Only when there is something — an
+              empty box on every issue teaches nothing, and most issues have no
+              branch until somebody starts. */}
+          {!!full?.git?.length && (
+            <Field label="Development">
+              <DevelopmentSummary refs={full.git} issueKey={full.key} />
+            </Field>
+          )}
 
           {/* The fields this project asks for on this type — decided in project
               settings, not invented here. Fields are global and shared, so a
@@ -890,41 +891,6 @@ function Picker({
  *
  *  Pull requests first and branches after: a PR is the thing with a state
  *  somebody needs to read, and a branch with no PR only says "started". */
-function Development({ refs }: { refs: GitRef[] }) {
-  const order = { pr: 0, commit: 1, branch: 2 } as Record<string, number>;
-  const sorted = [...refs].sort(
-    (a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9)
-      || a.repo.localeCompare(b.repo));
-
-  return (
-    <div className="tkg">
-      {sorted.map((r) => (
-        <a
-          key={r.id}
-          className="tkg-row tk-layer"
-          href={r.url || undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`${r.repo}${r.author ? ` · ${r.author}` : ""}`}
-        >
-          <span className={`tkg-kind tkg-${r.kind}`}>
-            {r.kind === "pr" ? `#${r.ref}` : "branch"}
-          </span>
-          <span className="tkg-title">{r.title || r.ref}</span>
-          {r.state && <span className={`tkg-state tkg-s-${r.state}`}>{r.state}</span>}
-          {/* A merged PR whose build failed is a real thing, so checks are
-              shown next to the state rather than folded into it. */}
-          {r.checks !== "none" && (
-            <span className={`tkg-checks tkg-c-${r.checks}`}
-                  title={`Checks ${r.checks}`}>
-              {r.checks === "passing" ? "✓" : r.checks === "failing" ? "✕" : "…"}
-            </span>
-          )}
-        </a>
-      ))}
-    </div>
-  );
-}
 
 /** A small square icon button that confirms itself after it is pressed. */
 function IconButton({

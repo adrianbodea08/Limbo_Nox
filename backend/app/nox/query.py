@@ -265,13 +265,21 @@ def _badges(conn: Connection, items: list[dict]) -> list[dict]:
     # The worst news wins: a failing build outranks an open PR, because that is
     # the one that changes what somebody does next. Same reasoning as blocked.
     git_state: dict[int, dict] = {}
-    for issue_id, state, checks in conn.execute(
-        select(issue_git.c.issue_id, git_refs.c.state, git_refs.c.checks)
+    # Builds come along for the ride so a red pipeline on a branch with no pull
+    # request still reaches the card. Only pull requests are counted, though —
+    # "2 PRs" must not become "5" because the CI ran three times.
+    for issue_id, kind, state, checks in conn.execute(
+        select(issue_git.c.issue_id, git_refs.c.kind, git_refs.c.state,
+               git_refs.c.checks)
         .select_from(issue_git.join(git_refs, issue_git.c.git_ref_id == git_refs.c.id))
         .where(issue_git.c.issue_id.in_(ids))
-        .where(git_refs.c.kind == "pr")
+        .where(git_refs.c.kind.in_(("pr", "build")))
     ).all():
         seen = git_state.setdefault(issue_id, {"prs": 0, "state": "", "checks": "none"})
+        if kind == "build":
+            if CHECK_RANK.get(checks, 0) > CHECK_RANK.get(seen["checks"], 0):
+                seen["checks"] = checks
+            continue
         seen["prs"] += 1
         # Worst news wins on both axes, so one badge can stand for several PRs
         # without hiding the one that needs attention.
