@@ -7,7 +7,8 @@
 >
 > `backend/app/nox/asks.py` owns it, `frontend/src/components/nox/Asks.tsx`
 > draws it. Notifications (section 5) are built too —
-> `backend/app/nox/notify.py` and `Notifications.tsx`.
+> `backend/app/nox/notify.py` and `Notifications.tsx`, with `Mentions.tsx`
+> completing the names.
 
 ---
 
@@ -170,6 +171,37 @@ Three rules earn their place there:
 `@Ana Mihalache` reaches Ana rather than every Ana. An ambiguous first name
 reaches nobody rather than the wrong person, and a name matching nobody is left
 alone — an email address in a comment is not a mention.
+
+They fire from **every box that lets you type prose** — a comment, an ask's
+question, an ask's answer, a description — not just comments. Two details make
+that safe:
+
+- **A description is edited over and over,** so only names that were not in the
+  previous version count. Otherwise everybody named in it is notified again
+  every time somebody fixes a typo three paragraphs away.
+- **One row per act.** Somebody who is both asked something and named inside the
+  question gets the ask, not the ask *and* a mention.
+
+### Completing the name
+
+`Mentions.tsx` — a textarea that completes `@names`. Type `@`, keep typing,
+press **Tab**. Arrows move, Enter also inserts, Escape dismisses the list
+without closing the dialog behind it. Tab is only intercepted while the list is
+up; the rest of the time it moves focus like it does everywhere else.
+
+This is not a convenience. Matching is against real display names, so a mention
+that is spelled almost right reaches *nobody* — and the person who typed it has
+no way to find out. They believe they asked; the notification never arrives; the
+thing they were waiting on does not happen. Completion is what makes the
+matching rule above a promise the product can keep, and it is why the mention
+triggers were widened at the same time: an autocomplete in a box that cannot
+notify anybody would be worse than none.
+
+The list is anchored at the caret, not at the field, because the word being
+completed is in the middle of a sentence and a menu pinned under a twelve-line
+description is nowhere near it. Ranking is whole-name, then any word of the
+name, then anywhere — somebody typing "mi" means Mihalache far more often than
+they mean Du*mi*tru.
 
 **Four switches** in Settings, defaulting to on. The list is short enough that
 the setting exists to turn one off, not to opt in.

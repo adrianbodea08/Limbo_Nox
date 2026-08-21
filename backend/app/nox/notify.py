@@ -7,6 +7,11 @@ See docs/ASKS.md section 5. Four triggers, and the list is the whole list:
     assigned      an issue became yours
     mentioned     somebody used your name in a comment
 
+A mention counts wherever prose is written — a comment, an ask, an ask's
+answer, a description. The trigger is still one trigger; what changed is that
+`@Ana` reaches Ana from every box that lets you type it, which is the only way
+the completion in `Mentions.tsx` can be an honest promise.
+
 Everything on it is either somebody waiting on you or somebody answering you.
 Anything that fails that test needs an argument before it is added — the failure
 mode here is not "too few", it is a person who has learned to ignore the badge,
@@ -114,9 +119,27 @@ def find_mentions(conn: Connection, body: str) -> list[int]:
     return found
 
 
+def _mention(conn: Connection, actor_id: int | None, issue_id: int, body: str,
+             skip: set | None = None) -> None:
+    """Tell everybody named in a piece of text.
+
+    `skip` is for people who are already being told about the same act by a
+    louder notification — being asked something *and* told you were mentioned
+    in it is two rows for one event.
+    """
+    for user_id in find_mentions(conn, body or ""):
+        if skip and user_id in skip:
+            continue
+        _tell(conn, user_id=user_id, kind="mentioned", issue_id=issue_id,
+              actor_id=actor_id,
+              text_value=f"{_who(conn, actor_id)} mentioned you on "
+                         f"{_key(conn, issue_id)}")
+
+
 def consider(conn: Connection, *, actor_id: int | None, actor_kind: str,
              entity_type: str, entity_id: int, kind: str,
-             field: str | None, to_value: Any, payload: dict | None) -> None:
+             field: str | None, from_value: Any = None, to_value: Any = None,
+             payload: dict | None = None) -> None:
     """One event. Tell somebody, or do nothing.
 
     Called from `repo.write_event`. Most events land here and leave without
@@ -132,6 +155,11 @@ def consider(conn: Connection, *, actor_id: int | None, actor_kind: str,
               issue_id=entity_id, actor_id=actor_id,
               text_value=f"{_who(conn, actor_id)} asked you to "
                          f"{payload.get('ask_kind', 'look at')} {_key(conn, entity_id)}")
+        # "@Ana, is this the same one you fixed?" — the person the question is
+        # *of* has to answer it; a person named inside it is being pulled in,
+        # and that is worth exactly as much as being named in a comment.
+        _mention(conn, actor_id, entity_id, payload.get("question", ""),
+                 skip={payload.get("asked_of")})
         return
 
     if kind in ("ask_answered", "ask_declined"):
@@ -140,10 +168,28 @@ def consider(conn: Connection, *, actor_id: int | None, actor_kind: str,
               issue_id=entity_id, actor_id=actor_id,
               text_value=f"{_who(conn, actor_id)} {settled} your question "
                          f"on {_key(conn, entity_id)}")
+        # "Not mine — @Radu owns that now" is the most useful thing an answer
+        # can say, and it is worthless if Radu is never told.
+        _mention(conn, actor_id, entity_id, payload.get("answer", ""),
+                 skip={payload.get("asked_by")})
         return
 
     # 3: an issue became yours. Automations assign too, and being handed work by
     # a rule is exactly as worth knowing as being handed it by a person.
+    # A description is edited over and over, so only names that were not there
+    # before count. Without that, everybody named in it is notified again every
+    # time somebody fixes a typo three paragraphs away.
+    if kind == "field_changed" and field == "description":
+        was = set(find_mentions(conn, str(from_value or "")))
+        for user_id in find_mentions(conn, str(to_value or "")):
+            if user_id in was:
+                continue
+            _tell(conn, user_id=user_id, kind="mentioned", issue_id=entity_id,
+                  actor_id=actor_id,
+                  text_value=f"{_who(conn, actor_id)} mentioned you on "
+                             f"{_key(conn, entity_id)}")
+        return
+
     if kind == "field_changed" and field == "assignee_id" and to_value:
         try:
             became = int(to_value)
@@ -159,11 +205,7 @@ def consider(conn: Connection, *, actor_id: int | None, actor_kind: str,
         body = conn.execute(
             select(comments.c.body)
             .where(comments.c.id == payload["comment_id"])).scalar_one_or_none() or ""
-        for user_id in find_mentions(conn, body):
-            _tell(conn, user_id=user_id, kind="mentioned", issue_id=entity_id,
-                  actor_id=actor_id,
-                  text_value=f"{_who(conn, actor_id)} mentioned you on "
-                             f"{_key(conn, entity_id)}")
+        _mention(conn, actor_id, entity_id, body)
         return
 
 

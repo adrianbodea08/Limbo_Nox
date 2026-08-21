@@ -17,6 +17,7 @@ import { M3Select } from "../M3Select";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { ago, trackerApi } from "./model";
+import { MentionBox } from "./Mentions";
 import type { Ask, AskKind, TrackerUser } from "./model";
 
 const KINDS: {
@@ -64,7 +65,7 @@ export function AsksOnIssue({
   return (
     <div className="tka">
       {open.map((a) => (
-        <AskCard key={a.id} ask={a} me={me} onChanged={onChanged} />
+        <AskCard key={a.id} ask={a} me={me} users={users} onChanged={onChanged} />
       ))}
 
       {asking ? (
@@ -87,13 +88,15 @@ export function AsksOnIssue({
         </button>
       )}
       {showSettled && settled.map((a) => (
-        <AskCard key={a.id} ask={a} me={me} onChanged={onChanged} />
+        <AskCard key={a.id} ask={a} me={me} users={users} onChanged={onChanged} />
       ))}
     </div>
   );
 }
 
-function AskCard({ ask, me, onChanged }: { ask: Ask; me: number; onChanged: () => void }) {
+function AskCard({ ask, me, users, onChanged }: {
+  ask: Ask; me: number; users: TrackerUser[]; onChanged: () => void;
+}) {
   const kind = kindOf(ask.kind);
   const [replying, setReplying] = useState(false);
   const [text, setText] = useState("");
@@ -155,12 +158,13 @@ function AskCard({ ask, me, onChanged }: { ask: Ask; me: number; onChanged: () =
       {ask.state === "open" && (mine || asked) && (
         replying ? (
           <div className="tka-reply">
-            <textarea
+            <MentionBox
               className="tk-input tka-ta"
               autoFocus
+              people={users}
               value={text}
               placeholder={mine ? `Give them ${kind.wants}…` : "Why are you taking it back?"}
-              onChange={(e) => setText(e.target.value)}
+              onChange={setText}
             />
             <div className="tka-actions">
               <button type="button" className="tk-btn tk-layer" disabled={busy}
@@ -269,11 +273,16 @@ function AskComposer({
         />
       </div>
 
-      <textarea
+      {/* Of whom decides who has to answer. Naming somebody in the question
+          itself is the other thing people do — "@Ana, is this the same as the
+          one you fixed?" — and it has to reach them, so the box completes the
+          name rather than trusting the speller. */}
+      <MentionBox
         className="tk-input tka-ta"
+        people={users}
         value={question}
         placeholder={chosen.hint}
-        onChange={(e) => setQuestion(e.target.value)}
+        onChange={setQuestion}
       />
 
       <label className="tk-toggle tka-blocking-pick">
@@ -303,10 +312,14 @@ function AskComposer({
  *  morning, which is the behaviour that turned these into comments nobody
  *  answered. */
 export function AsksBand({
-  asks, me, onOpen, onChanged,
+  asks, me, users, onOpen, onChanged,
 }: {
   asks: Ask[];
   me: number;
+  /** So answering one can name somebody. Empty is survivable — the box just
+   *  stops completing — but this is where people answer, so it is worth
+   *  fetching. */
+  users: TrackerUser[];
   onOpen: (key: string) => void;
   onChanged: () => void;
 }) {
@@ -327,7 +340,7 @@ export function AsksBand({
               <IssueKey issueKey={a.issue_key ?? ""} />
               <span className="tka-queued-summary">{a.issue_summary}</span>
             </button>
-            <AskCard ask={a} me={me} onChanged={onChanged} />
+            <AskCard ask={a} me={me} users={users} onChanged={onChanged} />
           </div>
         ))}
       </div>

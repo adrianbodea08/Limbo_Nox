@@ -21,6 +21,7 @@ import { M3DatePicker } from "../M3DatePicker";
 import { M3Select } from "../M3Select";
 import { AsksOnIssue } from "./Asks";
 import { LabelEditor } from "./Labels";
+import { MentionBox } from "./Mentions";
 import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
@@ -227,12 +228,13 @@ export function IssueCard({
                 <button type="button" className="tkc-tb tk-layer" title="Quote" onClick={() => md("> ", "", true)}>&rdquo;</button>
                 <button type="button" className="tkc-tb tk-layer" title="Code" onClick={() => md("`")}>&lt;/&gt;</button>
               </div>
-              <textarea
+              <MentionBox
                 ref={bodyRef}
                 className="tkc-ta"
+                people={users}
                 value={description}
                 placeholder="Describe the work, acceptance criteria, links…"
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
               />
             </div>
           </Field>
@@ -358,11 +360,12 @@ export function IssueCard({
                   ))}
                   {!(full.comments ?? []).length && <p className="tk-dim">No comments yet.</p>}
                   <div className="tk-comment-new">
-                    <textarea
+                    <MentionBox
                       rows={2}
+                      people={users}
                       placeholder="Add a comment…"
                       value={comment}
-                      onChange={(e) => setComment(e.target.value)}
+                      onChange={setComment}
                     />
                     <button
                       type="button"

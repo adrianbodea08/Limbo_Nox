@@ -135,7 +135,8 @@ def write_event(
         notify.consider(
             conn, actor_id=actor.id, actor_kind=actor.kind,
             entity_type=entity_type, entity_id=entity_id, kind=kind,
-            field=field, to_value=to_value, payload=payload,
+            field=field, from_value=from_value, to_value=to_value,
+            payload=payload,
         )
 
 

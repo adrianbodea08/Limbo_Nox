@@ -33,7 +33,7 @@ import { useIssueDialog } from "./useIssueDialog";
 import { DropSlot, useBandReorder } from "./useBandReorder";
 import { TrackerRail } from "./TrackerRail";
 import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
-import type { MyWorkData, QueueIssue } from "./model";
+import type { MyWorkData, QueueIssue, TrackerUser } from "./model";
 import { M3Segmented } from "../M3Segmented";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { TypeGlyph } from "./TypeGlyph";
@@ -54,6 +54,9 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
     setParams(p, { replace: true });
   }
   const [data, setData] = useState<MyWorkData | null>(null);
+  // Only so answering an ask can complete a name. Once, and a failure is
+  // silent: the answer box still works, it just stops suggesting.
+  const [people, setPeople] = useState<TrackerUser[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [parking, setParking] = useState<QueueIssue | null>(null);
@@ -66,6 +69,13 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }, [viewing]);
+
+
+  useEffect(() => {
+
+    trackerApi.users().then(setPeople).catch(() => {});
+
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -247,6 +257,8 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 asks={data.asks ?? []}
 
                 me={shell.user.id}
+
+                users={people}
 
                 onOpen={(key) => issueDialog.open(key)}
 
