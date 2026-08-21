@@ -801,6 +801,20 @@ export interface SavedView {
   position: number;
 }
 
+/** One project, from a person's point of view. */
+export interface ProjectAccess {
+  id: number;
+  key: string;
+  name: string;
+  /** The project is open to everybody, so naming anybody changes nothing. */
+  open_to_all: boolean;
+  /** This person is on the project's list by name. */
+  named: boolean;
+  /** Or reaches it through one of their account tags. */
+  via_tag: string | null;
+  can_see: boolean;
+}
+
 export const trackerApi = {
   status: () => request<TrackerStatusInfo>("/api/nox/status"),
 
@@ -813,6 +827,14 @@ export const trackerApi = {
   meta: () => request<TrackerMeta>("/api/nox/meta"),
 
   labels: () => request<Label[]>("/api/nox/labels"),
+
+  /** What one person can see, and why. Admin-only. */
+  seenBy: (userId: number) =>
+    request<ProjectAccess[]>(`/api/nox/people/${userId}/projects`),
+
+  namePersonOn: (userId: number, projectId: number, granted: boolean) =>
+    request<ProjectAccess[]>(`/api/nox/people/${userId}/projects/${projectId}`,
+      { method: "PUT", body: JSON.stringify({ granted }) }),
 
   views: (projectId?: number) =>
     request<SavedView[]>(

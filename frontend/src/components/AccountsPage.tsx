@@ -5,12 +5,13 @@
 // and an admin cannot lock themselves out, because a tracker with nobody who
 // can approve anybody is a tracker nobody new can ever join.
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { M3Select } from "./M3Select";
 import { TopBar, type ShellProps } from "./TopBar";
 import { TrackerRail } from "./nox/TrackerRail";
 import type { User } from "../types";
+import { trackerApi, type ProjectAccess } from "./nox/model";
 
 const STATUSES = ["approved", "pending", "suspended", "banned"] as const;
 const ROLES = ["member", "admin"] as const;
@@ -20,6 +21,8 @@ const asOptions = (values: readonly string[]) =>
 
 export function AccountsPage({ shell }: { shell: ShellProps }) {
   const [users, setUsers] = useState<User[]>([]);
+  const [openFor, setOpenFor] = useState<number | null>(null);
+  const [seen, setSeen] = useState<ProjectAccess[]>([]);
   const [error, setError] = useState("");
   const [, setBusy] = useState(false);
 
@@ -27,6 +30,11 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
     api.users().then(setUsers).catch((e) => setError(String(e.message ?? e)));
   }, []);
   useEffect(load, [load]);
+
+  useEffect(() => {
+    if (openFor == null) { setSeen([]); return; }
+    trackerApi.seenBy(openFor).then(setSeen).catch(() => setSeen([]));
+  }, [openFor]);
 
   async function act(what: () => Promise<unknown>) {
     setBusy(true);
@@ -86,13 +94,15 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
                 <th style={{ width: 240 }}>Email</th>
                 <th style={{ width: 150 }}>Status</th>
                 <th style={{ width: 120 }}>Role</th>
+                <th style={{ width: 130 }}>Can see</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => {
                 const self = u.id === shell.user.id;
                 return (
-                  <tr key={u.id}>
+                  <Fragment key={u.id}>
+                  <tr>
                     <td>
                       <strong>{u.nickname || u.username}</strong>
                       {self && <span className="tk-chip tk-chip-quiet">you</span>}
@@ -122,11 +132,64 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
                         />
                       )}
                     </td>
+                    <td>
+                      {/* The other half of what an admin does after approving
+                          somebody. Project settings answers "who can see this
+                          project"; this answers "what can this person see",
+                          which is the question you have when you are looking
+                          at a person. */}
+                      <button type="button" className="tk-link tk-layer"
+                              onClick={() => setOpenFor(openFor === u.id ? null : u.id)}>
+                        {/* Not "Projects" — the rail already has one of
+                            those, and two controls with the same word on one
+                            screen make somebody read both to find out which
+                            is which. */}
+                        {openFor === u.id ? "Hide" : "Change"}
+                      </button>
+                    </td>
                   </tr>
+                  {openFor === u.id && (
+                    <tr className="tk-acc-open">
+                      <td colSpan={5}>
+                        <div className="tk-acc-projects">
+                          {seen.map((p) => (
+                            <label key={p.id}
+                                   className={`tk-acc-project tk-layer${p.can_see ? " on" : ""}`}
+                                   title={p.open_to_all
+                                     ? "This project is open to everyone"
+                                     : p.via_tag
+                                       ? `Reached through the ${p.via_tag} tag`
+                                       : "Named on this project"}>
+                              <input
+                                type="checkbox"
+                                checked={p.can_see}
+                                /* Nothing to decide when the project is open to
+                                   everybody, or when a tag already lets them
+                                   in — unticking would not take the access
+                                   away, and a control that lies is worse than
+                                   one that is absent. */
+                                disabled={p.open_to_all || !!p.via_tag}
+                                onChange={(e) => act(async () => {
+                                  setSeen(await trackerApi.namePersonOn(
+                                    u.id, p.id, e.target.checked));
+                                })}
+                              />
+                              <span className="tk-acc-key">{p.key}</span>
+                              <span className="tk-acc-name">{p.name}</span>
+                              {p.open_to_all && <span className="tk-dim">everyone</span>}
+                              {p.via_tag && <span className="tk-dim">via {p.via_tag}</span>}
+                            </label>
+                          ))}
+                          {!seen.length && <span className="tk-dim">No projects yet.</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
               {users.length === 0 && (
-                <tr><td colSpan={4} className="tk-empty-row">Nobody yet.</td></tr>
+                <tr><td colSpan={5} className="tk-empty-row">Nobody yet.</td></tr>
               )}
             </tbody>
           </table>

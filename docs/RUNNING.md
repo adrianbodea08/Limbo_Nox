@@ -66,11 +66,46 @@ re-run the capture and regenerate, then `POST /api/tracker/mock` to rebuild
 against the new workflows. The capture is read-only: it calls
 `/project/{key}/statuses` and `/issue/{key}/transitions` and writes nothing.
 
-## Access
+## Getting in, and what you can see
 
-Gated by the `tracker` account tag, granted in Admin → Accounts. Admins bypass
-it, as with every other tag. The gate is enforced in the auth middleware, so it
-covers every route under `/api/tracker` including ones added later.
+**Anybody can ask; an admin says yes.** Somebody registers, lands as *pending*,
+and an admin approves them in Accounts. An issue tracker anybody can sign
+themselves into is not a tracker, so there is no open door — and the very first
+account is approved on the spot and made admin, because otherwise there is
+nobody to approve the second.
+
+Nobody is ever handed a password. An admin decides *whether* somebody may in,
+not *what their password is*.
+
+### What a person can see
+
+Two things decide it, and admins skip both:
+
+| | |
+|---|---|
+| `projects.visibility` | `everyone`, or `restricted` |
+| `project_access` | who is named on a restricted project — by **user**, or by **tag** |
+
+A restricted project must name at least one tag or person, or the act of
+restricting it would lock out the person doing it.
+
+There are two screens over that one table, because there are two real questions
+and neither is a good way to ask the other:
+
+- **Project settings → Who can see it** — *who can see this project.* The
+  project's whole list, edited as a list.
+- **Accounts → Can see → Change** — *what can this person see.* The question you
+  have while looking at somebody you have just approved.
+
+The second one adds and removes a single name and touches nothing else. It
+deliberately does not go through `set_access`, which replaces a project's entire
+list and its visibility: naming one person must not silently drop the tag that
+lets their whole team in.
+
+A project that is open to everyone, or that somebody reaches through one of
+their tags, shows as ticked and **inert** on that screen. Unticking it would not
+take the access away, and a control that lies about what it does is worse than
+one that is not there.
 
 ### Restarting the api does not sign anybody out
 

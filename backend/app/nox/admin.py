@@ -88,6 +88,63 @@ def set_access(conn: Connection, project_id: int, visibility: str,
             project_id=project_id, kind=kind, value=value, granted_by=granted_by))
 
 
+# --------------------------------------------------------- seen by a person --
+
+def seen_by(conn: Connection, user_id: int, tags: set[str] | None = None) -> list[dict]:
+    """Every project, and whether this person can see it — with the reason.
+
+    The other side of Project settings → *Who can see it*. Same rows, same
+    rules; this asks the question the Accounts page asks, which is about a
+    person rather than about a project. Two screens over one table, because
+    "who can see this project" and "what can this person see" are both real
+    questions and neither is a good way to ask the other.
+    """
+    tags = tags or set()
+    rows = conn.execute(
+        select(projects.c.id, projects.c.key, projects.c.name, projects.c.visibility,
+               project_access.c.kind, project_access.c.value)
+        .select_from(projects.outerjoin(
+            project_access, project_access.c.project_id == projects.c.id))
+        .where(projects.c.archived_at.is_(None))
+        .order_by(projects.c.position, projects.c.id)
+    ).all()
+
+    out: dict[int, dict] = {}
+    for pid, key, name, visibility, kind, value in rows:
+        seen = out.setdefault(pid, {
+            "id": pid, "key": key, "name": name,
+            "open_to_all": visibility == "everyone",
+            "named": False, "via_tag": None,
+        })
+        if kind == "user" and value == str(user_id):
+            seen["named"] = True
+        elif kind == "tag" and value in tags:
+            seen["via_tag"] = value
+    for p in out.values():
+        p["can_see"] = p["open_to_all"] or p["named"] or bool(p["via_tag"])
+    return list(out.values())
+
+
+def name_on_project(conn: Connection, project_id: int, user_id: int,
+                    granted: bool, granted_by: int | None) -> None:
+    """Put one person on a project's list, or take them off.
+
+    Deliberately not `set_access`: that one replaces a project's whole list and
+    its visibility, which is right when you are looking at the project and
+    wrong when you are looking at one person. Naming somebody must not silently
+    drop the tag that lets their whole team in.
+    """
+    here = (project_access.c.project_id == project_id) &            (project_access.c.kind == "user") &            (project_access.c.value == str(user_id))
+    if not granted:
+        conn.execute(delete(project_access).where(here))
+        return
+    if conn.execute(select(project_access.c.id).where(here)).first():
+        return
+    conn.execute(project_access.insert().values(
+        project_id=project_id, kind="user", value=str(user_id),
+        granted_by=granted_by))
+
+
 # ------------------------------------------------------------------ workflow --
 
 def workflow_id(conn: Connection, project_id: int) -> int:

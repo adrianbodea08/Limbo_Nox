@@ -468,6 +468,37 @@ async def git_sync(request: Request, repo_name: str | None = None,
 
 # -------------------------------------------------------------------- labels --
 
+@router.get("/people/{user_id}/projects")
+async def person_projects(user_id: int, request: Request) -> list[dict]:
+    """What this person can see, and why. Admin-only: it is the answer to a
+    question about somebody else."""
+    _admin(request)
+    with _engine().connect() as conn:
+        return admin.seen_by(conn, user_id, _tags_of(user_id))
+
+
+@router.put("/people/{user_id}/projects/{project_id}")
+async def name_person_on_project(user_id: int, project_id: int,
+                                 request: Request, body: dict) -> list[dict]:
+    """Name somebody on a project, or take them off it."""
+    who = _admin(request)
+    with _engine().begin() as conn:
+        admin.name_on_project(conn, project_id, user_id,
+                              bool(body.get("granted")), who["id"])
+        return admin.seen_by(conn, user_id, _tags_of(user_id))
+
+
+def _tags_of(user_id: int) -> set[str]:
+    """An account's tags, so a project opened to a tag shows as reachable
+    rather than as something this person is mysteriously missing."""
+    try:
+        from ..main import auth
+        row = auth.by_id(user_id)
+        return {t for t in (row["tags"] or "").split(",") if t} if row else set()
+    except Exception:
+        return set()
+
+
 # ------------------------------------------------------------------ views --
 
 @router.get("/views")

@@ -5629,3 +5629,44 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   font-size: var(--m3-font-body-medium);
 }
 .tkv-input:focus { outline: none; border-color: var(--accent); }
+
+/* --- what one person can see ---------------------------------------------
+   Project settings answers "who can see this project". This answers "what can
+   this person see", which is the question you have while looking at a person
+   you have just approved. Same rows underneath, so the two cannot disagree. */
+.tk-acc-open > td { padding-top: 0; }
+.tk-acc-projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0 12px;
+}
+.tk-acc-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--m3-shape-full);
+  background: var(--bg-col);
+  font-size: var(--m3-font-label-medium);
+  cursor: pointer;
+}
+.tk-acc-project.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+/* A project nobody has to decide about — open to everyone, or reached through
+   a tag. The control is there so the state is visible, and inert so it cannot
+   promise something it will not do. */
+.tk-acc-project:has(input:disabled) { cursor: default; opacity: 0.75; }
+.tk-acc-project input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.tk-acc-key {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--text-dim);
+}
+.tk-acc-name { white-space: nowrap; }
