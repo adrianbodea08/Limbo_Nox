@@ -15,7 +15,8 @@
 // Renders as a dialog or as the body of the full page — same component, so the
 // two cannot drift apart.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { M3DatePicker } from "../M3DatePicker";
 import { M3Select } from "../M3Select";
 import { DevelopmentSummary } from "./Development";
@@ -822,12 +823,30 @@ function Picker({
 }) {
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [box, setBox] = useState<Placement | null>(null);
   const showSearch = items.length >= searchFrom;
 
   useEffect(() => {
     if (open && showSearch) searchRef.current?.focus();
     if (!open) setQuery("");
   }, [open, showSearch]);
+
+  // Measured before paint, so the menu never appears in the wrong place first.
+  useLayoutEffect(() => {
+    if (!open) { setBox(null); return; }
+    const place = () => btnRef.current && setBox(placeMenu(btnRef.current, variant));
+    place();
+    // The dialog behind this scrolls, and so does the page. Following the
+    // trigger beats the alternatives: a menu left behind looks broken, and
+    // closing on any scroll fights a trackpad.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, variant]);
 
   const shown = query.trim()
     ? items.filter((it) => (it.text ?? "").toLowerCase().includes(query.trim().toLowerCase()))
@@ -836,6 +855,7 @@ function Picker({
   return (
     <div className={`tkc-dd-wrap${variant === "chip" ? " tkc-dd-wrap-chip" : ""}`}>
       <button
+        ref={btnRef}
         type="button"
         className={`tkc-dd tk-layer${variant === "chip" ? " tkc-dd-chip" : ""}`}
         onClick={onToggle}
@@ -845,10 +865,10 @@ function Picker({
         <span className="tkc-dd-val">{button}</span>
         <span className="tkc-dd-caret">▾</span>
       </button>
-      {open && (
+      {open && box && createPortal(
         <>
           <div className="tkc-pop-back" onClick={onClose} />
-          <div className="tkc-menu">
+          <div className="tkc-menu" style={box.style}>
             {showSearch && (
               <div className="tkc-menu-search">
                 <input
@@ -881,10 +901,48 @@ function Picker({
             </div>
             {note && <p className="tkc-menu-note">{note}</p>}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );
+}
+
+interface Placement { style: React.CSSProperties }
+
+/** Where the menu goes, in viewport coordinates.
+ *
+ *  Below the trigger when there is room, above it when there is not — and the
+ *  height it is allowed is whatever is actually left, so a menu near an edge
+ *  scrolls internally instead of running off the screen. */
+function placeMenu(trigger: HTMLElement, variant: "field" | "chip"): Placement {
+  const EDGE = 8;   // never touch the viewport edge
+  const GAP = 6;    // the same gap the absolute version used
+  const TALLEST = 320;
+
+  const r = trigger.getBoundingClientRect();
+  const below = window.innerHeight - r.bottom - EDGE - GAP;
+  const above = r.top - EDGE - GAP;
+  // Flip only when below is genuinely cramped *and* above is roomier. A menu
+  // that flips for the sake of twenty more pixels is a menu that jumps around.
+  const flip = below < 200 && above > below;
+
+  const width = variant === "chip" ? Math.max(r.width, 200) : r.width;
+  const left = Math.max(EDGE, Math.min(r.left, window.innerWidth - width - EDGE));
+
+  return {
+    style: {
+      position: "fixed",
+      left,
+      width: variant === "chip" ? undefined : width,
+      minWidth: variant === "chip" ? width : undefined,
+      maxWidth: variant === "chip" ? 320 : undefined,
+      ...(flip
+        ? { bottom: window.innerHeight - r.top + GAP }
+        : { top: r.bottom + GAP }),
+      maxHeight: Math.min(TALLEST, Math.max(120, flip ? above : below)),
+    },
+  };
 }
 
 /** Branches and pull requests on an issue.
