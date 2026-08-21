@@ -44,3 +44,6 @@ PROJECT_NOTES.md
 /secrets/*
 !/secrets/README.md
 !/secrets/github.env.example
+
+# the pruner writes this when it dry-runs
+frontend/pruned-sample.txt

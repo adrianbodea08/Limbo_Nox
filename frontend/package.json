@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prune-css": "node prune-css.mjs src"
   },
   "dependencies": {
     "react": "^18.3.1",
