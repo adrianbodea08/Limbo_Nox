@@ -516,6 +516,12 @@ COMMIT_BUDGET = 40
 BRANCH_BUDGET = 40
 
 
+def _count(n: int, one: str, many: str = "") -> str:
+    """"1 branch", "2 branches". A summary that says "1 branches" is a summary
+    somebody stops reading."""
+    return f"{n} {one if n == 1 else (many or one + 's')}"
+
+
 async def _sync_via_app(engine, installs: list[dict], only: str | None,
                         pages: int) -> dict:
     """The good path: read as the app, over every repository it can see.
@@ -558,11 +564,14 @@ async def _sync_via_app(engine, installs: list[dict], only: str | None,
             repos_done.append(name)
 
         with engine.begin() as conn:
-            github_app.note_sync(
-                conn, iid,
-                f"{len(repos_done)} repos, {tally['pull_requests']} pull requests, "
-                f"{tally['branches']} branches, {tally['commits']} commits, "
-                f"{tally['builds']} builds, {tally['links']} linked")
+            github_app.note_sync(conn, iid, ", ".join([
+                _count(len(repos_done), "repo"),
+                _count(tally["pull_requests"], "pull request"),
+                _count(tally["branches"], "branch", "branches"),
+                _count(tally["commits"], "commit"),
+                _count(tally["builds"], "build"),
+                f"{tally['links']} linked",
+            ]))
 
     return {"via": "app", "repos": repos_done, **tally,
             "failed": failed, "capped": capped, "notes": notes}

@@ -106,7 +106,7 @@ class AuthStore:
                 email         TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 salt          TEXT NOT NULL,
-                role          TEXT NOT NULL DEFAULT 'user',
+                role          TEXT NOT NULL DEFAULT 'member',
                 status        TEXT NOT NULL DEFAULT 'pending',
                 created_at    REAL NOT NULL
             );
@@ -130,6 +130,14 @@ class AuthStore:
                 self._conn.execute(f"ALTER TABLE users ADD COLUMN {col} {decl}")
             except sqlite3.OperationalError:
                 pass  # column already exists
+
+        # One word for one thing. The table defaulted to 'user' while the API
+        # only ever accepted 'admin' or 'member', so a new account was created
+        # in a role the admin screen could not display and the role endpoint
+        # would refuse. The native <select> hid it by falling back to its first
+        # option. Nothing distinguishes the two names, and 'member' is the one
+        # the rest of the system already speaks.
+        self._conn.execute("UPDATE users SET role = 'member' WHERE role = 'user'")
         self._conn.commit()
 
     # --- users -----------------------------------------------------------
@@ -161,7 +169,7 @@ class AuthStore:
         username: str,
         email: str,
         password: str,
-        role: str = "user",
+        role: str = "member",
         status: str = "pending",
     ) -> dict:
         now = time.time()

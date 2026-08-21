@@ -7,15 +7,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { M3Select } from "./M3Select";
 import { TopBar, type ShellProps } from "./TopBar";
+import { TrackerRail } from "./nox/TrackerRail";
 import type { User } from "../types";
 
 const STATUSES = ["approved", "pending", "suspended", "banned"] as const;
+const ROLES = ["member", "admin"] as const;
+
+const asOptions = (values: readonly string[]) =>
+  values.map((v) => ({ value: v, label: v }));
 
 export function AccountsPage({ shell }: { shell: ShellProps }) {
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [, setBusy] = useState(false);
 
   const load = useCallback(() => {
     api.users().then(setUsers).catch((e) => setError(String(e.message ?? e)));
@@ -50,7 +56,17 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
         onLogout={shell.onLogout}
       />
 
-      <div className="tk-canvas">
+      <div className="tk-shell">
+        <TrackerRail isAdmin={shell.isAdmin} />
+
+        <div className="tk-canvas">
+        <header className="tk-page-head">
+          <h1>Accounts</h1>
+          <p className="tk-dim">
+            Everyone who can sign in, and what they are allowed to do.
+          </p>
+        </header>
+
         {error && <p className="tk-error">{error}</p>}
 
         {/* Anybody waiting comes first. A request nobody sees is a person who
@@ -83,27 +99,28 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
                     </td>
                     <td className="tk-dim">{u.email}</td>
                     <td>
-                      <select
-                        className="tk-input"
-                        value={u.status}
-                        // The last admin standing must not be able to suspend
-                        // themselves out of the product.
-                        disabled={busy || self}
-                        onChange={(e) => act(() => api.setUserStatus(u.id, e.target.value))}
-                      >
-                        {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                      </select>
+                      {/* The last admin standing must not be able to suspend
+                          themselves out of the product, so their own row is
+                          shown as text rather than as a control they cannot
+                          use — a disabled dropdown invites the click anyway. */}
+                      {self ? <span className="tk-dim">{u.status}</span> : (
+                        <M3Select
+                          value={u.status}
+                          options={asOptions(STATUSES)}
+                          width={150}
+                          onChange={(v) => act(() => api.setUserStatus(u.id, v))}
+                        />
+                      )}
                     </td>
                     <td>
-                      <select
-                        className="tk-input"
-                        value={u.role}
-                        disabled={busy || self}
-                        onChange={(e) => act(() => api.setUserRole(u.id, e.target.value))}
-                      >
-                        <option value="member">member</option>
-                        <option value="admin">admin</option>
-                      </select>
+                      {self ? <span className="tk-dim">{u.role}</span> : (
+                        <M3Select
+                          value={u.role}
+                          options={asOptions(ROLES)}
+                          width={130}
+                          onChange={(v) => act(() => api.setUserRole(u.id, v))}
+                        />
+                      )}
                     </td>
                   </tr>
                 );
@@ -113,6 +130,7 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
               )}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
     </div>

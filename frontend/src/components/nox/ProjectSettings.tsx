@@ -27,6 +27,7 @@ import { TrackerSearch } from "./TrackerSearch";
 import { FlowDiagram } from "./FlowDiagram";
 import { trackerApi } from "./model";
 import type { FieldDefinition, ProjectSettingsData, TrackerUser } from "./model";
+import { M3Segmented } from "../M3Segmented";
 
 type Tab = "columns" | "flow" | "access" | "types" | "fields";
 
@@ -412,16 +413,15 @@ function Flow({ data, busy, act }: { data: ProjectSettingsData; busy: boolean; a
   return (
     <div className="tks-pane tks-pane-wide">
       <div className="tkf-switch">
-        {(["diagram", "grid"] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            className={`tkf-switch-btn tk-layer${view === v ? " on" : ""}`}
-            onClick={() => setView(v)}
-          >
-            {v === "diagram" ? "Diagram" : "Grid"}
-          </button>
-        ))}
+        <M3Segmented
+          label="How to show the workflow"
+          value={view}
+          options={[
+            { value: "diagram", label: "Diagram" },
+            { value: "grid", label: "Grid" },
+          ] as const}
+          onChange={setView}
+        />
         <span className="tk-dim">
           {view === "diagram"
             ? "Click a status for its settings. Drag to rearrange."

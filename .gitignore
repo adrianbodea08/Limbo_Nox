@@ -47,3 +47,6 @@ PROJECT_NOTES.md
 
 # the pruner writes this when it dry-runs
 frontend/pruned-sample.txt
+
+# The prune script's scratch output — regenerate with prune_css.mjs.
+frontend/prune-report.txt

@@ -7,7 +7,9 @@
 import { useState } from "react";
 import { api } from "../api";
 import { TopBar, type ShellProps } from "./TopBar";
+import { TrackerRail } from "./nox/TrackerRail";
 import { THEMES, applyTheme, getTheme, setTheme, type ThemeId } from "../theme";
+import { M3Segmented } from "./M3Segmented";
 
 export function SettingsPage({ shell }: { shell: ShellProps }) {
   const [nickname, setNickname] = useState(shell.user.nickname || "");
@@ -46,7 +48,17 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
         onLogout={shell.onLogout}
       />
 
-      <div className="tk-canvas tks-main">
+      <div className="tk-shell">
+        <TrackerRail isAdmin={shell.isAdmin} />
+
+        <div className="tk-canvas tks-main">
+        <header className="tk-page-head">
+          <h1>Settings</h1>
+          <p className="tk-dim">
+            Your own account. How Nox works is set where it applies.
+          </p>
+        </header>
+
         {error && <p className="tk-error">{error}</p>}
         {note && <p className="tk-dim">{note}</p>}
 
@@ -75,18 +87,12 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
 
         <section className="tkgs-card">
           <h3>Appearance</h3>
-          <div className="tkt-scales">
-            {THEMES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={`tkq-tab tk-layer${theme === t.id ? " on" : ""}`}
-                onClick={() => { setTheme(t.id); applyTheme(t.id); setThemeState(t.id); }}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <M3Segmented
+            label="Theme"
+            value={theme}
+            options={THEMES.map((t) => ({ value: t.id, label: t.label }))}
+            onChange={(next) => { setTheme(next); applyTheme(next); setThemeState(next); }}
+          />
         </section>
 
         <section className="tkgs-card">
@@ -110,6 +116,7 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
             Change it
           </button>
         </section>
+        </div>
       </div>
     </div>
   );

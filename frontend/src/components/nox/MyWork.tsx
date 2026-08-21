@@ -34,6 +34,7 @@ import { DropSlot, useBandReorder } from "./useBandReorder";
 import { TrackerRail } from "./TrackerRail";
 import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
 import type { MyWorkData, QueueIssue } from "./model";
+import { M3Segmented } from "../M3Segmented";
 
 export function MyWorkPage({ shell }: { shell: ShellProps }) {
   const nav = useNavigate();
@@ -150,18 +151,15 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 </div>
               </div>
               <div className="tkw-head-r">
-                <div className="tkf-switch tkw-switch">
-                  {(["columns", "list"] as const).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      className={`tkf-switch-btn tk-layer${layout === v ? " on" : ""}`}
-                      onClick={() => setLayout(v)}
-                    >
-                      {v === "columns" ? "Columns" : "List"}
-                    </button>
-                  ))}
-                </div>
+                <M3Segmented
+                  label="How to show your work"
+                  value={layout}
+                  options={[
+                    { value: "columns", label: "Columns" },
+                    { value: "list", label: "List" },
+                  ] as const}
+                  onChange={setLayout}
+                />
                 {data.leads && (
                   <button type="button" className="tk-btn tk-layer"
                           onClick={() => nav(`/teams?tab=${data.leads!.key}`)}>

@@ -11,6 +11,7 @@ import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { ReleaseTimeline } from "./ReleaseTimeline";
 import { ago, trackerApi } from "./model";
+import { M3Segmented } from "../M3Segmented";
 import type {
   ReleaseDetail, ReleaseSummary, TrackerComponent, UnreleasedIssue,
 } from "./model";
@@ -93,18 +94,15 @@ export function Releases({ selectedId, onSelect }: Props) {
     <div className="tk-releases">
       <div className="tk-rel-head">
         <h2>Releases</h2>
-        <div className="tk-rel-views">
-          {(["timeline", "list"] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              className={`tkq-tab tk-layer${view === v ? " on" : ""}`}
-              onClick={() => setView(v)}
-            >
-              {v === "timeline" ? "Timeline" : "List"}
-            </button>
-          ))}
-        </div>
+        <M3Segmented
+          label="How to show releases"
+          value={view}
+          options={[
+            { value: "timeline", label: "Timeline" },
+            { value: "list", label: "List" },
+          ] as const}
+          onChange={setView}
+        />
         <button type="button" className="tk-btn tk-layer tk-btn-primary" onClick={() => setCreating(true)}>
           New release
         </button>
