@@ -14,7 +14,8 @@ services:
       - path: ./secrets/github.env
         required: false
     environment:
-      NOX_AUTH_DB_PATH: /data/nox.db
+      # One database. Accounts and sessions moved in here on 2026-08-22 — see
+      # docs/RUNNING.md. There was a second, SQLite, at NOX_AUTH_DB_PATH.
       NOX_DATABASE_URL: postgresql://nox:nox@db:5432/nox
       # The GitHub App's private key is a file, not a variable: a PEM is
       # multi-line and env files turn that into one mangled line.
@@ -23,7 +24,6 @@ services:
       db:
         condition: service_healthy
     volumes:
-      - nox-data:/data                 # accounts
       - ./secrets:/run/nox:ro          # the GitHub App key, if there is one
     expose:
       - "8200"
@@ -68,5 +68,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  nox-data:
   nox-db-data:

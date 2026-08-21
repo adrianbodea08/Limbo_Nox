@@ -73,25 +73,6 @@ def _scope(conn, request: Request, filter: dict | None) -> dict | None:
     return {"all": [filter, clause]} if filter else {"all": [clause]}
 
 
-def _sync_user(conn, user: dict) -> None:
-    """Keep the Postgres projection of this person up to date.
-
-    Accounts live in SQLite, so there is no foreign key to lean on. Mirroring
-    the handful of columns we filter, sort and group by keeps those in SQL
-    instead of an in-memory join after every query. Refreshed on the way past.
-    """
-    values = {
-        "display_name": user.get("nickname") or user.get("username") or "",
-        "avatar": user.get("avatar") or "",
-        "active": True,
-    }
-    updated = conn.execute(
-        users.update().where(users.c.id == user["id"]).values(**values)
-    ).rowcount
-    if not updated:
-        conn.execute(users.insert().values(id=user["id"], **values))
-
-
 # ------------------------------------------------------------------- schema --
 
 @router.get("/status")
@@ -111,7 +92,6 @@ async def setup(request: Request) -> dict:
         raise HTTPException(403, "Only an admin can set the tracker up.")
     with _engine().begin() as conn:
         result = seed.run(conn)
-        _sync_user(conn, user)
     return {"ok": True, **result}
 
 
@@ -246,7 +226,6 @@ async def get_issue(ident: str, request: Request) -> dict:
 async def create_issue(body: IssueCreate, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         status_id = body.status_id or _first_status(conn, body.project_id, body.issue_type_id)
         try:
             created = repo.create_issue(
@@ -269,7 +248,6 @@ async def update_issue(issue_id: int, body: IssueUpdate, request: Request) -> di
     actor = _actor(request)
     changes = body.model_dump(exclude_unset=True, exclude={"custom"})
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             repo.update_issue(conn, actor, issue_id, changes, custom=body.custom)
         except TrackerError as exc:
@@ -287,7 +265,6 @@ async def archive_issue(issue_id: int, request: Request) -> dict:
     """
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             repo.update_issue(conn, actor, issue_id, {"archived_at": "now"})
         except TrackerError as exc:
@@ -753,7 +730,6 @@ async def reorder_board(body: BoardOrder, request: Request) -> dict:
     """
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             work.reorder_board_band(
                 conn, actor, project_id=body.project_id, status_ids=body.status_ids,
@@ -773,7 +749,6 @@ async def transition(issue_id: int, body: Transition, request: Request) -> dict:
     """
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         issue = query.get_issue(conn, issue_id)
         if issue is None:
             raise HTTPException(404, f"No issue {issue_id}")
@@ -806,7 +781,6 @@ async def list_transitions(issue_id: int, request: Request) -> list[dict]:
 async def comment(issue_id: int, body: CommentIn, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             return repo.add_comment(conn, actor, issue_id, body.body)
         except TrackerError as exc:
@@ -868,7 +842,6 @@ async def list_releases(request: Request, state: str | None = None) -> list[dict
 async def create_release(body: ReleaseIn, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             return rel.create(conn, actor, **body.model_dump(exclude_none=True))
         except TrackerError as exc:
@@ -899,7 +872,6 @@ async def get_release(release_id: int, request: Request) -> dict:
 async def patch_release(release_id: int, body: ReleasePatch, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             rel.update_release(conn, actor, release_id, body.model_dump(exclude_unset=True))
         except TrackerError as exc:
@@ -917,7 +889,6 @@ async def add_release_issues(release_id: int, body: ReleaseIssues, request: Requ
     actor = _actor(request)
     ids = list(body.issue_ids)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         if body.filter:
             try:
                 found = query.list_issues(conn, filter=body.filter, limit=500)
@@ -935,7 +906,6 @@ async def add_release_issues(release_id: int, body: ReleaseIssues, request: Requ
 async def drop_release_issue(release_id: int, issue_id: int, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         rel.remove_issue(conn, actor, release_id, issue_id)
         return rel.detail(conn, release_id)
 
@@ -944,7 +914,6 @@ async def drop_release_issue(release_id: int, issue_id: int, request: Request) -
 async def add_artifact(release_id: int, body: ArtifactIn, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             rel.add_artifact(conn, actor, release_id, body.component_id,
                              body.version, body.planned_at)
@@ -959,7 +928,6 @@ async def ship_artifact(artifact_id: int, request: Request, shipped: bool = True
     shipped when the things in it are, not on a date somebody typed."""
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             artifact = rel.ship_artifact(conn, actor, artifact_id, shipped)
         except TrackerError as exc:
@@ -971,7 +939,6 @@ async def ship_artifact(artifact_id: int, request: Request, shipped: bool = True
 async def add_action(release_id: int, body: ActionIn, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             rel.add_action(conn, actor, release_id, body.title, body.description, body.owner_id)
         except TrackerError as exc:
@@ -983,7 +950,6 @@ async def add_action(release_id: int, body: ActionIn, request: Request) -> dict:
 async def complete_action(action_id: int, request: Request, done: bool = True) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             action = rel.complete_action(conn, actor, action_id, done)
         except TrackerError as exc:
@@ -995,7 +961,6 @@ async def complete_action(action_id: int, request: Request, done: bool = True) -
 async def drop_action(action_id: int, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         release_id = conn.execute(
             select(release_actions.c.release_id).where(release_actions.c.id == action_id)
         ).scalar()
@@ -1158,7 +1123,6 @@ async def list_rules(request: Request) -> list[dict]:
 async def create_rule(body: RuleIn, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         new_id = conn.execute(automation_rules.insert().values(
             **body.model_dump(), created_by=actor.id,
         ).returning(automation_rules.c.id)).scalar_one()
@@ -1275,7 +1239,6 @@ async def give_me_work(request: Request, team: str = "ROCKET") -> dict:
     """
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             result = mock.give_to(conn, actor.id, team_key=team)
         except ValueError as exc:
@@ -1306,7 +1269,6 @@ async def add_link(issue_id: int, body: LinkIn, request: Request) -> dict:
     """Link this issue to another, by key — which is what people have to hand."""
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         target = conn.execute(
             select(issues.c.id).where(issues.c.key == body.target_key.strip().upper())).scalar()
         if target is None:
@@ -1322,7 +1284,6 @@ async def add_link(issue_id: int, body: LinkIn, request: Request) -> dict:
 async def drop_link(issue_id: int, link_id: int, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         links.remove(conn, actor, link_id)
         return query.get_issue(conn, issue_id)
 
@@ -1331,7 +1292,6 @@ async def drop_link(issue_id: int, link_id: int, request: Request) -> dict:
 async def set_parent(issue_id: int, body: ParentIn, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         parent_id = None
         if body.parent_key:
             parent_id = conn.execute(
@@ -1465,7 +1425,6 @@ async def plan(request: Request, project_id: int | None = None) -> dict:
 async def assign(issue_id: int, body: AssignIn, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         row = conn.execute(
             select(issues.c.team_id).where(issues.c.id == issue_id)).mappings().first()
         if row is None:
@@ -1487,7 +1446,6 @@ async def set_urgent(issue_id: int, body: UrgentIn, request: Request) -> dict:
     """Mark it urgent — which means stop, not "very important"."""
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         row = conn.execute(
             select(issues.c.team_id).where(issues.c.id == issue_id)).mappings().first()
         if row is None:
@@ -1530,7 +1488,6 @@ async def pause_issue(issue_id: int, body: PauseIn, request: Request) -> dict:
     """
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         try:
             work.pause(conn, actor, issue_id, for_issue_id=body.for_issue_id,
                        reason=body.reason)
@@ -1546,7 +1503,6 @@ async def pause_issue(issue_id: int, body: PauseIn, request: Request) -> dict:
 async def resume_issue(issue_id: int, request: Request) -> dict:
     actor = _actor(request)
     with _engine().begin() as conn:
-        _sync_user(conn, request.state.user)
         work.resume(conn, actor, issue_id)
         return work.my_work(conn, _holder(conn, issue_id, actor.id))
 

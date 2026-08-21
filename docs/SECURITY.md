@@ -80,6 +80,7 @@ Worth writing down, so the next review does not start from zero.
 | **SQL** | SQLAlchemy Core throughout. The handful of `text(f"…")` are intervals built from `int()`-cast numbers, not from anything a caller supplies. |
 | **XSS** | No `dangerouslySetInnerHTML` anywhere. `Markdown.tsx` renders to React elements, so text somebody else wrote never becomes markup — see [EDITOR.md](EDITOR.md) §2. |
 | **Secrets** | Nothing committed. `/secrets/*` is ignored, and the GitHub App key is mounted as a file rather than passed as an environment variable. |
+| **Referential integrity** | Twenty-seven foreign keys to `users`, added when accounts moved into Postgres. There were **zero** before, because the two halves of a person lived in different engines — deleting an account silently orphaned everything it owned. The database now refuses. |
 | **Mass assignment** | A view's `owner_id` comes from the session, never the body — checked by posting somebody else's id and getting our own back. |
 
 ---
@@ -99,6 +100,5 @@ oversight.
   push notifications impossible — see [ASKS.md](ASKS.md) §5.
 - **No audit of admin actions.** The tracker's own event log is thorough;
   changing somebody's role or approving an account is not in it.
-- **No backups.** Everything is two Docker volumes on one machine. This is the
-  most likely way to lose everything and it is not a security problem, which is
-  exactly why it keeps not getting done.
+- **Backups are not scheduled.** The flow exists and has been restored end to
+  end; nothing runs it on a timer yet.

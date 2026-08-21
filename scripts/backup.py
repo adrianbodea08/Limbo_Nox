@@ -5,29 +5,15 @@
     python scripts/backup.py --out /somewhere
     python scripts/backup.py --keep 10       -> and prune older ones
 
-Two stores, and both have to come along:
+One database, one dump. It used to be two — accounts lived in a separate SQLite
+file — and this script carried a long note about WAL mode, about never copying
+that file, and about which of the two had to be captured first so that a race
+between them healed itself rather than orphaning somebody.
 
-    tracker.dump    Postgres — issues, events, releases, git refs. The work.
-    accounts.db     SQLite   — who everybody is. 45 KB, and the only copy.
-
-The small one is the frightening one. It is small enough to look unimportant
-and losing it means nobody can sign in to the work that survived.
-
-**Never `cp` the SQLite file.** It runs in WAL mode, and at the time of writing
-the write-ahead log was *larger than the database* — 53 KB against 45 KB. A file
-copy takes the main database and leaves the recent half of the transactions
-behind, producing a backup that restores cleanly, looks fine, and is silently
-weeks out of date. `sqlite3.Connection.backup()` is the online-backup API: it
-walks pages under a read lock and cooperates with the running app, so the result
-is a real point-in-time copy of a database that is still being written to.
-
-**Postgres first, then accounts, and the order is load-bearing.** There is no
-transaction spanning two databases, so a few seconds separate the two snapshots.
-Taking Postgres first means an account created in that window ends up in the
-accounts file with no tracker row — and `api.py:_project_user` writes that row
-on the way past, so it heals itself the first time that person clicks anything.
-The other order leaves a tracker person with no account behind them, which
-nothing repairs.
+All of that went away on 2026-08-22 when the accounts moved into Postgres. The
+note is worth remembering as the reason the split was worth ending: a backup of
+two stores is not a backup of one system, because nothing makes the two
+snapshots agree.
 """
 
 from __future__ import annotations
@@ -50,7 +36,6 @@ DB_SERVICE = "db"
 API_SERVICE = "api"
 PG_USER = "nox"
 PG_DB = "nox"
-ACCOUNTS_PATH = "/data/nox.db"
 
 
 def run(args: list[str], **kw) -> subprocess.CompletedProcess:
@@ -71,24 +56,6 @@ def dump_tracker(into: Path) -> None:
         raise SystemExit("the tracker dump came out empty — refusing to write a backup")
 
 
-def dump_accounts(into: Path) -> None:
-    """Through SQLite's own backup API, for the reason in the module docstring."""
-    inside = "/tmp/nox-accounts-backup.db"
-    script = (
-        "import sqlite3;"
-        f"src = sqlite3.connect('{ACCOUNTS_PATH}');"
-        f"dst = sqlite3.connect('{inside}');"
-        "src.backup(dst);"
-        "dst.close(); src.close()"
-    )
-    compose("exec", "-T", API_SERVICE, "python", "-c", script)
-    compose("cp", f"{API_SERVICE}:{inside}", str(into))
-    # Not left lying around inside the container, where the next backup would
-    # copy a stale one if the snapshot step ever failed silently.
-    compose("exec", "-T", API_SERVICE, "rm", "-f", inside)
-    if into.stat().st_size == 0:
-        raise SystemExit("the accounts snapshot came out empty — refusing to write a backup")
-
 
 def counts() -> dict:
     """A few numbers, so a restore can be checked against what was taken rather
@@ -98,19 +65,11 @@ def counts() -> dict:
         out = compose(
             "exec", "-T", DB_SERVICE, "psql", "-U", PG_USER, "-d", PG_DB, "-tAc",
             "SELECT (SELECT count(*) FROM issues) || ',' || (SELECT count(*) FROM events)"
-            " || ',' || (SELECT count(*) FROM users)",
+            " || ',' || (SELECT count(*) FROM users) || ','"
+            " || (SELECT count(*) FROM users WHERE username IS NOT NULL)",
             capture_output=True, text=True).stdout.strip()
-        issues, events, people = (int(x) for x in out.split(","))
-        got.update(issues=issues, events=events, tracker_people=people)
-    except Exception:
-        pass
-    try:
-        out = compose(
-            "exec", "-T", API_SERVICE, "python", "-c",
-            f"import sqlite3;print(sqlite3.connect('{ACCOUNTS_PATH}')"
-            ".execute('SELECT count(*) FROM users').fetchone()[0])",
-            capture_output=True, text=True).stdout.strip()
-        got["accounts"] = int(out)
+        issues, events, people, accounts = (int(x) for x in out.split(","))
+        got.update(issues=issues, events=events, people=people, accounts=accounts)
     except Exception:
         pass
     return got
@@ -137,24 +96,22 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        print("  tracker  (postgres) …", flush=True)
-        dump_tracker(work / "tracker.dump")
-        print("  accounts (sqlite)   …", flush=True)
-        dump_accounts(work / "accounts.db")
+        print("  dumping …", flush=True)
+        dump_tracker(work / "nox.dump")
 
         manifest = {
             "taken_at": datetime.now(timezone.utc).isoformat(),
             "counts": counts(),
-            "note": "Postgres was captured first; see scripts/backup.py for why.",
+            "note": "One database since 2026-08-22 — accounts are in Postgres too.",
         }
         (work / "manifest.json").write_text(json.dumps(manifest, indent=2))
 
         with tarfile.open(archive, "w:gz") as tar:
-            for name in ("tracker.dump", "accounts.db", "manifest.json"):
+            for name in ("nox.dump", "manifest.json"):
                 tar.add(work / name, arcname=name)
 
     inside = verify(archive)
-    if set(inside) != {"tracker.dump", "accounts.db", "manifest.json"}:
+    if set(inside) != {"nox.dump", "manifest.json"}:
         raise SystemExit(f"the archive is missing something: {inside}")
 
     size = archive.stat().st_size

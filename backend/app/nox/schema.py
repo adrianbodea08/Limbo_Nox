@@ -12,7 +12,8 @@ comments say which.
 from __future__ import annotations
 
 from sqlalchemy import (
-    BigInteger, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index,
+    BigInteger, Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey,
+    Index,
     Integer, MetaData, Numeric, String, Table, Text, UniqueConstraint, func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -43,6 +44,46 @@ users = Table(
     Column("avatar", Text, nullable=False, server_default=""),
     Column("active", Boolean, nullable=False, server_default="true"),
     _ts("synced_at", nullable=False, server_default=func.now()),
+
+    # --- the account ------------------------------------------------------
+    # These lived in a separate SQLite database until 2026-08-22, and this
+    # table was a copy of them kept in sync on every request. The reason for
+    # the split — an instance that had accounts but no tracker database — went
+    # away when Nox stopped being one feature inside another product.
+    #
+    # Nullable on purpose: a row here is *a person*, and an account is
+    # something a person may have. It also means this migration adds columns to
+    # eighteen existing rows without needing a value for each one first.
+    Column("username", Text, unique=True),
+    Column("email", Text, unique=True),
+    Column("password_hash", Text),
+    # Argon2 embeds its own salt. The column's presence is what marks a row as
+    # the older scheme, so it comes across rather than being tidied away.
+    Column("salt", Text, nullable=False, server_default=""),
+    Column("role", String(16), nullable=False, server_default="member"),
+    Column("status", String(16), nullable=False, server_default="pending"),
+    Column("nickname", Text, nullable=False, server_default=""),
+    Column("tags", Text, nullable=False, server_default=""),
+    Column("code", Text),
+    Column("myboard_enabled", Boolean, nullable=False, server_default="true"),
+    Column("releases_enabled", Boolean, nullable=False, server_default="true"),
+    Column("jira_account_id", Text),
+    Column("bug_rate", Float),
+    _ts("created_at", nullable=False, server_default=func.now()),
+)
+
+
+# ------------------------------------------------------------------- sessions
+# A signed-in browser. Here rather than in SQLite for the same reason as the
+# accounts above, and with a real foreign key: a session belonging to nobody is
+# a bug, and now the database will not hold one.
+sessions = Table(
+    "sessions", metadata,
+    Column("token", Text, primary_key=True),
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    _ts("expires_at", nullable=False),
+    _ts("created_at", nullable=False, server_default=func.now()),
+    Index("ix_sessions_user", "user_id"),
 )
 
 # --------------------------------------------------------------------- teams

@@ -118,6 +118,16 @@ nobody to approve the second.
 Nobody is ever handed a password. An admin decides *whether* somebody may in,
 not *what their password is*.
 
+Accounts and sessions live in Postgres, in `users` and `sessions`, beside
+everything they refer to. Until 2026-08-22 they were a separate SQLite database
+and `users` was a copy kept in sync on every request — a leftover from when Nox
+was one feature inside another product and an instance could have accounts with
+no tracker at all. The cost of the split was not tidiness: **twenty-six columns
+hold a user id and not one could declare a foreign key**, because you cannot
+declare one across two engines, so deleting an account silently left its issues,
+comments and events pointing at nobody. There are twenty-seven foreign keys now
+and the database refuses.
+
 ### What a person can see
 
 Two things decide it, and admins skip both:
@@ -172,48 +182,35 @@ The flow exists; nothing is scheduled. Running it is a decision for whenever
 this stops being a toy.
 
 ```
-python scripts/backup.py                 -> ./backups/nox-<utc>.tar.gz
-python scripts/backup.py --keep 10       -> and prune older ones
-python scripts/restore.py <archive>      -> report only, changes nothing
+python scripts/backup.py                   -> ./backups/nox-<utc>.tar.gz
+python scripts/backup.py --keep 10         -> and prune older ones
+python scripts/restore.py <archive>        -> report only, changes nothing
 python scripts/restore.py <archive> --yes  -> replace everything
 ```
 
-Two stores go in, because Nox has two:
+**One database, one dump.** It used to be two: accounts and sessions lived in a
+separate SQLite file, and the script carried a long note about WAL mode, about
+never copying that file, and about which store had to be captured first so a
+race between them healed itself rather than orphaning somebody.
 
-| | |
-|---|---|
-| `tracker.dump` | Postgres — issues, events, releases, git refs. The work. |
-| `accounts.db` | SQLite — who everybody is. 45 KB, and the only copy. |
-
-The small one is the frightening one: small enough to look unimportant, and
-losing it means nobody can sign in to whatever survived.
-
-**The SQLite file is never copied.** It runs in WAL mode, and when this was
-written the write-ahead log was *larger than the database* — 53 KB against 45
-KB. A file copy takes the main database, leaves the recent half of the
-transactions behind, and produces a backup that restores cleanly, looks fine and
-is silently out of date. `sqlite3.Connection.backup()` is the online-backup API
-and cooperates with the running app.
-
-**Postgres is captured first, and the order is load-bearing.** No transaction
-spans two databases, so seconds separate the snapshots. This way round, an
-account created in that window lands in the accounts file with no tracker row —
-and `_project_user` writes that row on the way past, so it repairs itself the
-first time that person clicks something. The other order leaves a tracker person
-with no account, which nothing fixes.
+All of that went away when the accounts moved into Postgres. It is worth
+remembering as the reason the split was worth ending: **a backup of two stores
+is not a backup of one system**, because nothing makes the two snapshots agree.
 
 ### It has been restored
 
 Not just written. A backup nobody has restored is a hope, and the first restore
-found a real bug: `docker compose cp` writes as root, the app runs as its own
-user, and SQLite opens a file it cannot write as *readonly* rather than failing
-— so the container came back up and crash-looped on "attempt to write a readonly
-database". The script fixes ownership now.
+found a real bug — `docker compose cp` writes as root, the app ran as its own
+user, and SQLite opened a file it could not write as *readonly* rather than
+failing, so the container came back up crash-looping on "attempt to write a
+readonly database". That whole class of problem is gone with the file.
 
-The test that proves it works, in case it is worth repeating: take a backup,
-make a visible change the backup does not contain, restore, and check the change
-is gone. A restore that silently does nothing looks exactly like one that
-worked.
+The test worth repeating: take a backup, make a visible change the backup does
+not contain, restore, and check the change is gone. A restore that silently does
+nothing looks exactly like one that worked.
+
+A restore now also brings the sessions back, so whoever ran it is still signed
+in afterwards. That was not true when they lived in a different file.
 
 ## Migrations
 

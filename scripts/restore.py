@@ -3,19 +3,21 @@
 
     python scripts/restore.py backups/nox-20260822T101500Z.tar.gz --yes
 
-**This replaces everything.** Both stores are wiped and rebuilt from the
-archive: every issue, every event, every account, every session. There is no
-merge and there is no undo, which is why `--yes` is required and why the script
-prints what it is about to overwrite before it does it.
+**This replaces everything.** Every issue, every event, every account, every
+session, rebuilt from the archive. There is no merge and no undo, which is why
+`--yes` is required and why the manifest is printed before anything happens.
 
-Without `--yes` it stops after reading the manifest, which is also how you check
+Without `--yes` it stops after reading the manifest, which is also how to see
 what is in an archive without unpacking it by hand.
 
-**The api is stopped while this runs.** The accounts file is SQLite and the
-application holds it open; writing over a database somebody else has a
-connection to is how you get a file that is neither the old one nor the new one.
-Postgres does not need it, but stopping the api also means nothing is writing
-tracker rows while `pg_restore` drops the tables under it.
+**The api is stopped while this runs**, so nothing is writing rows while
+`pg_restore` drops the tables under it.
+
+One store since 2026-08-22. The version of this that handled two also had to
+chown a file afterwards, because `docker compose cp` writes as root and SQLite
+opens a file it cannot write as *readonly* rather than failing — which came back
+as a container crash-looping on "attempt to write a readonly database". Found by
+restoring, which remains the only way that kind of thing is ever found.
 """
 
 from __future__ import annotations
@@ -34,7 +36,6 @@ DB_SERVICE = "db"
 API_SERVICE = "api"
 PG_USER = "nox"
 PG_DB = "nox"
-ACCOUNTS_PATH = "/data/nox.db"
 
 
 def compose(*args: str, **kw) -> subprocess.CompletedProcess:
@@ -77,34 +78,26 @@ def main() -> int:
             with tarfile.open(archive, "r:gz") as tar:
                 tar.extractall(work)
 
-            print("  tracker  (postgres) …", flush=True)
+            # An archive taken before the accounts moved has a different shape.
+            # Saying so is kinder than a confusing failure three steps later.
+            dump = work / "nox.dump"
+            if not dump.exists():
+                if (work / "tracker.dump").exists():
+                    raise SystemExit(
+                        "that archive predates the accounts moving into Postgres "
+                        "(it has tracker.dump and accounts.db). Restoring it needs "
+                        "the code from before 2026-08-22.")
+                raise SystemExit("that archive has no dump in it")
+
+            print("  restoring …", flush=True)
             # --clean --if-exists so a restore over a populated database
             # replaces it rather than colliding with every primary key.
-            with open(work / "tracker.dump", "rb") as src:
+            with open(dump, "rb") as src:
                 subprocess.run(
                     ["docker", "compose", "exec", "-T", DB_SERVICE,
                      "pg_restore", "--clean", "--if-exists", "--no-owner",
                      "-U", PG_USER, "-d", PG_DB],
                     cwd=ROOT, stdin=src, check=True)
-
-            print("  accounts (sqlite)   …", flush=True)
-            # Straight over the top, which is safe *because the api is stopped*.
-            compose("cp", str(work / "accounts.db"), f"{API_SERVICE}:{ACCOUNTS_PATH}")
-
-            # `docker compose cp` writes as root; the app runs as its own user
-            # and SQLite opens a file it cannot write as *readonly* rather than
-            # failing — so the container came back up and crash-looped on
-            # "attempt to write a readonly database". Found by restoring, which
-            # is the only way this kind of thing is ever found.
-            #
-            # The WAL and shared-memory files belong to the database that was
-            # just replaced. Left behind, SQLite tries to replay a log against a
-            # file it does not match.
-            compose("run", "--rm", "-T", "--user", "root", "--entrypoint", "sh",
-                    API_SERVICE, "-c",
-                    f"rm -f {ACCOUNTS_PATH}-wal {ACCOUNTS_PATH}-shm && "
-                    f"chown --reference=/data {ACCOUNTS_PATH} && "
-                    f"chmod 644 {ACCOUNTS_PATH}")
     finally:
         print("  starting the api …", flush=True)
         compose("start", API_SERVICE)
