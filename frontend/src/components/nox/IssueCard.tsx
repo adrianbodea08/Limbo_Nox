@@ -68,6 +68,10 @@ export function IssueCard({
   //   Write — what you have written, saved or not.
   // A new issue has nothing to read, so it starts on Write.
   const [writing, setWriting] = useState(mode === "create");
+  // Whether somebody *asked* to write, as opposed to landing on Write because
+  // a draft was waiting for them. Only the asking puts the caret in the box:
+  // opening an issue should not start typing in it.
+  const [askedToWrite, setAskedToWrite] = useState(false);
   // Whose drafts these are. Kept out of the render so a draft cannot be written
   // under the wrong person if `meta` arrives late.
   const me = meta.me ?? 0;
@@ -133,6 +137,11 @@ export function IssueCard({
     );
     return () => window.clearTimeout(t);
   }, [description, full, me, mode]);
+
+  function toWrite() {
+    setWriting(true);
+    setAskedToWrite(true);
+  }
 
   async function refresh() {
     if (!issue) return;
@@ -244,7 +253,7 @@ export function IssueCard({
               <div className="tk-two-bar" role="tablist" aria-label="Description">
                 <button type="button" role="tab" aria-selected={writing}
                         className={`tkc-mode tk-layer${writing ? " on" : ""}`}
-                        onClick={() => setWriting(true)}>
+                        onClick={toWrite}>
                   Write
                   {/* Marks that the two differ, so an unsaved draft is never a
                       surprise you find later. */}
@@ -252,12 +261,15 @@ export function IssueCard({
                 </button>
                 <button type="button" role="tab" aria-selected={!writing}
                         className={`tkc-mode tk-layer${!writing ? " on" : ""}`}
-                        onClick={() => setWriting(false)}>
+                        onClick={() => { setWriting(false); setAskedToWrite(false); }}>
                   Read
                 </button>
                 {hasDraft && (
                   <span className="tk-two-note">
-                    Unsaved · kept on this computer
+                    {/* The words shrink; the button does not. They used to be
+                        one truncating box, which at a narrow width clipped
+                        Discard off the end and left no way to drop a draft. */}
+                    <span className="tk-two-words">Unsaved · kept on this computer</span>
                     <button type="button" className="tk-link tk-layer"
                             onClick={() => {
                               if (!full) return;
@@ -275,10 +287,31 @@ export function IssueCard({
                   value={description}
                   onChange={setDescription}
                   people={users}
+                  autoFocus={askedToWrite}
                   placeholder="Describe the work, acceptance criteria, links…"
                 />
               ) : (
-                <div className="tk-two-read">
+                // Clicking the text starts writing, the way a document does.
+                // A `div` with a role rather than a `button`, because there are
+                // links and issue keys inside it and nesting those in a button
+                // is both invalid and unusable from a keyboard.
+                <div
+                  className="tk-two-read"
+                  role="button"
+                  tabIndex={0}
+                  title="Click to write"
+                  onClick={(e) => {
+                    // A link inside the text is a link, not a way in.
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    toWrite();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toWrite();
+                    }
+                  }}
+                >
                   {(full?.description ?? "").trim()
                     ? <Markdown text={full?.description ?? ""} people={users} />
                     : <p className="tk-dim">Nothing saved here yet.</p>}

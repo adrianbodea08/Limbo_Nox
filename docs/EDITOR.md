@@ -69,6 +69,21 @@ tomorrow — Write still has it, and the issue opens on Write because that is th
 whole point of having kept it. Read never moves until you save. Once you save,
 the two agree and there is nothing left to keep.
 
+**Clicking the text starts writing**, the way a document does. Three details
+make that help rather than annoy:
+
+- A link inside the text is a link. The handler bails when the click landed on
+  an `<a>`, so an issue key or a runbook URL opens instead of switching modes.
+- The caret lands in the box, but the page does not move. Tiptap's own
+  `autofocus` scrolls the caret into view, which on a long description means
+  clicking the first paragraph and being thrown to the last one.
+- Only *asking* to write takes the caret. An issue that opens on Write because
+  a draft was waiting leaves focus alone — you arrived to read it, not to type.
+
+The read side is a `div` with `role="button"`, not a `button`: there are links
+and issue keys inside it, and nesting those in a button is both invalid and
+unusable from a keyboard.
+
 Nobody else sees it. Not in their Read, not in their Write, not on the board
 card, not in search.
 

@@ -357,7 +357,9 @@ export function RichText({
     extensions,
     content: value,
     contentType: "markdown",
-    autofocus: autoFocus ? "end" : false,
+    // Focused by the effect below rather than here, so it can land the caret
+    // without dragging the panel to the bottom of a long description.
+    autofocus: false,
     editorProps: {
       attributes: {
         class: "tk-rt-body tk-md",
@@ -381,6 +383,14 @@ export function RichText({
     ours.current = value;
     editor.commands.setContent(value, { contentType: "markdown", emitUpdate: false });
   }, [value, editor]);
+
+  // Somebody asked to write, so put the caret in the box — but leave the page
+  // where it is. Tiptap's own `autofocus` scrolls the caret into view, which on
+  // a long description means clicking the first paragraph and being thrown to
+  // the last one.
+  useEffect(() => {
+    if (autoFocus && editor) editor.commands.focus("end", { scrollIntoView: false });
+  }, [autoFocus, editor]);
 
   const close = useCallback(() => setPopup(null), []);
   useEffect(() => {

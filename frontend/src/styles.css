@@ -5449,7 +5449,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-two-bar {
   display: flex;
   align-items: center;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 2px 6px;
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
 }
@@ -5491,9 +5492,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 8px;
   margin-left: auto;
   padding-right: 2px;
+  min-width: 0;
   color: var(--text-dim);
   font-size: var(--m3-font-label-medium);
-  /* On a narrow panel the tabs matter more than the sentence. */
+}
+/* The sentence gives way first. Discard is the only way to drop a draft, so it
+   is the last thing that may be squeezed — and it never is. */
+.tk-two-note .tk-link { flex: 0 0 auto; }
+.tk-two-words {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5503,4 +5509,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   --tk-md-bleed: 16px;
   padding: 14px 16px;
   min-height: 168px;
+  /* It is text you can write in, so it says so before you click. */
+  cursor: text;
 }
+.tk-two-read:hover { background: color-mix(in srgb, var(--text) 3%, transparent); }
+/* A link inside keeps its own cursor: clicking it opens the link rather than
+   starting to write, and the pointer has to agree with that. */
+.tk-two-read a { cursor: pointer; }
