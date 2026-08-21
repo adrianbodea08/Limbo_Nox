@@ -93,7 +93,7 @@ export function TrackerRail({
       <div className="tk-rail-group">
         <button
           type="button"
-          className={`tk-nav-item${inProjects ? " on" : ""}`}
+          className={`tk-nav-item tk-layer${inProjects ? " on" : ""}`}
           aria-current={inProjects || undefined}
           onClick={() => nav("/")}
         >
@@ -156,7 +156,7 @@ export function TrackerRail({
           <button
             key={d.id}
             type="button"
-            className={`tk-nav-item${on ? " on" : ""}`}
+            className={`tk-nav-item tk-layer${on ? " on" : ""}`}
             aria-current={on || undefined}
             onClick={() => nav(d.to)}
           >

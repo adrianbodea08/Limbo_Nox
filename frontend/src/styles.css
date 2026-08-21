@@ -1051,9 +1051,13 @@ body {
 .tk-nav-item svg { flex: 0 0 auto; }
 .tk-nav-label { flex: 1; min-width: 0; }
 .tk-nav-item:hover { color: var(--text); }
-.tk-nav-item:hover::before { background: var(--m3-state-hover); }
 .tk-nav-item.on { color: var(--accent); font-weight: 600; }
 .tk-nav-item.on::before { background: var(--accent-soft); }
+/* The state layer rides on the indicator's box, not the row's. Left at inset 0
+   it painted a full-height pill on hover while the selected one was inset four
+   pixels — two different shapes for the same control, which is what made a
+   hovered row look badly aligned next to a selected one. */
+.tk-nav-item.tk-layer::after { inset: 4px 0; }
 
 /* Projects is a room and a disclosure. The row navigates, the twist opens —
    two jobs that would fight if one control did both, because "show me the
@@ -1113,6 +1117,8 @@ body {
 }
 .tk-rail-line .tk-rail-on { background: transparent; }
 .tk-rail-line .tk-rail-on::before { background: var(--accent-soft); }
+/* Same correction as the rooms: hover and selection are one pill. */
+.tk-rail-line .tk-rail-item.tk-layer::after { inset: 4px 0; }
 .tk-rail-cog {
   display: inline-flex;
   align-items: center;
@@ -1327,7 +1333,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-m);
   box-shadow: var(--m3-elev-1);
-  padding: 12px;
+  /* No padding at the top: the key row sits in the same band as the type
+     corner, which is pinned to the card's actual corner. With a 12px inset the
+     key floated eleven pixels below the mark it belongs to. */
+  padding: 0 12px 12px;
   cursor: pointer;
   /* Every card the same height, so a column scans as a grid rather than a
      ragged stack and the eye can count without measuring. The height is the
@@ -1397,6 +1406,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 8px;
   flex: 0 0 auto;
   min-width: 0;
+  /* Exactly the corner band's height, so the two share a centre line. */
+  min-height: 24px;
   margin-left: 22px;
 }
 /* Only the parent pill gives up width on this row. The type, the key and the
