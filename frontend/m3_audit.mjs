@@ -184,3 +184,8 @@ for (const [key, list] of Object.entries(findings)) {
   if (seen.length > 40) console.log(`  … and ${seen.length - 40} more`);
 }
 console.log(`\nTOTAL: ${total}`);
+
+// Non-zero, so this is a gate rather than a report. The design system here is
+// described as machine-enforced; until now the machine printed the number and a
+// person had to notice it, which is the same as not enforcing it.
+process.exit(total ? 1 : 0);
