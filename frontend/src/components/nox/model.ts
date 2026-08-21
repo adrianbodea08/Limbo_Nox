@@ -154,6 +154,8 @@ export interface TrackerIssue {
   blocked_by?: number;
   /** Open asks on this issue, blocking or not. */
   open_asks?: number;
+  /** Present on rows and on the issue alike. */
+  labels?: Label[];
   /** Present on board and table rows; the full list is on the issue itself. */
   git_summary?: GitSummary | null;
   link_count?: number;
@@ -762,6 +764,20 @@ export interface NotificationPrefs {
   [kind: string]: { label: string; on: boolean };
 }
 
+/** The axis nothing else covers — "flaky", "needs-design", "good-first-issue".
+ *  Global, like statuses and fields: a label meaning something different per
+ *  project makes every cross-project filter a guess. */
+export interface Label {
+  id: number;
+  /** Folded on the way in, so "Needs Design" and "needs-design" are one. */
+  key: string;
+  name: string;
+  colour: string;
+  description?: string;
+  /** How many issues wear it. Only on the full list. */
+  count?: number;
+}
+
 export const trackerApi = {
   status: () => request<TrackerStatusInfo>("/api/nox/status"),
 
@@ -772,6 +788,21 @@ export const trackerApi = {
     ),
 
   meta: () => request<TrackerMeta>("/api/nox/meta"),
+
+  labels: () => request<Label[]>("/api/nox/labels"),
+
+  /** Makes the label if nobody has used the word yet. */
+  addLabel: (issueId: number, name: string) =>
+    request<Label[]>(`/api/nox/issues/${issueId}/labels`,
+      { method: "POST", body: JSON.stringify({ name }) }),
+
+  removeLabel: (issueId: number, labelId: number) =>
+    request<Label[]>(`/api/nox/issues/${issueId}/labels/${labelId}`,
+      { method: "DELETE" }),
+
+  patchLabel: (labelId: number, changes: Partial<Label> & { archived?: boolean }) =>
+    request<Label>(`/api/nox/labels/${labelId}`,
+      { method: "PATCH", body: JSON.stringify(changes) }),
 
   notifications: () =>
     request<{ unread: number; items: Notification[] }>("/api/nox/notifications"),

@@ -20,6 +20,7 @@ import { createPortal } from "react-dom";
 import { M3DatePicker } from "../M3DatePicker";
 import { M3Select } from "../M3Select";
 import { AsksOnIssue } from "./Asks";
+import { LabelEditor } from "./Labels";
 import { DevelopmentSummary } from "./Development";
 import { Person } from "./Face";
 import { IssueKey } from "./IssueKey";
@@ -252,6 +253,24 @@ export function IssueCard({
                   ))}
                 </div>
               )}
+
+              {/* The words this team invented for itself. Sits with the
+                  issue's own facts rather than in the sidebar of dropdowns:
+                  a label is something somebody typed, not something somebody
+                  configured. */}
+              <Field label="Labels">
+                <LabelEditor
+                  issueId={full.id}
+                  labels={full.labels ?? []}
+                  onChanged={(next) => {
+                    // Locally at once so the chips answer the click, and up to
+                    // the board so the card behind the dialog agrees.
+                    const next_issue = { ...full, labels: next };
+                    setFull(next_issue);
+                    onSaved(next_issue);
+                  }}
+                />
+              </Field>
 
               {/* Who is waiting on whom. Sits with the issue's facts and above
                   Links, because an open ask is the reason the thing is not

@@ -49,6 +49,9 @@ will not be picked up and Nox will still report that no App is registered.
 | [docs/DESIGN.md](docs/DESIGN.md) | The whole design, and why each decision was made |
 | [docs/GIT.md](docs/GIT.md) | The git integration, and the numbers that justified it |
 | [docs/RELEASES.md](docs/RELEASES.md) | Releases and the timeline |
+| [docs/ASKS.md](docs/ASKS.md) | Asks and notifications — why neither one is code review |
+| [docs/LABELS.md](docs/LABELS.md) | Labels, and why nobody creates one |
+| [docs/ANALYTICS.md](docs/ANALYTICS.md) | Insights, and the numbers behind each chart |
 | [docs/DESIGN_M3.md](docs/DESIGN_M3.md) | The Material 3 rules the interface follows |
 | [docs/RUNNING.md](docs/RUNNING.md) | Local development |
 

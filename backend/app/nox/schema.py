@@ -328,6 +328,40 @@ notification_prefs = Table(
 )
 
 
+# The axis nothing else covers.
+#
+# Type says what kind of work it is, status where it has got to, component which
+# part of the system, parent what it belongs to — and none of them can say
+# "flaky", "needs-design" or "good-first-issue". Those are the words a team
+# invents for itself, which is exactly why they are a free-form list rather than
+# another configured taxonomy.
+#
+# Global, like statuses and fields and for the same reason: a label that means
+# something different per project makes every cross-project filter a guess.
+labels = Table(
+    "labels", metadata,
+    Column("id", Integer, primary_key=True),
+    # Lower-cased and hyphenated on the way in, so "Needs Design", "needs
+    # design" and "needs-design" are one label rather than three.
+    Column("key", String(40), nullable=False, unique=True),
+    Column("name", Text, nullable=False),
+    Column("colour", String(9), nullable=False, server_default="#8b949e"),
+    Column("description", Text, nullable=False, server_default=""),
+    _ts("archived_at"),
+)
+
+issue_labels = Table(
+    "issue_labels", metadata,
+    Column("issue_id", BigInteger, ForeignKey("issues.id", ondelete="CASCADE"),
+           primary_key=True),
+    Column("label_id", Integer, ForeignKey("labels.id", ondelete="CASCADE"),
+           primary_key=True),
+    _ts("at", nullable=False, server_default=func.now()),
+)
+# "Everything tagged flaky", across every board.
+Index("ix_issue_labels_label", issue_labels.c.label_id)
+
+
 git_refs = Table(
     "git_refs", metadata,
     Column("id", Integer, primary_key=True),

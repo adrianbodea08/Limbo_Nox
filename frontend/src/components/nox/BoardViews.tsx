@@ -10,6 +10,7 @@ import { DropSlot, useBandReorder } from "./useBandReorder";
 import { Face as PersonFace } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { TypeGlyph } from "./TypeGlyph";
+import { LabelChips } from "./Labels";
 import {
   PRIORITY_COLOUR, ago, parentColour,
   type BoardColumn, type BoardData, type TrackerIssue, type TrackerStatus,
@@ -284,6 +285,10 @@ export function ColumnsBoard({
                     <Priority value={issue.priority} />
                   </div>
                   <p className="tk-card-sum">{issue.summary}</p>
+                  {/* Under the summary, above the description: the words a
+                      team invented for itself qualify what the thing is, so
+                      they read with the title rather than with the counts. */}
+                  <LabelChips labels={issue.labels ?? []} max={3} />
                   {preview(issue) && <p className="tk-card-desc">{preview(issue)}</p>}
                   <Badges issue={issue} />
                 </article>

@@ -22,7 +22,7 @@ import { M3Segmented } from "../M3Segmented";
 import {
   PRIORITY_COLOUR, trackerApi,
   type BoardColumn, type FilterNode, type BoardData, type TrackerIssue,
-  type TrackerMeta, type TrackerStatusInfo, type TrackerUser,
+  type TrackerMeta, type TrackerStatusInfo, type TrackerUser, type Label,
 } from "./model";
 
 interface Props {
@@ -57,6 +57,8 @@ export function TrackerPage({ shell }: Props) {
   const [tester, setTester] = useState<string[]>([]);
   const [priority, setPriority] = useState<string[]>([]);
   const [kinds, setKinds] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
   const [sortBy, setSortBy] = useState("updated_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [users, setUsers] = useState<TrackerUser[]>([]);
@@ -88,6 +90,15 @@ export function TrackerPage({ shell }: Props) {
   }
 
   // ------------------------------------------------------------- first load --
+
+
+  // The words this team has invented for itself, commonest first.
+
+  useEffect(() => {
+
+    trackerApi.labels().then(setLabels).catch(() => {});
+
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -140,13 +151,19 @@ export function TrackerPage({ shell }: Props) {
     if (kinds.length) {
       conditions.push({ field: "issue_type_id", op: "in", value: kinds.map(Number) });
     }
+    // Labels are many-per-issue, so this compiles to an EXISTS rather than a
+    // column comparison. Picking two means "wearing either", the same as every
+    // other multi-select on this bar.
+    if (tags.length) {
+      conditions.push({ field: "label_id", op: "in", value: tags.map(Number) });
+    }
     return conditions.length ? { all: conditions } : null;
-  }, [project, who, tester, priority, kinds]);
+  }, [project, who, tester, priority, kinds, tags]);
 
-  const filterCount = who.length + tester.length + priority.length + kinds.length;
+  const filterCount = who.length + tester.length + priority.length + kinds.length + tags.length;
 
   function clearFilters() {
-    setWho([]); setTester([]); setPriority([]); setKinds([]);
+    setWho([]); setTester([]); setPriority([]); setKinds([]); setTags([]);
   }
 
   const load = useCallback(async () => {
@@ -423,6 +440,22 @@ export function TrackerPage({ shell }: Props) {
                 }))}
                 onChange={setKinds}
               />
+              {/* Last on the bar, because it is the only axis that is not
+                  configured — it appears once somebody has invented a word,
+                  and a filter that is sometimes absent should not shuffle the
+                  four that are always there. */}
+              {!!labels.length && (
+                <M3MultiSelect
+                  values={tags}
+                  width={190}
+                  placeholder="Any label"
+                  noun="labels"
+                  options={labels.map((l) => ({
+                    value: String(l.id), label: l.name, colour: l.colour,
+                  }))}
+                  onChange={setTags}
+                />
+              )}
               {filterCount > 0 && (
                 <button
                   type="button"

@@ -20,8 +20,9 @@ from sqlalchemy import select, text
 
 from .. import db
 from . import (
-    admin, asks as asks_mod, automation, git, github_app, insights, links, mock,
-    notify, query, releases as rel, repo, seed, work,
+    admin, asks as asks_mod, automation, git, github_app, insights,
+    labels as labels_mod, links, mock, notify, query, releases as rel, repo,
+    seed, work,
 )
 from .admin import SettingsError
 from .links import LinkError
@@ -463,6 +464,52 @@ async def git_sync(request: Request, repo_name: str | None = None,
         raise HTTPException(400, str(exc))
     except git.NoCredentials as exc:
         raise HTTPException(503, str(exc))
+
+
+# -------------------------------------------------------------------- labels --
+
+@router.get("/labels")
+async def list_labels(request: Request) -> list[dict]:
+    """Every label, commonest first — the only ranking that means anything for
+    a list people type into."""
+    _actor(request)
+    with _engine().connect() as conn:
+        return labels_mod.all_labels(conn)
+
+
+@router.post("/issues/{issue_id}/labels")
+async def add_label(issue_id: int, request: Request, body: dict) -> list[dict]:
+    """Put a label on an issue, making it if nobody has used the word yet.
+
+    There is no "create a label" screen on purpose: an admin curating the list
+    before anybody may tag anything is how a tag system ends up with eleven
+    labels nobody uses and the actual words living in the summary.
+    """
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        try:
+            return labels_mod.add(conn, actor, issue_id, body.get("name", ""))
+        except labels_mod.LabelError as exc:
+            raise HTTPException(400, str(exc))
+
+
+@router.delete("/issues/{issue_id}/labels/{label_id}")
+async def drop_label(issue_id: int, label_id: int, request: Request) -> list[dict]:
+    actor = _actor(request)
+    with _engine().begin() as conn:
+        return labels_mod.remove(conn, actor, issue_id, label_id)
+
+
+@router.patch("/labels/{label_id}")
+async def patch_label(label_id: int, body: dict, request: Request) -> dict:
+    """Rename, recolour or archive. Global, like the statuses it sits beside —
+    the key never moves, because that is what "the same label" means."""
+    _admin(request)
+    with _engine().begin() as conn:
+        try:
+            return labels_mod.update(conn, label_id, body)
+        except labels_mod.LabelError as exc:
+            raise HTTPException(400, str(exc))
 
 
 # ------------------------------------------------------------- notifications --

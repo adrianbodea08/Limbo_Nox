@@ -26,8 +26,8 @@ from .repo import CUSTOM_PREFIX
 from .work import PRIORITY_ORDER
 from .schema import (
     board_column_statuses, board_columns, comments, field_defs, field_usage,
-    git_refs, issue_git, issue_links, issues, issue_types, projects,
-    project_workflows, release_issues, releases, statuses, users,
+    git_refs, issue_git, issue_labels, issue_links, issues, issue_types,
+    projects, project_workflows, release_issues, releases, statuses, users,
     workflow_statuses,
 )
 
@@ -112,6 +112,29 @@ def _clause(node: dict):
     field, op, value = node.get("field"), node.get("op", "eq"), node.get("value")
     if not field:
         raise QueryError("a condition needs a field")
+
+    # Labels are many-per-issue, so they are the one filterable thing that is
+    # not a column. An EXISTS rather than a join, because a join would multiply
+    # the row for an issue wearing three of them and every count on the page
+    # would quietly triple.
+    if field == "label_id":
+        wearing = (
+            select(issue_labels.c.issue_id)
+            .where(issue_labels.c.issue_id == issues.c.id))
+        match op:
+            case "in" | "eq":
+                wanted = value if isinstance(value, list) else [value]
+                return wearing.where(issue_labels.c.label_id.in_(wanted or [])).exists()
+            case "not_in" | "ne":
+                unwanted = value if isinstance(value, list) else [value]
+                return ~wearing.where(
+                    issue_labels.c.label_id.in_(unwanted or [])).exists()
+            case "is_empty":
+                return ~wearing.exists()
+            case "is_not_empty":
+                return wearing.exists()
+        raise QueryError(f"a label cannot be compared with {op}")
+
     col = _column(field)
     numeric = field.startswith(CUSTOM_PREFIX) and op in (">", ">=", "<", "<=")
     if numeric:
@@ -296,10 +319,14 @@ def _badges(conn: Connection, items: list[dict]) -> list[dict]:
     waiting = asks_mod.blocking_counts(conn, ids)
     open_asks = asks_mod.open_counts(conn, ids)
 
+    from . import labels as labels_mod
+    wearing = labels_mod.for_issues(conn, ids)
+
     for item in items:
         key = item["id"]
         item["blocked_by"] = blocked.get(key, 0) + waiting.get(key, 0)
         item["open_asks"] = open_asks.get(key, 0)
+        item["labels"] = wearing.get(key, [])
         item["link_count"] = linked.get(key, 0)
         item["child_count"] = children.get(key, 0)
         item["comment_count"] = talk.get(key, 0)
@@ -500,6 +527,10 @@ def get_issue(conn: Connection, ident: str | int) -> dict | None:
     # moving, which is not a remark.
     from . import asks as asks_module
     issue["asks"] = asks_module.for_issue(conn, issue["id"])
+
+    from . import labels as labels_module
+    issue["labels"] = labels_module.for_issues(
+        conn, [issue["id"]]).get(issue["id"], [])
 
     # Which releases carry this issue. Asked constantly ("is my fix in B-34?")
     # and cheap here, where the issue is already loaded.

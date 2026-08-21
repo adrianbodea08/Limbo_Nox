@@ -2412,7 +2412,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkc-danger { color: var(--err); }
 
 @media (max-width: 900px) {
-  .tkc-body { grid-template-columns: 1fr; gap: 20px; }
+  /* Both selectors, because `.tkc-as-page .tkc-body` is the more specific one
+     and would otherwise keep its 340px sidebar through the breakpoint — which
+     leaves the 1fr main column at literally zero and the summary, description,
+     labels and links simply gone. */
+  .tkc-body,
+  .tkc-as-page .tkc-body { grid-template-columns: 1fr; gap: 20px; }
+  /* Nothing to stick to once the columns are stacked. */
+  .tkc-as-page .tkc-side { position: static; }
 }
 
 /* --- project settings ----------------------------------------------------
@@ -5037,3 +5044,127 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* The assignee, at the far end of the foot — the counts read left to right and
    the person is where the eye ends up anyway. */
 .tk-card-face { margin-left: auto; display: inline-flex; align-items: center; flex: 0 0 auto; }
+
+/* --- Labels ------------------------------------------------------------
+   M3 assist chips, at the small end of the scale. Full-radius, outlined, a
+   tint of the label's own colour so a wall of them still reads as distinct
+   without any one shouting. Deliberately quieter than the priority pill on
+   the same card: priority is a state somebody assigned, a label is a word
+   somebody typed. */
+.tk-labels {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.tk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 160px;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--label, var(--border-strong)) 45%, transparent);
+  border-radius: var(--m3-shape-full);
+  background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, transparent);
+  color: color-mix(in srgb, var(--label, var(--text-dim)) 78%, var(--text));
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  line-height: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Never a silent trim: the card says how many it is not showing. */
+.tk-label-more {
+  border-style: dashed;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+/* On the issue, where they can be taken off. */
+.tk-label-edit { position: relative; }
+.tk-label-edit .tk-labels { gap: 6px; }
+.tk-label-on { padding-right: 3px; }
+.tk-label-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: inherit;
+  opacity: 0.65;
+  cursor: pointer;
+  transition: opacity var(--m3-dur-short) var(--m3-ease-standard);
+}
+/* A 16px button is fiddly to hit, so the target reaches past the glyph
+   without the chip growing to accommodate it. */
+.tk-label-x::before { content: ""; position: absolute; inset: -7px; }
+.tk-label-x { position: relative; }
+.tk-label-x:hover { opacity: 1; background: color-mix(in srgb, currentColor 18%, transparent); }
+.tk-label-x:disabled { cursor: default; opacity: 0.3; }
+
+/* Not an outlined field: it sits among the chips as another chip-shaped slot,
+   so adding one reads as continuing the row rather than filling in a form.
+   Full control height even though the chips beside it are 19px — a box people
+   are meant to click into needs a target they can hit, and the row it grows
+   to matches the fields above and below it. */
+.tk-label-input {
+  flex: 1 1 110px;
+  min-width: 110px;
+  height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-label-medium);
+}
+.tk-label-input::placeholder { color: var(--text-faint); }
+.tk-label-input:focus { outline: 0; }
+.tk-label-edit:focus-within .tk-label-input { border-bottom: 1px solid var(--accent); }
+.tk-label-err { margin: 6px 0 0; font-size: var(--m3-font-label-medium); }
+
+.tk-label-pop {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-m);
+  box-shadow: var(--m3-elev-3);
+}
+.tk-label-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  text-align: left;
+  cursor: pointer;
+}
+.tk-label-opt-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-label-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: var(--m3-shape-full); }
+.tk-label-new { color: var(--text-dim); }
+.tk-label-new strong { color: var(--text); }
+
+/* On a board card the chips sit between the summary and the description: same
+   left edge, and the summary's own bottom margin is the whole gap so the space
+   above them matches the space below. */
+.tk-card-sum + .tk-labels { margin-top: 0; }
