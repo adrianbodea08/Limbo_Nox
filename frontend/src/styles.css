@@ -6233,21 +6233,33 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-tags-out .tk-col-body,
 .tk-tags-out .tk-col { overflow: visible; }
 
+/* Every chip starts at the same place — the card's own right edge — and grows
+   outward from it, so they come out from under the card together rather than
+   arriving from three different distances.
+ *
+ * The first version translated the *container* by 100% of its own width, and
+ * its width is the widest chip in it. So a 114px chip moved 114px and a 42px
+ * chip moved 114px too — and since they were right-aligned to begin with, the
+ * narrow ones ended up flying further out than the wide ones. Ragged left
+ * edges, and nothing to suggest they had come from anywhere.
+ *
+ * Instead the strip is the card's full width with a padding-left that leaves
+ * exactly a pip showing at the right edge. Nothing has to move at all: every
+ * chip already shares that left edge, and growing its width is what carries it
+ * out past the card. */
+.tk-tags-out .tk-card-tags {
+  left: 0;
+  right: 0;
+  align-items: flex-start;
+  padding-left: calc(100% - 7px);
+}
+
 @media (hover: hover) {
+  /* Over the next column on the way out, rather than under it. */
   .tk-tags-out .tk-card:hover,
   .tk-tags-out .tk-card:focus-within { z-index: 2; }
-  .tk-tags-out .tk-card:hover .tk-card-tags,
-  .tk-tags-out .tk-card:focus-within .tk-card-tags {
-    /* Out past the card's own edge. Far enough that the words start clear of
-       it rather than straddling it. */
-    transform: translateX(100%);
-    transition: transform var(--m3-dur-medium) var(--m3-ease-decel);
-  }
-  .tk-tags-out .tk-card-tags {
-    transition: transform var(--m3-dur-medium) var(--m3-ease-standard);
-  }
-  /* Rounded on the *outer* edge once it is outside: it is no longer something
-     tucked under the card, it is a thing standing beside it. */
+  /* Square where it meets the card and round at the far end, so it reads as
+     something coming out from underneath rather than a pill parked beside it. */
   .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
   .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
     border-radius: 0 var(--m3-shape-full) var(--m3-shape-full) 0;
