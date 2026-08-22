@@ -3127,15 +3127,18 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkw-band .tk-dim { font-size: var(--m3-font-body-medium); }
 .tkw-empty { font-size: var(--m3-font-body-medium); margin: 0; padding: 6px 2px; }
 
+/* Not a card. The card is inside it.
+ *
+ * This had a border, a radius, a background and an elevation of its own, so
+ * every issue on My work was drawn as a card within a card — the same object
+ * boxed twice, and visibly not the thing the board draws. It holds the card
+ * and whatever that particular band hangs off it: the reason something was
+ * escalated, the button that pauses it, its number in the queue. */
 .tkw-card {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--m3-shape-m);
-  background: var(--bg-card);
-  box-shadow: var(--m3-elev-1);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
 }
 /* The urgent card carries three things a normal card does not have to fit on
    one line: the issue, the reason somebody escalated it, and the button that
@@ -3143,12 +3146,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    is flex:1 with a zero basis — is the one that loses: at 1120px it collapsed
    to 42px and wrapped the summary one word per line. So it stacks. Reading
    order is also the right one: what, why, what to do about it. */
-.tkw-card-urgent {
-  border-color: var(--err);
-  background: var(--bg-card);
-  flex-direction: column;
-  align-items: stretch;
-}
+/* The urgent one keeps nothing of its own either — the red section around it
+   is already the loudest thing on the page, and a second red box inside it was
+   the card-in-a-card again. */
+.tkw-card-urgent { gap: 10px; }
 .tkw-card-urgent > .tk-btn { align-self: flex-start; }
 /* Every card says why it is here — the line that makes the order followable. */
 .tkw-why { font-size: var(--m3-font-label-medium); color: var(--text-faint); letter-spacing: 0.4px; }
@@ -3510,12 +3511,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkw-band-hint { margin: -4px 0 2px; font-size: var(--m3-font-label-medium); letter-spacing: 0.4px; }
 
 /* In a column the card stacks: content, then whatever you can do to it. */
-.tkw-card-col {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 10px;
-  padding: 12px;
-}
+.tkw-card-col { gap: 10px; }
 .tkw-card-col .tk-btn { width: 100%; }
 .tkw-card-col .tkw-order { justify-content: flex-end; }
 /* The position badge sits with the key rather than in front of a wide row. */

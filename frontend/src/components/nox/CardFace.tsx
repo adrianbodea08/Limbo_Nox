@@ -57,6 +57,22 @@ export interface CardIssue {
   comment_count?: number;
 }
 
+/* Where a card's labels go — see the note in styles.css.
+ *
+ * The class goes on the *card* rather than on the board, because the card is
+ * drawn on more than one screen and My work has no board around it: scoped to
+ * the board, every card outside it silently fell back to the touch layout and
+ * drew its labels as a row of chips through the middle of itself.
+ *
+ * `out` additionally needs the class on an ancestor of the column, because
+ * what it turns off is the column's clipping. The board puts it there too. */
+export type TagStyle = "in" | "out" | "bar";
+export const TAG_SLOTS: Record<TagStyle, number> = { in: 3, out: 3, bar: 5 };
+
+export function readTagStyle(asked: string | null): TagStyle {
+  return asked === "in" || asked === "out" ? asked : "bar";
+}
+
 const many = (n: number, one: string, rest = `${one}s`) => `${n} ${n === 1 ? one : rest}`;
 
 /** The first line of a description, with the title taken back out.
@@ -212,8 +228,8 @@ export interface CardFaceProps {
   note?: string;
   /** Show the status. For screens that are not a column per status. */
   status?: boolean;
-  /** The most label chips to draw, counting the `+N`. */
-  tagSlots?: number;
+  /** Where the labels go, and how many of them fit. */
+  tagStyle?: TagStyle;
   selected?: boolean;
   dragging?: boolean;
   /** Whatever the caller needs on the article: drag handlers, ordering. */
@@ -225,13 +241,13 @@ export interface CardFaceProps {
 }
 
 export function CardFace({
-  issue, onOpen, note, status, tagSlots = 5,
+  issue, onOpen, note, status, tagStyle = "bar",
   selected, dragging, wrapper, className = "", children,
 }: CardFaceProps) {
   const under = note ?? preview(issue);
   return (
     <article
-      className={`tk-card tk-layer${selected ? " tk-card-on" : ""}${
+      className={`tk-card tk-layer tk-tags-${tagStyle}${selected ? " tk-card-on" : ""}${
         dragging ? " tk-card-dragging" : ""}${className ? ` ${className}` : ""}`}
       // A card is a thing you open, so it says so and answers the keyboard.
       // It was a bare `<article onClick>` on the board — reachable only through
@@ -264,7 +280,7 @@ export function CardFace({
         <Priority value={issue.priority} />
       </div>
       <p className="tk-card-sum">{issue.summary}</p>
-      <LabelChips labels={issue.labels ?? []} slots={tagSlots} className="tk-card-tags" />
+      <LabelChips labels={issue.labels ?? []} slots={TAG_SLOTS[tagStyle]} className="tk-card-tags" />
       {under && <p className="tk-card-desc">{under}</p>}
       <Badges issue={issue} status={status} />
       {children}

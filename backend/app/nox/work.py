@@ -309,6 +309,11 @@ def interruption_cost(conn: Connection, *, team_id: int | None = None,
 
 # -------------------------------------------------------------------- queues --
 
+# The parent, reached by joining the issue table to itself — the same alias the
+# board's own select uses, for the same reason: a card names what it is part of.
+_parent = issues.alias("queue_parent")
+
+
 def _queue_select(allowed: set[int] | None = None):
     """Issues with everything a queue card needs, and nothing it does not.
 
@@ -322,6 +327,13 @@ def _queue_select(allowed: set[int] | None = None):
     return (
         select(
             issues.c.id, issues.c.key, issues.c.summary, issues.c.priority,
+            # A card is a card wherever it is drawn, so a queue row carries
+            # what a board row carries. Without these the same issue looked
+            # like a different object on the two screens somebody moves
+            # between all day: no parent, no description, no labels.
+            issues.c.description,
+            _parent.c.key.label("parent_key"),
+            _parent.c.summary.label("parent_summary"),
             issues.c.plan_priority, issues.c.rank, issues.c.team_id,
             issues.c.assignee_id, issues.c.status_id, issues.c.updated_at,
             issues.c.resolved_at,
@@ -346,6 +358,7 @@ def _queue_select(allowed: set[int] | None = None):
             .join(projects, issues.c.project_id == projects.c.id)
             .outerjoin(users, issues.c.assignee_id == users.c.id)
             .outerjoin(teams, issues.c.team_id == teams.c.id)
+            .outerjoin(_parent, issues.c.parent_id == _parent.c.id)
         )
         .where(issues.c.project_id.in_(allowed) if allowed is not None
                else sa_true())
@@ -420,7 +433,12 @@ def _decorate(conn: Connection, rows: list[dict]) -> list[dict]:
         else:
             item["why"] = f"{item['priority'].capitalize()} priority"
         out.append(item)
-    return out
+
+    # The badges, the labels and the git state, from the board's own helper
+    # rather than a second implementation of it. Four small aggregates over the
+    # page just fetched — see `query._badges`.
+    from .query import _badges
+    return _badges(conn, out)
 
 
 def _sorted(rows: list[dict]) -> list[dict]:

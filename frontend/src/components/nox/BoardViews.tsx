@@ -11,7 +11,7 @@ import { DropSlot, useBandReorder } from "./useBandReorder";
 import { Face as PersonFace } from "./Face";
 import { IssueKey } from "./IssueKey";
 import { TypeGlyph } from "./TypeGlyph";
-import { CardFace, Priority } from "./CardFace";
+import { CardFace, Priority, readTagStyle, type TagStyle } from "./CardFace";
 import {
   ago,
   type BoardColumn, type BoardData, type TrackerIssue, type TrackerStatus,
@@ -40,30 +40,10 @@ function TypeIcon({ issue }: { issue: TrackerIssue }) {
 
 /* ---- an experiment, on `?tags=` -------------------------------------------
  * Three answers to "where do a card's labels go", switchable so they can be
- * compared on a real board with real labels rather than argued about. The
- * losers come out once one is picked; this is not meant to ship as a choice.
- *
- *   in    colour bars on the right margin; hover opens them over the card
- *   out   the same bars; hover opens them out of the card, from under its edge
- *   bar   a segmented colour bar along the bottom edge; hover raises chips
- *
- * The slot budget differs because the room does. The margin variants stack
- * upwards from above the badge row and reach the summary at four rows — which
- * is how the first version of this covered the one line on a card that has to
- * stay readable, with seven labels on it. The bottom bar wraps sideways
- * instead, so it can afford more.
+ * compared on a real board rather than argued about. The losers come out once
+ * one is picked; this is not meant to ship as a choice. The treatments
+ * themselves live with the card — see CardFace.
  */
-export type TagStyle = "in" | "out" | "bar";
-const TAG_SLOTS: Record<TagStyle, number> = { in: 3, out: 3, bar: 5 };
-
-/** The board reads this from the URL rather than from a prop, so the switch on
- *  the bar above only has to set a parameter. Both sides fall back to `bar`
- *  and they have to agree: a default that differed would light the switch up
- *  on one treatment while the board drew another. */
-export function readTagStyle(asked: string | null): TagStyle {
-  return asked === "in" || asked === "out" ? asked : "bar";
-}
-
 function useTagStyle(): TagStyle {
   const [params] = useSearchParams();
   return readTagStyle(params.get("tags"));
@@ -175,7 +155,7 @@ export function ColumnsBoard({
                   onOpen={() => onOpen(issue)}
                   selected={selectedId === issue.id}
                   dragging={dragging?.id === issue.id}
-                  tagSlots={TAG_SLOTS[tagStyle]}
+                  tagStyle={tagStyle}
                   wrapper={{
                     ...band.rowProps(issue, String(col.key), col.issues, index),
                     onDragStart: (e: DragEvent) => start(issue, String(col.key), e),
