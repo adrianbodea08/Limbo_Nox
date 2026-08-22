@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Face } from "./nox/Face";
+import { placeMenu } from "./menupos";
 
 export interface M3Option {
   value: string;
@@ -29,17 +30,15 @@ interface Props {
 // this bar — it drew the platform arrow hard against its own border.
 export function M3Select({ value, options, onChange, icon, placeholder = "Select…", width = 260 }: Props) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState({ top: 0, left: 0, width });
+  const [pos, setPos] = useState<CSSProperties>({});
   const btnRef = useRef<HTMLButtonElement>(null);
   const current = options.find((o) => o.value === value);
 
   function toggle() {
+    // Worked out at the moment of opening, which is the only moment the answer
+    // is known — see menupos.ts for why this is not four lines here any more.
     if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      const w = Math.max(r.width, width);
-      // Flip left if the menu would run off the right edge.
-      const left = r.left + w > window.innerWidth - 8 ? Math.max(8, r.right - w) : r.left;
-      setPos({ top: r.bottom + 8, left, width: w });
+      setPos(placeMenu(btnRef.current, { width, minWidth: width, tallest: 340, gap: 8 }));
     }
     setOpen((o) => !o);
   }
@@ -50,7 +49,7 @@ export function M3Select({ value, options, onChange, icon, placeholder = "Select
         ref={btnRef}
         type="button"
         className="m3sel-field"
-        style={{ width }}
+        style={{ "--m3sel-w": `${width}px` } as CSSProperties}
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -72,7 +71,7 @@ export function M3Select({ value, options, onChange, icon, placeholder = "Select
             <div
               className="m3sel-pop"
               role="listbox"
-              style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width }}
+              style={pos}
             >
               {options.map((o) => (
                 <button

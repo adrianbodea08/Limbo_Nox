@@ -19,6 +19,7 @@ import { IssuePage } from "./components/nox/IssuePage";
 import { MyWorkPage } from "./components/nox/MyWork";
 import { ProjectSettingsPage } from "./components/nox/ProjectSettings";
 import { TeamQueuePage } from "./components/nox/TeamQueue";
+import { NavDrawerProvider } from "./components/nox/navdrawer";
 import type { ShellProps } from "./components/TopBar";
 import type { User } from "./types";
 
@@ -146,6 +147,11 @@ export default function Root() {
   };
 
   return (
+    // Whether the navigation is showing, on a window too narrow to keep it
+    // open. Here rather than inside a page because the button that opens it is
+    // in the top bar and the thing it opens is the rail, and every page renders
+    // both.
+    <NavDrawerProvider>
     <Routes>
       <Route path="/" element={<TrackerPage shell={shell} />} />
       <Route path="/issue/:issueKey" element={<IssuePage shell={shell} />} />
@@ -172,6 +178,7 @@ export default function Root() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </NavDrawerProvider>
   );
 }
 

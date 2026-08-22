@@ -18,6 +18,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { M3DatePicker } from "../M3DatePicker";
+import { placeMenu as place } from "../menupos";
 import { M3Select } from "../M3Select";
 import { AsksOnIssue } from "./Asks";
 import { LabelEditor } from "./Labels";
@@ -1035,38 +1036,16 @@ function Picker({
 
 interface Placement { style: React.CSSProperties }
 
-/** Where the menu goes, in viewport coordinates.
- *
- *  Below the trigger when there is room, above it when there is not — and the
- *  height it is allowed is whatever is actually left, so a menu near an edge
- *  scrolls internally instead of running off the screen. */
+/** Where this file's menus go. The general version lives in menupos.ts — it
+ *  started here, and moved out when it turned out four other components had
+ *  each written half of it. This keeps the two shapes the card uses. */
 function placeMenu(trigger: HTMLElement, variant: "field" | "chip"): Placement {
-  const EDGE = 8;   // never touch the viewport edge
-  const GAP = 6;    // the same gap the absolute version used
-  const TALLEST = 320;
-
-  const r = trigger.getBoundingClientRect();
-  const below = window.innerHeight - r.bottom - EDGE - GAP;
-  const above = r.top - EDGE - GAP;
-  // Flip only when below is genuinely cramped *and* above is roomier. A menu
-  // that flips for the sake of twenty more pixels is a menu that jumps around.
-  const flip = below < 200 && above > below;
-
-  const width = variant === "chip" ? Math.max(r.width, 200) : r.width;
-  const left = Math.max(EDGE, Math.min(r.left, window.innerWidth - width - EDGE));
-
   return {
-    style: {
-      position: "fixed",
-      left,
-      width: variant === "chip" ? undefined : width,
-      minWidth: variant === "chip" ? width : undefined,
-      maxWidth: variant === "chip" ? 320 : undefined,
-      ...(flip
-        ? { bottom: window.innerHeight - r.top + GAP }
-        : { top: r.bottom + GAP }),
-      maxHeight: Math.min(TALLEST, Math.max(120, flip ? above : below)),
-    },
+    style: variant === "chip"
+      // A chip is small, so its menu needs a floor to stay readable and a
+      // ceiling so it does not become a banner.
+      ? place(trigger, { minWidth: 200, maxWidth: 320 })
+      : place(trigger, { width: "trigger" }),
   };
 }
 

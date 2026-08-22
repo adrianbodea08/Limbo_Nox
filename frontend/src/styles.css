@@ -318,14 +318,21 @@ svg {
 
 /* ---- Auth page ---- */
 .auth-page {
-  height: 100vh;
+  /* `min-height`, not `height`: in landscape on a phone the card is taller
+     than the window, and a fixed height centres it by cutting the top and the
+     bottom off with no way to scroll to either. */
+  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   background: var(--bg);
   padding: 24px;
 }
 .auth-card {
-  width: min(380px, 94vw);
+  /* `100%`, not `94vw`: the viewport unit does not know about the 24px of
+     padding on the page around it, so on a 320px phone the card was 301px
+     wide inside a 272px box and hung off the right edge. */
+  width: min(380px, 100%);
   background: var(--bg-elev);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
@@ -718,7 +725,12 @@ svg {
 .m3sel { position: relative; display: inline-block; }
 /* 12px of air around the trailing caret: 12 to the border on the right, 12 to
    the label on the left. Vertical padding matches, so it never looks pinned. */
+/* The width comes from the component as a custom property rather than as an
+   inline `width`, so a media query can still overrule it. An inline width
+   cannot be overridden by a stylesheet at all without `!important`, and these
+   controls are 190–260px on a bar that is 343px wide on a phone. */
 .m3sel-field { display: inline-flex; align-items: center; gap: 12px; min-width: 168px;
+  width: var(--m3sel-w, 220px);
   background: var(--bg-col); border: 1px solid var(--border); border-radius: var(--m3-shape-m);;
   padding: 11px 12px; color: var(--text); font-family: inherit; font-size: var(--m3-font-body-medium);
   font-weight: 600; cursor: pointer; transition: border-color var(--m3-dur-short) var(--m3-ease-standard), background var(--m3-dur-short) var(--m3-ease-standard); }
@@ -1013,8 +1025,27 @@ svg {
   border-radius: var(--m3-shape-xs);
 }
 
+/* The window, and nothing more.
+ *
+ * This said `min-height: 100vh` from the first commit, which is not the same
+ * thing at all: a minimum grows, so the page was as tall as its tallest board
+ * and the browser scrolled the whole thing — top bar, navigation and all.
+ * Every `overflow: auto` below this point was written for a shell that ends
+ * where the window ends (`.tks-main` still says so: "panes that sit beside the
+ * rail and own their own scrolling"), and not one of them could ever fire,
+ * because none of their ancestors had a height to be bigger than.
+ *
+ * It reads as a small thing on a desktop and is not one on a phone, where a
+ * top bar that scrolls away takes the search box, the account and the way back
+ * with it.
+ *
+ * `dvh` rather than `vh` for the same reason: on a phone `100vh` is the window
+ * with the browser's own chrome *hidden*, so a `vh` shell is always a chrome's
+ * worth too tall and the last row of every pane sits under the address bar. */
 .tk-page {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
   display: flex;
@@ -1553,10 +1584,19 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 /* --- table --------------------------------------------------------------- */
 
+/* Every table in the app is in one of these — accounts, saved views, a
+   release's issues, a team's queue. The hidden overflow was there to clip the
+   corners to the radius, and it also *hid* whatever did not fit: on a phone
+   the accounts table lost Status, Role and every button in the row, with
+   nothing on screen to say they existed.
+   Scrolling on x and clipped on y keeps the corners and gives the columns
+   back. The table itself is left to size to its content — a table squeezed to
+   375px is a column of single letters. */
 .tk-table-wrap {
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-m);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 .tk-table { width: 100%; border-collapse: collapse; font-size: var(--m3-font-body-medium); }
 .tk-table thead th {
@@ -1818,7 +1858,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* --- releases ------------------------------------------------------------ */
 
 .tk-releases { display: flex; flex-direction: column; gap: 24px; max-width: 1100px; }
-.tk-rel-head { display: flex; align-items: center; gap: 12px; }
+.tk-rel-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .tk-rel-head h2 { font-size: var(--m3-font-title-large); font-weight: 600; letter-spacing: 0; margin: 0; }
 .tk-rel-head .tk-btn-primary { margin-left: auto; }
 
@@ -2245,7 +2285,13 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 28px;
   padding: 20px 24px 24px;
 }
-.tkc-as-page .tkc-body { overflow: visible; }
+/* On its own page the body is not the thing that scrolls — `.tkc-page-wrap`
+   is — so it must not be a flex item that gets handed a share of a fixed
+   height either. `flex: 1` with `overflow: visible` means "be exactly the
+   height left over, and then draw past it anyway": the description spilled
+   over the Back and Save buttons underneath. It only became visible when the
+   shell stopped being as tall as its own content. */
+.tkc-as-page .tkc-body { overflow: visible; flex: 0 0 auto; min-height: auto; }
 .tkc-main, .tkc-side { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 
 .tkc-field { display: flex; flex-direction: column; gap: 8px; }
@@ -2444,7 +2490,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
      leaves the 1fr main column at literally zero and the summary, description,
      labels and links simply gone. */
   .tkc-body,
-  .tkc-as-page .tkc-body { grid-template-columns: 1fr; gap: 20px; }
+  .tkc-as-page .tkc-body { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   /* Nothing to stick to once the columns are stacked. */
   .tkc-as-page .tkc-side { position: static; }
 }
@@ -2460,12 +2506,22 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* --- the dialog ----------------------------------------------------------- */
 .tks-newfield { width: min(520px, 100%); }
 
+/* A tab strip that wraps is not a strip: "Who can see it" broke onto three
+   lines inside its own tab and pushed the row to three times its height, while
+   "Fields" was cut off the end with nothing to say it was there. Tabs keep
+   their line and the strip scrolls — which is what M3 calls scrollable tabs,
+   and is the answer for a set whose number is decided by the product rather
+   than by the window. */
 .tks-tabs {
   display: flex;
   gap: 4px;
   padding: 12px 24px 0;
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.tks-tabs::-webkit-scrollbar { display: none; }
+.tks-tab { flex: 0 0 auto; white-space: nowrap; }
 .tks-tab {
   position: relative;
   height: 46px;
@@ -2638,7 +2694,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tks-chip-x:hover { opacity: 1; }
 
 @media (max-width: 900px) {
-  .tks-two { grid-template-columns: 1fr; }
+  .tks-two { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* --- settings as a page --------------------------------------------------- */
@@ -2740,15 +2796,22 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   background: var(--bg-col);
   overflow: hidden;
 }
-.tkf-bar {
+/* `.tkf-tools`, not `.tkf-bar`, because the global search box had already
+   taken that name in its own `tkf-` — for *find* rather than *flow* — and
+   declares it four hundred lines further down. Every property this rule and
+   that one both set was going to the search box's value: the diagram's
+   toolbar was drawing itself as a 44px search pill with a 999px radius, and
+   this rule had never once applied. */
+.tkf-tools {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
+  flex-wrap: wrap;
 }
-.tkf-bar .tks-req { flex: 1; }
+.tkf-tools .tks-req { flex: 1; }
 .tkf-zoom { display: inline-flex; align-items: center; gap: 6px; }
 .tkf-zoom .tk-num { min-width: 42px; text-align: center; font-size: var(--m3-font-label-medium); }
 
@@ -2898,7 +2961,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkf-move-to .tk-dot { flex: 0 0 auto; }
 
 @media (max-width: 1100px) {
-  .tkf { grid-template-columns: 1fr; }
+  .tkf { grid-template-columns: minmax(0, 1fr); }
   .tkf-panel { max-height: none; }
 }
 
@@ -3373,7 +3436,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkw-card-col .tkw-summary { font-size: var(--m3-font-body-medium); line-height: 1.35; }
 
 @media (max-width: 1500px) { .tkw-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 900px) { .tkw-cols { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .tkw-cols { grid-template-columns: minmax(0, 1fr); } }
 
 /* --- M3 date picker -------------------------------------------------------
    Shares MonthPicker's field and popup — they sit on the same rows — and adds
@@ -5777,3 +5840,213 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* The before as well as the after: "changed a role" is not an answer. */
 .tk-audit-move { font-size: var(--m3-font-label-medium); }
 .tk-audit-when { margin-left: auto; font-size: var(--m3-font-label-small); }
+
+/* ==========================================================================
+   NARROW WINDOWS
+   ==========================================================================
+   Everything above this line was designed at about 1400px, which is where it
+   was always looked at. This section is the rest of the range.
+
+   **Two breakpoints, and they are M3's own.** The spec calls a window under
+   600dp *compact* and 600–839dp *medium*, and it says what navigation each
+   one gets. Picking those numbers rather than inventing a pair means the
+   layout changes where the design system says a layout changes, and the
+   answer to "why 840?" is a citation instead of a preference.
+
+     under 840px   the navigation is a sheet you open, not a column
+     under 600px   one column of everything, and controls go full width
+
+   The four ad-hoc breakpoints that were here first (640, 900, 1100, 1500) are
+   left alone: each was written for one grid that stops fitting at one width,
+   they were measured against real content, and moving them to round numbers
+   would be tidying at the cost of the thing they were tuned for.
+
+   What is *not* here: a phone-shaped rewrite of the board. A kanban board is
+   columns, and columns on a 375px screen are one column at a time — which is
+   what it does, by scrolling sideways, exactly as it does on a desk. The list
+   and table layouts are the ones that suit a phone, and they are two taps
+   away on the same bar.
+   -------------------------------------------------------------------------- */
+
+/* --- the navigation, as a sheet ------------------------------------------ */
+
+/* Only ever seen under 840px. Rendered on every page and hidden here rather
+   than mounted conditionally: a component that appears on resize has to be
+   re-created, and this way the browser changes the layout in one frame. */
+.topbar-menu {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--m3-shape-full);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* The layer under the sheet. Present at every width so the transition has
+   something to animate, and inert until the sheet can exist. */
+.tk-rail-scrim { display: none; }
+
+@media (max-width: 839px) {
+  .topbar-menu { display: inline-flex; }
+
+  /* One column: the rail is no longer in the flow, so nothing should be
+     reserved for it. Without this the main column keeps its `1fr` of a grid
+     whose first track is still 248px, which at 375px leaves 127px — and the
+     board's bar, which cannot shrink that far, was drawn straight over the
+     navigation it was supposed to sit beside. */
+  .tk-shell { grid-template-columns: 1fr; }
+
+  .tk-rail {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 91;
+    width: min(300px, 84vw);
+    padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+    border-right: 1px solid var(--border);
+    box-shadow: var(--m3-elev-3);
+    /* Off to the left, not `display: none`: it has to be able to slide, and a
+       drawer that is only ever hidden cannot be found by the keyboard on its
+       way in either. */
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform var(--m3-dur-medium) var(--m3-ease-standard),
+      visibility 0s linear var(--m3-dur-medium);
+  }
+  .tk-rail-open {
+    transform: translateX(0);
+    visibility: visible;
+    /* Opening is the moment somebody is waiting, so it starts immediately and
+       decelerates in; closing can afford the standard curve. */
+    transition:
+      transform var(--m3-dur-medium) var(--m3-ease-decel),
+      visibility 0s;
+  }
+
+  .tk-rail-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity var(--m3-dur-medium) var(--m3-ease-standard),
+      visibility 0s linear var(--m3-dur-medium);
+    visibility: hidden;
+  }
+  .tk-rail-scrim.on {
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    transition:
+      opacity var(--m3-dur-medium) var(--m3-ease-standard),
+      visibility 0s;
+  }
+}
+
+/* Somebody who has asked for less movement gets the sheet without the slide.
+   It still has to arrive and leave, so visibility keeps its delay. */
+@media (prefers-reduced-motion: reduce) {
+  .tk-rail, .tk-rail-open, .tk-rail-scrim, .tk-rail-scrim.on {
+    transition-property: visibility;
+  }
+}
+
+/* --- one column, and controls that fill it -------------------------------- */
+
+@media (max-width: 599px) {
+  /* The header is a wrapping flex row, and below 900 the search box already
+     takes a line of its own. What was left could still not fit "Team
+     Management", the bell and the account on one line, so the account wrapped
+     to a *third* row — a hundred and fifty pixels of a 812px screen spent on
+     the header before anything of the page.
+     The title gives way instead: it is the one thing here that can be read at
+     any length, and the page it names is the page you are looking at. */
+  .brand { flex: 1 1 auto; min-width: 0; }
+  .brand-back { flex: 1 1 auto; min-width: 0; }
+  .brand-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* A name beside a face is the face saying the same thing twice, and this is
+     the row where room ran out. The menu it opens still names the account. */
+  .acct-name { display: none; }
+  .topbar { gap: 8px; padding: 8px 10px; }
+
+  /* Padding tuned for a 1400px window is a quarter of a phone. Every pane that
+     sits beside the rail uses the same figure, so they are retuned together. */
+  .tk-canvas, .tkw, .tkq, .tkc-page-wrap { padding-left: 14px; padding-right: 14px; }
+  .tks-page { padding: 16px 14px 24px; }
+  .tk-bar { padding: 14px 14px 12px; }
+
+  /* The filters were right-aligned so they would sit against the New issue
+     button at the end of a wide bar. Wrapped onto rows of their own they
+     became a staircase — each one a different distance from the left, because
+     each is a different width.
+     Two columns rather than one: five filters stacked is five rows of chrome
+     before any work is visible on a 812px screen, and "Any priority" is the
+     longest thing any of them has to say. */
+  .tk-bar-right {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 8px;
+  }
+  .tk-bar-right .m3sel,
+  .tk-bar-right .m3sel-field { width: 100%; min-width: 0; }
+  /* How to show the board is not a filter, and it is a row of three: it takes
+     the full width, the same shape `.m3seg-stretch` gives it elsewhere. */
+  .tk-bar-right .m3seg {
+    grid-column: 1 / -1;
+    display: flex;
+    width: 100%;
+  }
+  .tk-bar-right .m3seg-btn { flex: 1; }
+  /* The actions end the bar together, on their own row. */
+  .tk-bar-right .tk-link { justify-self: start; align-self: center; }
+  .tk-bar-right .tk-btn-primary { grid-column: 2; justify-self: end; }
+
+  /* A page title at 28px over a 343px column is four words on three lines. */
+  .tk-title, .tk-page-head h1 { font-size: var(--m3-font-title-large); }
+  .tkw-head h1, .tkq-head h1, .tks-page-title { font-size: var(--m3-font-title-large); }
+
+  /* Every page heading is "who or what this is" on the left and a control or
+     two on the right, held apart by `space-between` and told not to wrap —
+     which at 375px squeezed "My work" into a column two letters wide while the
+     layout switch sat beside it. They wrap here, and what was on the right
+     takes the row under the title. */
+  .tkw-head, .tkq-head, .tks-page-head { flex-wrap: wrap; align-items: flex-start; }
+  .tkw-head-r, .tks-page-head > :last-child { width: 100%; }
+  .tkw-head-r .m3seg, .tkq-head .m3seg { display: flex; width: 100%; }
+  .tkw-head-r .m3seg-btn, .tkq-head .m3seg-btn { flex: 1; }
+  .tkw-who { min-width: 0; }
+
+  /* A dialog with 24px of scrim either side is a dialog with 327px of room.
+     Below 600 it stops pretending to float and takes the window, which is what
+     M3 calls a full-screen dialog and what every phone app does. */
+  .tkc-scrim { padding: 0; }
+  .tkc {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+/* The drawer takes focus when it opens (see TrackerRail) so the keyboard is
+   not left behind the scrim. It is not a control, so it does not draw the
+   focus ring it would otherwise inherit from `.tk-page :focus-visible`. */
+.tk-rail:focus { outline: none; }

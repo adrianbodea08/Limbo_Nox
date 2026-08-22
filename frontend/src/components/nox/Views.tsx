@@ -13,6 +13,8 @@
 
 import { Check, ChevronDown, Pencil, Plus, Share2, Trash2, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { placeMenu } from "../menupos";
 import { createPortal } from "react-dom";
 import type { SavedView } from "./model";
 
@@ -38,7 +40,7 @@ export function ViewBar({
   const [open, setOpen] = useState(false);
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
-  const [at, setAt] = useState({ left: 0, top: 0 });
+  const [at, setAt] = useState<CSSProperties>({});
   const trigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -60,15 +62,12 @@ export function ViewBar({
   const MENU_W = 300;
 
   function show() {
-    const r = trigger.current?.getBoundingClientRect();
-    if (r) {
-      // Flip to hang off the right edge of the trigger when there is no room
-      // to the right — on a narrow window the menu otherwise runs past the
-      // window and the half with the tools in it cannot be reached.
-      const room = window.innerWidth - r.left - 8;
-      const left = room < MENU_W ? Math.max(8, r.right - MENU_W) : r.left;
-      setAt({ left, top: r.bottom + 6 });
-    }
+    // This flipped sideways and not upwards, which was fine on the desk and
+    // not on a phone: the bar it hangs from is a third of the way down a
+    // 812px screen, and a list of a dozen views ran straight off the bottom
+    // of a window that cannot be scrolled to reach it.
+    // Both bounds, matching the stylesheet, so the menu stays elastic.
+    if (trigger.current) setAt(placeMenu(trigger.current, { width: MENU_W, maxWidth: 380 }));
     setOpen((o) => !o);
   }
 
@@ -118,7 +117,7 @@ export function ViewBar({
       )}
 
       {open && createPortal(
-        <div className="tkv-menu" style={{ left: at.left, top: at.top }} role="menu">
+        <div className="tkv-menu" style={at} role="menu">
           <button type="button" className="tkv-row tk-layer"
                   onClick={() => { onPick(null); setOpen(false); }}>
             <span className="tkv-tick">{!current && <Check size={14} aria-hidden />}</span>

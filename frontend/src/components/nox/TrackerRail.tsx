@@ -22,9 +22,10 @@ import {
   Activity, ChevronRight, FolderKanban, GitBranch, Rocket, Settings2, Users,
   Workflow, Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { trackerApi } from "./model";
+import { useNavDrawer } from "./navdrawer";
 import type { TrackerProject, TrackerTeam } from "./model";
 
 export interface RailProps {
@@ -56,6 +57,8 @@ export function TrackerRail({
   active = "", isAdmin = false, projects, onProject,
 }: RailProps) {
   const nav = useNavigate();
+  const drawer = useNavDrawer();
+  const sheet = useRef<HTMLElement>(null);
   const [teams, setTeams] = useState<TrackerTeam[]>([]);
   const [own, setOwn] = useState<TrackerProject[]>([]);
 
@@ -79,6 +82,14 @@ export function TrackerRail({
   const list = projects ?? own;
   const current = active.startsWith("project:") ? active.slice("project:".length) : "";
 
+  // Opening a sheet over the page and leaving the keyboard behind it is the
+  // same as not opening it: the next Tab goes to something the reader cannot
+  // see. Focus lands on the drawer itself rather than its first item, so a
+  // screen reader announces what just appeared before reading the list.
+  useEffect(() => {
+    if (drawer.open) sheet.current?.focus();
+  }, [drawer.open]);
+
   function toggle() {
     const next = !expanded;
     setExpanded(next);
@@ -86,7 +97,23 @@ export function TrackerRail({
   }
 
   return (
-    <nav className="tk-rail" aria-label="Sections">
+    <>
+      {/* The layer under a sheet. Only ever visible below 840px — above it the
+          rail is part of the page and there is nothing to dismiss. Tapping
+          outside is how a sheet is closed everywhere else, so it is how this
+          one closes too. */}
+      <div
+        className={`tk-rail-scrim${drawer.open ? " on" : ""}`}
+        onClick={drawer.close}
+        aria-hidden
+      />
+    <nav
+      ref={sheet}
+      // Focusable only as a target for the above; it is not in the tab order.
+      tabIndex={-1}
+      className={`tk-rail${drawer.open ? " tk-rail-open" : ""}`}
+      aria-label="Sections"
+    >
       {/* Projects: a room and a disclosure. The row navigates, the chevron
           opens — two jobs that would fight if one control did both, because
           "show me the list" and "take me to the board" are different wants. */}
@@ -166,5 +193,6 @@ export function TrackerRail({
         );
       })}
     </nav>
+    </>
   );
 }

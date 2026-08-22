@@ -199,7 +199,8 @@ export function FlowDiagram({
   return (
     <div className={`tkf${full ? " tkf-full" : ""}`}>
       <div className="tkf-canvas-wrap">
-        <div className="tkf-bar">
+        {/* `tkf-tools`, not `tkf-bar`: the search box owns that name. */}
+        <div className="tkf-tools">
           <label className="tks-req">
             <input type="checkbox" checked={labels} onChange={(e) => setLabels(e.target.checked)} />
             Show transition labels

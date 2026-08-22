@@ -9,8 +9,9 @@ import type { ReactNode } from "react";
 import type { User } from "../types";
 import { AccountMenu } from "./AccountMenu";
 import LogoMark from "./LogoMark";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Menu } from "lucide-react";
 import { NotificationBell } from "./nox/Notifications";
+import { useNavDrawer } from "./nox/navdrawer";
 
 /** What every page needs from the shell. Passed down from Root so a page never
  *  reaches for global state to find out who is signed in. */
@@ -50,6 +51,12 @@ export function TopBar({
   onOpenSettings,
   onLogout,
 }: TopBarProps) {
+  // Only ever seen below 840px, where the rail is a sheet rather than a column.
+  // Rendered always and hidden in CSS rather than measured in JavaScript: a
+  // window that is resized past the breakpoint has to change the layout
+  // anyway, and the media query does that in the same frame as everything else.
+  const drawer = useNavDrawer();
+
   const brand = (
     <span className="brand">
       <span className="brand-logo"><LogoMark /></span>
@@ -59,6 +66,16 @@ export function TopBar({
 
   return (
     <header className="topbar">
+      <button
+        type="button"
+        className="topbar-menu tk-layer"
+        aria-label={drawer.open ? "Hide the navigation" : "Show the navigation"}
+        aria-expanded={drawer.open}
+        onClick={drawer.toggle}
+      >
+        <Menu size={20} aria-hidden />
+      </button>
+
       {onBack ? (
         <button className="brand-back" onClick={onBack} title={backTitle ?? "Back"}>
           <span className="brand-back-arrow"><ArrowLeft size={18} aria-hidden /></span>

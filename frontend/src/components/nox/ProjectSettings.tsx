@@ -168,6 +168,11 @@ export function ProjectSettings({
         {TABS.map((t) => (
           <button
             key={t.id}
+            // The strip scrolls on a narrow window, so the tab you are on can
+            // be off the end of it — arriving on Fields from a link showed
+            // four other tabs and no indicator at all. `inline` only: `block`
+            // would scroll the page as well and take the heading with it.
+            ref={tab === t.id ? (el) => el?.scrollIntoView({ inline: "nearest", block: "nearest" }) : undefined}
             type="button"
             title={t.hint}
             className={`tks-tab tk-layer${tab === t.id ? " on" : ""}`}

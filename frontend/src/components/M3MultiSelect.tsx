@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Face } from "./nox/Face";
-import type { ReactNode } from "react";
+import { placeMenu } from "./menupos";
+import type { CSSProperties, ReactNode } from "react";
 
 export interface M3MultiOption {
   value: string;
@@ -43,7 +44,7 @@ export function M3MultiSelect({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [pos, setPos] = useState({ top: 0, left: 0, width });
+  const [pos, setPos] = useState<CSSProperties>({});
   const btnRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -63,12 +64,10 @@ export function M3MultiSelect({
   }, [open, showSearch]);
 
   function toggleOpen() {
+    // Worked out at the moment of opening, which is the only moment the answer
+    // is known — see menupos.ts for why this is not four lines here any more.
     if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      const w = Math.max(r.width, width);
-      // Flip left if the menu would run off the right edge.
-      const left = r.left + w > window.innerWidth - 8 ? Math.max(8, r.right - w) : r.left;
-      setPos({ top: r.bottom + 8, left, width: w });
+      setPos(placeMenu(btnRef.current, { width, minWidth: width, tallest: 340, gap: 8 }));
     }
     setOpen((o) => !o);
   }
@@ -93,7 +92,7 @@ export function M3MultiSelect({
         ref={btnRef}
         type="button"
         className={`m3sel-field${values.length ? " m3ms-on" : ""}`}
-        style={{ width }}
+        style={{ "--m3sel-w": `${width}px` } as CSSProperties}
         onClick={toggleOpen}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -121,7 +120,7 @@ export function M3MultiSelect({
               className="m3sel-pop m3ms-pop"
               role="listbox"
               aria-multiselectable="true"
-              style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width }}
+              style={pos}
             >
               {showSearch && (
                 <div className="m3ms-search">

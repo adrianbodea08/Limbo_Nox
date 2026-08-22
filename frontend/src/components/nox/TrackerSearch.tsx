@@ -12,6 +12,8 @@
 // reads as a bug in the search.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { placeMenu } from "../menupos";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { trackerApi, type SearchHit } from "./model";
@@ -27,21 +29,17 @@ export function TrackerSearch() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cursor, setCursor] = useState(0);
-  const [pos, setPos] = useState({ top: 0, left: 0, width: 420 });
+  const [pos, setPos] = useState<CSSProperties>({});
   const fieldRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const ready = term.trim().length >= 2;
 
   function place() {
-    const r = fieldRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const width = Math.max(r.width, 460);
-    // Flip left rather than run off the edge — the field sits mid-header and
-    // the menu is wider than it.
-    const left = r.left + width > window.innerWidth - 12
-      ? Math.max(12, r.right - width) : r.left;
-    setPos({ top: r.bottom + 8, left, width });
+    if (!fieldRef.current) return;
+    // 460 is what the results want; the window overrules it on a phone, where
+    // the field is already nearly the whole width. See menupos.ts.
+    setPos(placeMenu(fieldRef.current, { width: 460, minWidth: 0, tallest: 460, gap: 8 }));
   }
 
   // Debounced: typing "checkout" should be one request, not eight.
@@ -125,7 +123,7 @@ export function TrackerSearch() {
         <>
           <div className="m3sel-backdrop" onClick={() => setOpen(false)} />
           <div className="tkf-pop" role="listbox"
-               style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width }}>
+               style={pos}>
             {busy && !hits.length && <p className="tkf-note">Searching…</p>}
             {!busy && !hits.length && (
               <p className="tkf-note">Nothing matches “{term.trim()}”.</p>
