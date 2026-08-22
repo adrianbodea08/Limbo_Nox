@@ -201,6 +201,29 @@ Three facts about how they run, each of them deliberate:
   are what runs against the real database; a schema built another way would
   leave the one people depend on untested.
 
+### And they run without anybody remembering to
+
+`.github/workflows/ci.yml`, on every push: the frontend job runs the build
+(round trip, then types, then the bundle), the M3 audit and the dead-CSS
+report; the backend job stands up a real Postgres and runs the suite. First
+green run 2026-08-22 — 39 passed in 11.72s.
+
+**Pushing it needed the remote to be SSH.** GitHub refuses to let an OAuth
+token create or update anything under `.github/workflows/` unless it carries
+the `workflow` scope, and the credential on this machine belongs to an account
+that should not be handed more scopes for this. SSH keys have no OAuth scopes,
+so the restriction does not apply to them at all:
+
+```
+git config --local core.sshCommand "ssh -i <key> -o IdentitiesOnly=yes"
+git remote set-url origin git@github.com:adrianbodea08/Limbo_Nox.git
+```
+
+Both settings are **local to this clone** — nothing global changed, and no
+account gained a permission. Undo with `git remote set-url origin
+https://github.com/adrianbodea08/Limbo_Nox.git` and
+`git config --local --unset core.sshCommand`.
+
 ### They have been proved to fail
 
 The permission tests are regressions for a leak that existed on 2026-08-22, and

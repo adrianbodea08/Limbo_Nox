@@ -15,10 +15,10 @@ map, not the territory.
 
 An issue tracker for one team of about twenty people, built to replace Jira.
 
-It is a real product and not a demo: 47 commits, 16 migrations, its own
+It is a real product and not a demo: 52 commits, 16 migrations, its own
 Postgres, its own accounts, a GitHub App, a background worker, and a test suite
-that runs against a real database. It runs today at `http://localhost:8090` and
-on the LAN.
+that runs on every push. It runs today at `http://localhost:8090` and on the
+LAN.
 
 It is **not deployed** anywhere with a domain or a certificate, and that is on
 purpose — see [§5](#5-what-is-deliberately-not-built).
@@ -69,6 +69,10 @@ because of a regression that actually happened:
 | `node prune_css.mjs src` | dead CSS; reports, never fails a branch |
 | `docker compose run --rm test` | 39 tests over auth, rate limiting, permissions and the audit log |
 
+All four run in GitHub Actions on every push as well as locally — first green
+run 2026-08-22. See [RUNNING.md](RUNNING.md) for why pushing the workflow file
+needed an SSH remote.
+
 ---
 
 ## 3. What is being worked on
@@ -91,19 +95,17 @@ In the order it makes sense to do them.
 1. **Somebody else uses it.** It answers on the LAN today, so a colleague can
    register and be approved without any deployment at all. Everything below is
    less valuable than this.
-2. **CI has to be able to run.** `.github/workflows/ci.yml` is written and
-   cannot be pushed — the token lacks the `workflow` scope, so all 39 tests and
-   all four gates currently guard nothing. `gh auth refresh -h github.com -s
-   workflow` fixes it in a minute.
-3. **Rotate the GitHub App key.** It went into a chat transcript on
+2. **Rotate the GitHub App key.** It went into a chat transcript on
    2026-08-21. Nothing is known to have used it; that is not a reason to keep
    it.
-4. **A field audit.** Fill rate per field, last set, and who reads it — then
+3. **A field audit.** Fill rate per field, last set, and who reads it — then
    decide what survives. The machinery exists (`list_fields` plus a search
    sweep). The equivalent sweep for statuses and workflows is already done.
-5. **Deployment.** A domain, a certificate, and a scheduled backup. Everything
+4. **Deployment.** A domain, a certificate, and a scheduled backup. Everything
    in [§5](#5-what-is-deliberately-not-built) that is blocked on HTTPS unblocks
    here.
+
+*(CI was second on this list until 2026-08-22, when it started running.)*
 
 ---
 
