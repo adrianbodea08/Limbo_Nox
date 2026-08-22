@@ -718,6 +718,35 @@ export interface InsightsFlow {
 export type AskKind = "confirm" | "explain" | "discuss" | "present";
 export type AskState = "open" | "answered" | "declined" | "withdrawn";
 
+/** What a card needs. Deliberately a shape rather than one of the app's issue
+ *  types: the board has `TrackerIssue` and My work has `QueueIssue`, both of
+ *  these satisfy it, and neither has to learn about the other. Everything a
+ *  particular screen's API does not return is optional and simply does not
+ *  draw — My work has no labels or comment counts, and a card with none of
+ *  those is the same card with less on it. */
+export interface CardIssue {
+  id: number;
+  key: string;
+  summary: string;
+  priority: string;
+  type_name: string;
+  type_icon: string;
+  type_colour: string;
+  assignee_name: string | null;
+  assignee_avatar: string | null;
+  parent_key?: string | null;
+  parent_summary?: string | null;
+  description?: string;
+  labels?: Label[];
+  status_name?: string;
+  status_colour?: string;
+  blocked_by?: number;
+  git_summary?: GitSummary | null;
+  link_count?: number;
+  child_count?: number;
+  comment_count?: number;
+}
+
 export interface Ask {
   id: number;
   issue_id: number;
@@ -740,6 +769,9 @@ export interface Ask {
   /** Present on the queue views, absent on an issue's own list. */
   issue_key?: string;
   issue_summary?: string;
+  /** The issue itself, on the queue views. An ask in a column of cards is a
+   *  card; the key and the summary alone are not enough to draw one. */
+  issue?: CardIssue;
 }
 
 /** Something that may need your attention. Four kinds and no more. */

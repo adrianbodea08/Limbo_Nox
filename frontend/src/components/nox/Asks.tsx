@@ -15,7 +15,8 @@ import { CircleHelp, Clock, MessageSquare, Presentation, ShieldQuestion } from "
 import { useState } from "react";
 import { M3Select } from "../M3Select";
 import { Person } from "./Face";
-import { IssueKey } from "./IssueKey";
+import { CardFace } from "./CardFace";
+import { plain } from "./Markdown";
 import { ago, trackerApi } from "./model";
 import { Composer } from "./Composer";
 import { Markdown } from "./Markdown";
@@ -322,35 +323,142 @@ export function AsksBand({
 }: {
   asks: Ask[];
   me: number;
-  /** So answering one can name somebody. Empty is survivable — the box just
-   *  stops completing — but this is where people answer, so it is worth
-   *  fetching. */
+  /** So answering one can name somebody. */
   users: TrackerUser[];
   onOpen: (key: string) => void;
   onChanged: () => void;
 }) {
   if (!asks.length) return null;
   return (
-    <section className="tkw-band tka-band">
+    <section className="tkw-band tkw-band-col tka-band">
       <header>
         <h2>Waiting on you</h2>
-        <span className="tk-dim">
-          {asks.length === 1 ? "1 person" : `${asks.length} people`} waiting
-        </span>
+        <span className="tk-dim">{asks.length}</span>
       </header>
-      <div className="tka">
-        {asks.map((a) => (
-          <div key={a.id} className="tka-queued">
-            <button type="button" className="tka-queued-issue tk-layer"
-                    onClick={() => a.issue_key && onOpen(a.issue_key)}>
-              <IssueKey issueKey={a.issue_key ?? ""} />
-              <span className="tka-queued-summary">{a.issue_summary}</span>
-            </button>
-            <AskCard ask={a} me={me} users={users} onChanged={onChanged} />
-          </div>
-        ))}
-      </div>
+      <p className="tk-dim tkw-band-hint">Somebody is held up until you answer.</p>
+      {asks.map((a) => <QueuedAsk key={a.id} ask={a} me={me} users={users}
+                                  onOpen={onOpen} onChanged={onChanged} />)}
     </section>
+  );
+}
+
+/** An ask, in a column beside four other columns of cards.
+ *
+ *  So it is a card. It was its own object — its own header, its own frame, its
+ *  own idea of what an issue looks like — sitting in a lane where everything
+ *  else was an issue card, and it read as a different kind of thing rather
+ *  than as the same work seen from another angle.
+ *
+ *  The card says which issue. What is particular to an ask goes where every
+ *  other lane puts what is particular to it: underneath. Who is waiting, how
+ *  long, and the one button that matters.
+ *
+ *  The question itself takes the card's note slot — the place a description
+ *  preview sits on the board and a ranking reason sits in the other lanes.
+ *  Plain rather than rendered: it is one line of a card, and a heading or a
+ *  list in it would be a heading or a list in the middle of a card. The whole
+ *  thing, formatted, is on the issue.
+ */
+function QueuedAsk({ ask, me, users, onOpen, onChanged }: {
+  ask: Ask; me: number; users: TrackerUser[];
+  onOpen: (key: string) => void; onChanged: () => void;
+}) {
+  const kind = kindOf(ask.kind);
+  const [replying, setReplying] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function act(what: () => Promise<unknown>) {
+    setBusy(true);
+    setError("");
+    try {
+      await what();
+      setReplying(false);
+      setText("");
+      onChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // An ask about an issue this person cannot see comes back without one. It
+  // is still their ask and still needs answering, so it keeps its place and
+  // says what it can.
+  if (!ask.issue) {
+    return (
+      <article className="tkw-card">
+        <p className="tk-dim">{plain(ask.question)}</p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="tkw-card">
+      <CardFace
+        issue={ask.issue}
+        status
+        note={plain(ask.question)}
+        onOpen={() => ask.issue_key && onOpen(ask.issue_key)}
+      />
+      <div className="tka-queued-meta">
+        <span className={`tka-kind tka-k-${ask.kind}`}>
+          <kind.Icon size={13} aria-hidden /> {kind.label}
+        </span>
+        {ask.blocking && (
+          <span className="tka-stops" title="The work waits until this is answered">
+            stops the work
+          </span>
+        )}
+        <Waited since={ask.asked_at} />
+      </div>
+      <div className="tka-queued-who">
+        <Person size={18} name={ask.asked_by_name ?? undefined}
+                avatar={ask.asked_by_avatar ?? undefined} />
+        <span className="tk-dim">wants {kind.wants}</span>
+      </div>
+
+      {error && <p className="tk-error tka-error">{error}</p>}
+
+      {replying ? (
+        <div className="tka-reply">
+          <Composer
+            compact
+            autoFocus
+            people={users}
+            value={text}
+            placeholder={`Give them ${kind.wants}…`}
+            onChange={setText}
+          />
+          <div className="tka-actions">
+            <button type="button" className="tk-btn tk-layer" disabled={busy}
+                    onClick={() => setReplying(false)}>Cancel</button>
+            {/* Declining is kept apart from answering: "I am not the right
+                person" and "here is your answer" are different outcomes, and a
+                queue that cannot tell them apart is one people clear by
+                answering badly. */}
+            <button type="button" className="tk-btn tk-layer" disabled={busy}
+                    onClick={() => act(() => trackerApi.declineAsk(ask.id, text))}>
+              Not mine
+            </button>
+            <button type="button" className="tk-btn tk-layer tk-btn-primary"
+                    disabled={busy || !text.trim()}
+                    onClick={() => act(() => trackerApi.answerAsk(ask.id, text))}>
+              Answer
+            </button>
+          </div>
+        </div>
+      ) : (
+        ask.asked_of === me && (
+          <button type="button" className="tk-btn tk-layer tk-btn-primary"
+                  onClick={() => setReplying(true)}>
+            Answer this
+          </button>
+        )
+      )}
+    </article>
   );
 }
 

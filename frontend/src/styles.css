@@ -3146,11 +3146,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    is flex:1 with a zero basis — is the one that loses: at 1120px it collapsed
    to 42px and wrapped the summary one word per line. So it stacks. Reading
    order is also the right one: what, why, what to do about it. */
-/* The urgent one keeps nothing of its own either — the red section around it
-   is already the loudest thing on the page, and a second red box inside it was
-   the card-in-a-card again. */
-.tkw-card-urgent { gap: 10px; }
-.tkw-card-urgent > .tk-btn { align-self: flex-start; }
 /* Every card says why it is here — the line that makes the order followable. */
 .tkw-why { font-size: var(--m3-font-label-medium); color: var(--text-faint); letter-spacing: 0.4px; }
 .tkw-why-urgent { color: var(--err); font-size: var(--m3-font-body-medium); }
@@ -3490,12 +3485,25 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 .tkw-head-r { display: flex; align-items: center; gap: 10px; }
 
+/* Lanes, like the board's.
+ *
+ * A four-track grid put the fifth band underneath the first, which is not a
+ * column at all — Done sat below In progress reading as something that
+ * belonged to it. And a grid squeezes: five equal tracks in the room a rail
+ * leaves is 230px each, and a card whose top row is three bands does not fit
+ * in 230px.
+ *
+ * So the same shape the board already uses for the same problem: fixed-width
+ * lanes that scroll sideways when there are more than fit. Consistent, and it
+ * means adding a sixth band later is not a layout decision. */
 .tkw-cols {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  align-items: flex-start;
   gap: 16px;
-  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
+.tkw-cols > .tkw-band { flex: 0 0 320px; }
 .tkw-stack { display: flex; flex-direction: column; gap: 24px; }
 
 .tkw-band-col {
@@ -3518,8 +3526,12 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkw-card-col .tkw-num { position: absolute; top: 10px; right: 10px; }
 .tkw-card-col { position: relative; }
 
-@media (max-width: 1500px) { .tkw-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 900px) { .tkw-cols { grid-template-columns: minmax(0, 1fr); } }
+/* On a phone a row of 320px lanes is a row of one, so they stack instead —
+   the same answer the board's list layout gives. */
+@media (max-width: 900px) {
+  .tkw-cols { flex-direction: column; overflow-x: visible; }
+  .tkw-cols > .tkw-band { flex: 0 0 auto; width: 100%; }
+}
 
 /* --- M3 date picker -------------------------------------------------------
    Shares MonthPicker's field and popup — they sit on the same rows — and adds
@@ -5042,33 +5054,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tka-field { display: flex; flex-direction: column; gap: 6px; }
 .tka-blocking-pick { align-self: flex-start; }
 
-/* On My work: what other people need, with the issue it is about. */
-.tka-band .tka { margin-top: 4px; }
-.tka-queued { display: flex; flex-direction: column; gap: 0; }
-.tka-queued-issue {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-bottom: 0;
-  border-radius: var(--m3-shape-m) var(--m3-shape-m) 0 0;
-  background: var(--bg-card);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--m3-font-body-medium);
-  text-align: left;
-  cursor: pointer;
-}
-.tka-queued-summary {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tka-queued .tka-card { border-radius: 0 0 var(--m3-shape-m) var(--m3-shape-m); }
 
 /* --- notifications --------------------------------------------------------
    Four kinds and no more. See docs/ASKS.md section 5 — the failure mode is not
@@ -6424,4 +6409,33 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--text-faint);
+}
+
+/* Urgent, as cards rather than as one banner-wide card.
+   There can be more than one, and a card stretched to nineteen hundred pixels
+   is not the card this app draws — its three top bands end up a screen apart
+   and its two-line summary becomes one line with a metre of space after it.
+   Same width as everywhere else, side by side, wrapping when there are more
+   than fit. */
+.tkw-urgent-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.tkw-urgent-row > .tkw-card { flex: 0 0 320px; }
+
+/* An ask in the queue, under its card. Same shape as the other lanes: the card
+   says which issue, and what is particular to this lane sits beneath it. */
+.tka-queued-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tka-queued-who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--m3-font-label-medium);
 }

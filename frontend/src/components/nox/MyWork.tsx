@@ -208,31 +208,43 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                     <p>Everything else waits until this is done.</p>
                   </div>
                 </div>
-                {urgent.map((issue) => (
-                  <article key={issue.id} className="tkw-card tkw-card-urgent">
-                    {/* The reason lives below in full, so the card does not repeat it. */}
-                    <CardFace
-                      issue={issue}
-                      status
-                      onOpen={() => issueDialog.open(issue.key)}
-                    />
-                    <div className="tkw-why tkw-why-urgent">
-                      {issue.urgent_by_name && <strong>{issue.urgent_by_name}</strong>}
-                      {" "}{issue.urgent_reason}
-                      {issue.urgent_at && <span className="tk-dim"> · {ago(issue.urgent_at)}</span>}
-                    </div>
-                    {running.length > 0 && (
-                      <button type="button" className="tk-btn tk-layer" disabled={busy}
-                              onClick={() => setParking(issue)}>
-                        Pause what I was doing ({running.length})
-                      </button>
-                    )}
-                  </article>
-                ))}
+                <div className="tkw-urgent-row">
+                  {urgent.map((issue) => (
+                    <article key={issue.id} className="tkw-card">
+                      <CardFace
+                        issue={issue}
+                        status
+                        onOpen={() => issueDialog.open(issue.key)}
+                      />
+                      <div className="tkw-why tkw-why-urgent">
+                        {issue.urgent_by_name && <strong>{issue.urgent_by_name}</strong>}
+                        {" "}{issue.urgent_reason}
+                        {issue.urgent_at && <span className="tk-dim"> · {ago(issue.urgent_at)}</span>}
+                      </div>
+                      {running.length > 0 && (
+                        <button type="button" className="tk-btn tk-layer" disabled={busy}
+                                onClick={() => setParking(issue)}>
+                          Pause what I was doing ({running.length})
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
               </section>
             )}
 
             <div className={layout === "columns" ? "tkw-cols" : "tkw-stack"}>
+              {/* What other people need from you, before anything you had
+                  planned for yourself — somebody is held up until you answer,
+                  and that outranks your own queue. */}
+              <AsksBand
+                asks={data.asks ?? []}
+                me={shell.user.id}
+                users={people}
+                onOpen={(key) => issueDialog.open(key)}
+                onChanged={load}
+              />
+
               <Band
                 layout={layout}
                 band={band}
@@ -251,23 +263,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 )}
               />
 
-              {/* What other people need from you, before what you had planned
-
-                  to do next — somebody is held up until you come back. */}
-
-              <AsksBand
-
-                asks={data.asks ?? []}
-
-                me={shell.user.id}
-
-                users={people}
-
-                onOpen={(key) => issueDialog.open(key)}
-
-                onChanged={load}
-
-              />
 
 
               <Band

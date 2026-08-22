@@ -441,6 +441,31 @@ def _decorate(conn: Connection, rows: list[dict]) -> list[dict]:
     return _badges(conn, out)
 
 
+def _attach_cards(conn: Connection, asks: list[dict],
+                  allowed: set[int] | None) -> list[dict]:
+    """Give each ask the card of the issue it is about.
+
+    An ask in a queue is a column of cards beside four other columns of cards,
+    and it was the one drawing something else — its own shape, with its own
+    header and its own idea of what an issue looks like. It carried the key and
+    the summary and nothing else, which is not enough to draw a card with.
+
+    `_queue_select` rather than a query of its own, so the permission filter is
+    the one every other read on this screen goes through: an ask can be about
+    an issue in a project the person it was asked of cannot otherwise see, and
+    that is not a way to see it.
+    """
+    ids = {a["issue_id"] for a in asks if a.get("issue_id")}
+    if not ids:
+        return asks
+    rows = _decorate(conn, [dict(r) for r in conn.execute(
+        _queue_select(allowed).where(issues.c.id.in_(ids))).mappings()])
+    by_id = {r["id"]: r for r in rows}
+    for a in asks:
+        a["issue"] = by_id.get(a.get("issue_id"))
+    return asks
+
+
 def _sorted(rows: list[dict]) -> list[dict]:
     return sorted(rows, key=lambda r: (PRIORITY_RANK.get(r["priority"], 9),
                                        r["rank"] or "", r["id"]))
@@ -490,7 +515,7 @@ def my_work(conn: Connection, user_id: int,
     return {
         "who": person["display_name"] if person else None,
         "avatar": person["avatar"] if person else None,
-        "asks": asks_mod.waiting_on(conn, user_id),
+        "asks": _attach_cards(conn, asks_mod.waiting_on(conn, user_id), allowed),
         "asked": asks_mod.asked_by(conn, user_id),
         "done": done,
         "urgent": urgent,

@@ -26,36 +26,9 @@ import { plain } from "./Markdown";
 import { TypeGlyph } from "./TypeGlyph";
 import { IssueKey } from "./IssueKey";
 import { PRIORITY_COLOUR, parentColour } from "./model";
-import type { GitSummary, Label } from "./model";
+import type { CardIssue } from "./model";
+export type { CardIssue } from "./model";
 
-/** What a card needs. Deliberately a shape rather than one of the app's issue
- *  types: the board has `TrackerIssue` and My work has `QueueIssue`, both of
- *  these satisfy it, and neither has to learn about the other. Everything a
- *  particular screen's API does not return is optional and simply does not
- *  draw — My work has no labels or comment counts, and a card with none of
- *  those is the same card with less on it. */
-export interface CardIssue {
-  id: number;
-  key: string;
-  summary: string;
-  priority: string;
-  type_name: string;
-  type_icon: string;
-  type_colour: string;
-  assignee_name: string | null;
-  assignee_avatar: string | null;
-  parent_key?: string | null;
-  parent_summary?: string | null;
-  description?: string;
-  labels?: Label[];
-  status_name?: string;
-  status_colour?: string;
-  blocked_by?: number;
-  git_summary?: GitSummary | null;
-  link_count?: number;
-  child_count?: number;
-  comment_count?: number;
-}
 
 /* Where a card's labels go — see the note in styles.css.
  *
