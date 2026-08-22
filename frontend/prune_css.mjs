@@ -41,7 +41,23 @@ function walk(dir) {
 }
 const sources = [...walk(SRC), path.join(SRC, "..", "index.html")]
   .filter((p) => fs.existsSync(p) && !p.endsWith("styles.css"));
-const haystack = sources.map((p) => fs.readFileSync(p, "utf8")).join("\n");
+// An apostrophe in a comment is not a quote.
+//
+// The scanner below finds string literals with a regex, which cannot tell code
+// from prose — so the `'` in "the band's ink" opened a literal that ran until
+// the next apostrophe anywhere in any file, swallowing everything between and
+// changing how every quote after it paired up. The symptom is the worst kind:
+// a clean run, and then five perfectly live rules reported as dead because a
+// comment in another file gained a possessive.
+//
+// A quote with a letter on both sides is never a delimiter in JS, TS or JSX.
+// Neutralising exactly those leaves every real literal untouched, and is a
+// smaller hammer than stripping comments — which would mean knowing what a
+// comment is, which is the thing this file cannot do.
+const haystack = sources
+  .map((p) => fs.readFileSync(p, "utf8"))
+  .join("\n")
+  .replace(/(?<=[A-Za-z])'(?=[A-Za-z])/g, "’");
 
 const STRING = /(["'`])((?:\\.|(?!\1)[\s\S])*)\1/g;
 

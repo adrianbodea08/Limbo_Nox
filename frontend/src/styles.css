@@ -1499,27 +1499,96 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
 /* The key row starts clear of the band. Only this row — the summary and the
    description below it use the card's full width. */
+/* Three bands along the card's top edge: what kind of thing it is on the left,
+   what it belongs to in the middle, how urgent it is on the right.
+ *
+ * A grid rather than a flex row, because "in the middle" has to mean the
+ * middle of the *card* and not the middle of whatever space the other two left
+ * over. Three columns — the two ends take their content's width, the middle
+ * one takes the rest — and each band names its column, so the parent going
+ * missing leaves a gap in the middle instead of sliding the priority into it.
+ *
+ * Both margins are negative: the row reaches out through the card's own
+ * padding to both edges, which is what lets the outer two sit in the corners.
+ * The card has no top padding for the same reason. */
 .tk-card-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0 8px;
   min-width: 0;
-  /* Taller than the band it holds. The band stays pinned to the top and
-     everything else centres in what is left, which is where the air above the
-     parent pill and the priority comes from — they used to sit three pixels
-     from the card's edge and read as if they had been pushed off it. */
+  /* Taller than the bands, so there is air between them and the summary. */
   min-height: 36px;
-  /* Back out through the card's own padding, so the band starts at the card's
-     edge. The card has no top padding for the same reason. */
   margin-left: -12px;
+  margin-right: -12px;
 }
-/* Only the parent pill gives up width on this row. The type, the key and the
-   face are how a card is identified at a glance and must not be squeezed. */
-.tk-card-top > .tk-type,
-.tk-card-top > .tk-key,
-.tk-card-top > .tk-face,
-.tk-card-top > .tk-prio { flex: 0 0 auto; }
+
+/* The three of them, as one thing. Same height, same weight, same solid fill
+   in whatever colour the thing itself carries — a card is scanned, and three
+   marks in the same shape along one edge are read in a single glance where
+   three different shapes are read three times. */
+.tk-card-top .tk-card-corner,
+.tk-card-top .tk-card-parent,
+.tk-card-top .tk-card-prio {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border: 0;
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Ink derived from the band's own colour rather than a flat white.
+ *
+ * White is what the type band used, and measured against the palette these
+ * actually carry it fails badly: 1.86:1 on the teal type, 2.5 on the amber,
+ * the orange, the green and two of the priorities. Eleven of the twelve bands
+ * on this board were under AA's 4.5, and the worst was barely visible. Making
+ * the parent and the priority match the type band would have spread one band's
+ * problem across three.
+ *
+ * A very dark mix of the band's own hue clears it on every colour without
+ * needing a per-colour table, and it stays *of* the colour rather than a
+ * neutral laid on top. The same trick GitHub's labels use, for the same
+ * reason. See the note on --text-faint for where this project's bar comes
+ * from. */
+.tk-card-top .tk-card-corner { color: color-mix(in srgb, var(--band) 22%, #05070b); }
+.tk-card-top .tk-card-parent { color: color-mix(in srgb, var(--pill) 22%, #05070b); }
+.tk-card-top .tk-card-prio { color: color-mix(in srgb, var(--prio) 22%, #05070b); }
+
+.tk-card-top .tk-card-corner {
+  grid-column: 1;
+  background: var(--band, var(--accent));
+}
+
+/* Hangs from the top edge rather than sitting in a corner, so it is rounded
+   underneath on both sides. */
+.tk-card-top .tk-card-parent {
+  grid-column: 2;
+  justify-self: center;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 10px;
+  border-radius: 0 0 var(--m3-shape-m) var(--m3-shape-m);
+  background: var(--pill, var(--accent));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
+}
+
+/* The type band mirrored: rounded into the card's own top-right corner, and
+   rounded again on the inner one. */
+.tk-card-top .tk-card-prio {
+  grid-column: 3;
+  margin-left: 0;
+  padding: 0 8px 0 10px;
+  border-radius: 0 var(--m3-shape-m) 0 var(--m3-shape-m);
+  background: var(--prio);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
 
 /* Two lines, then an ellipsis. A title that runs to five lines is the reason
    cards end up different heights, and the rest of it is one click away. */

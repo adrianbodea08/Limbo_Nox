@@ -143,7 +143,10 @@ function TypeCorner({ issue }: { issue: TrackerIssue }) {
   return (
     <span
       className="tk-card-corner"
-      style={{ background: issue.type_colour }}
+      // A custom property rather than `background` directly: the band's ink is
+      // worked out *from* its colour, and a stylesheet cannot read an inline
+      // background to do that.
+      style={{ "--band": issue.type_colour } as CSSProperties}
       title={issue.type_name}
     >
       <TypeGlyph icon={issue.type_icon} size={13} />
