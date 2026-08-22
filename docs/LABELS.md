@@ -119,9 +119,21 @@ multi-select there.
 
 ## 5. Where they show
 
-**On a board card** — between the summary and the description, same left edge.
-They qualify what the thing *is*, so they read with the title rather than with
-the counts in the footer. Three at most, then `+N`; never a silent trim.
+**On a board card** — down the right edge, over the tail of the description.
+Three at most, then `+N`; never a silent trim.
+
+Where there is a pointer, they are **colour and nothing else** until you hover:
+a stack of small bars against the edge, enough to see that a card is tagged and
+that two cards are tagged alike. Hovering slides the words back out, one after
+another. On a touch screen there is no hover to discover that in, so they stay
+out — a label nobody can ever read is worse than one taking up room.
+
+They took a row of their own between the summary and the description until
+2026-08-22. Two things were wrong with that. A label is a qualifier rather than
+a headline, and it was getting a whole row of a fixed-height card that the
+summary and the description were not; and the card's height had never counted
+that row, so a card with two labels overflowed and had the bottom of its badge
+row quietly clipped.
 
 Deliberately quieter than the priority pill on the same card. Priority is a
 state somebody assigned; a label is a word somebody typed.

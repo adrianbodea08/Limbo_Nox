@@ -123,11 +123,21 @@ function TypeIcon({ issue }: { issue: TrackerIssue }) {
   );
 }
 
-/** The type, as a band across the card's top-left corner.
+/** The type and the key, as one band across the card's top-left corner.
  *
  *  On a row — a table or a list — the glyph in line with the key is right,
  *  because a row is read left to right. A column of cards is scanned, and what
- *  a scan finds is a block of colour in a place that never moves. */
+ *  a scan finds is a block of colour in a place that never moves.
+ *
+ *  **The key is inside the band.** It used to sit beside it in the card's own
+ *  text colour at eleven pixels, which made the two halves of one idea — what
+ *  kind of thing this is, and which thing it is — look like two separate marks
+ *  that happened to be adjacent. On the band they are one label, and the key
+ *  can be read at a glance instead of squinted at.
+ *
+ *  The band does not take clicks; the key inside it does, and takes them back.
+ *  A band that swallowed the pointer would lose the one affordance on a card
+ *  that opens an issue in its own window. */
 function TypeCorner({ issue }: { issue: TrackerIssue }) {
   return (
     <span
@@ -136,6 +146,7 @@ function TypeCorner({ issue }: { issue: TrackerIssue }) {
       title={issue.type_name}
     >
       <TypeGlyph icon={issue.type_icon} size={13} />
+      <IssueKey issueKey={issue.key} className="tk-key tk-corner-key" />
     </span>
   );
 }
@@ -270,9 +281,8 @@ export function ColumnsBoard({
                   onDragEnd={end}
                   onClick={() => onOpen(issue)}
                 >
-                  <TypeCorner issue={issue} />
                   <div className="tk-card-top">
-                    <IssueKey issueKey={issue.key} />
+                    <TypeCorner issue={issue} />
                     {/* What this is part of, alongside what it is called. It
                         gives up its width first — the priority and the face
                         after it are fixed points a board is read by. */}
@@ -288,10 +298,12 @@ export function ColumnsBoard({
                     <Priority value={issue.priority} />
                   </div>
                   <p className="tk-card-sum">{issue.summary}</p>
-                  {/* Under the summary, above the description: the words a
-                      team invented for itself qualify what the thing is, so
-                      they read with the title rather than with the counts. */}
-                  <LabelChips labels={issue.labels ?? []} max={3} />
+                  {/* Down the card's right edge rather than across a row of
+                      its own. A label is a qualifier, not a headline, and the
+                      row it used to take was a row the summary and the
+                      description were not getting — see the note on
+                      `.tk-card-tags`. */}
+                  <LabelChips labels={issue.labels ?? []} max={3} className="tk-card-tags" />
                   {preview(issue) && <p className="tk-card-desc">{preview(issue)}</p>}
                   <Badges issue={issue} />
                 </article>

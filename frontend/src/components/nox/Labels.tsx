@@ -14,13 +14,24 @@ import { useEffect, useRef, useState } from "react";
 import { trackerApi } from "./model";
 import type { Label } from "./model";
 
-/** Read-only, for a board card or a row. */
-export function LabelChips({ labels, max }: { labels: Label[]; max?: number }) {
+/** Read-only, for a board card or a row.
+ *
+ *  `className` replaces the wrapper's, rather than adding to it, because the
+ *  board card wants a different *layout* for these — a strip down its edge
+ *  rather than a row in its flow — and inheriting `.tk-labels`' flex row would
+ *  mean overriding half of it back. The chips inside are the same either way. */
+export function LabelChips({
+  labels, max, className = "tk-labels",
+}: {
+  labels: Label[];
+  max?: number;
+  className?: string;
+}) {
   if (!labels?.length) return null;
   const shown = max ? labels.slice(0, max) : labels;
   const hidden = labels.length - shown.length;
   return (
-    <span className="tk-labels">
+    <span className={className}>
       {shown.map((l) => (
         <span key={l.id} className="tk-label" title={l.name}
               style={{ "--label": l.colour } as React.CSSProperties}>

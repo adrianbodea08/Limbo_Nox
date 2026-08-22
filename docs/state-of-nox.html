@@ -1,0 +1,682 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The State of Nox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  /* ---- light, complete ------------------------------------------------- */
+  :root {
+    --ground: #f3f4f6;
+    --raised: #ffffff;
+    --card:   #ffffff;
+    --sunk:   #eaecf0;
+    --line:   #e3e5ea;
+    --line-firm: #cfd3db;
+    --ink:    #1b1f27;
+    --ink-dim:  #5b6573;
+    --ink-faint:#8a93a2;
+    --accent: #3b6fff;
+    --accent-wash: rgba(59, 111, 255, 0.10);
+    --solid:  #1a7f37;
+    --thin:   #9a6700;
+    --absent: #d1242f;
+    --shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(16,20,28,.06);
+
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  /* ---- dark: the product's own "midnight" palette ---------------------- */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1116;
+      --raised: #161b22;
+      --card:   #1c2230;
+      --sunk:   #12161d;
+      --line:   #2a3140;
+      --line-firm: #3a4252;
+      --ink:    #e6edf3;
+      --ink-dim:  #9aa7b8;
+      --ink-faint:#8592a3;
+      --accent: #5b8cff;
+      --accent-wash: rgba(91, 140, 255, 0.14);
+      --solid:  #3fb950;
+      --thin:   #d29922;
+      --absent: #f85149;
+      --shadow: 0 1px 2px rgba(0,0,0,.40), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e1116;
+    --raised: #161b22;
+    --card:   #1c2230;
+    --sunk:   #12161d;
+    --line:   #2a3140;
+    --line-firm: #3a4252;
+    --ink:    #e6edf3;
+    --ink-dim:  #9aa7b8;
+    --ink-faint:#8592a3;
+    --accent: #5b8cff;
+    --accent-wash: rgba(91, 140, 255, 0.14);
+    --solid:  #3fb950;
+    --thin:   #d29922;
+    --absent: #f85149;
+    --shadow: 0 1px 2px rgba(0,0,0,.40), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+  .prose { max-width: 68ch; }
+
+  a { color: var(--accent); text-underline-offset: 3px; }
+
+  /* ---- the opening ------------------------------------------------------ */
+
+  header.hero {
+    padding: 88px 0 56px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 28px;
+  }
+  .moon {
+    width: 22px; height: 22px;
+    flex: 0 0 auto;
+    color: var(--ink);
+  }
+  .eyebrow .sep { color: var(--line-firm); }
+  /* Each part keeps its line and the row wraps between them; letter-spaced
+     uppercase otherwise breaks mid-phrase, which reads as three phrases. */
+  .eyebrow > span { white-space: nowrap; }
+
+  h1 {
+    font-family: var(--display);
+    font-optical-sizing: auto;
+    font-weight: 800;
+    font-size: clamp(2.4rem, 6.4vw, 4.4rem);
+    line-height: 1.03;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    margin: 0 0 28px;
+    max-width: 17ch;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+
+  .standfirst {
+    font-size: clamp(1.05rem, 2.1vw, 1.3rem);
+    line-height: 1.55;
+    color: var(--ink-dim);
+    max-width: 58ch;
+    margin: 0;
+  }
+  .standfirst strong { color: var(--ink); font-weight: 600; }
+
+  /* ---- the figures ------------------------------------------------------ */
+
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 48px 0 0;
+  }
+  .fig {
+    background: var(--raised);
+    padding: 20px 18px;
+  }
+  .fig b {
+    display: block;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.9rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .fig span {
+    display: block;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+  .fig.nil b { color: var(--absent); }
+
+  /* ---- sections --------------------------------------------------------- */
+
+  section { padding-top: 72px; }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(1.6rem, 3.4vw, 2.15rem);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 0 0 14px;
+  }
+  h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.2rem;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  p { margin: 0 0 18px; }
+  p:last-child { margin-bottom: 0; }
+
+  .lede { color: var(--ink-dim); font-size: 1.05rem; }
+
+  /* ---- the graded inventory --------------------------------------------- */
+
+  .band { margin-top: 44px; }
+
+  .band-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--grade);
+  }
+  .band-head h3 {
+    font-size: 1.05rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--grade);
+    margin: 0;
+  }
+  .band-head .count {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .band-head .gloss {
+    margin-left: auto;
+    font-size: 14px;
+    color: var(--ink-faint);
+    text-align: right;
+  }
+
+  .band.is-solid  { --grade: var(--solid); }
+  .band.is-thin   { --grade: var(--thin); }
+  .band.is-absent { --grade: var(--absent); }
+
+  .rows { display: flex; flex-direction: column; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 15rem) minmax(0, 1fr);
+    gap: 4px 20px;
+    align-items: start;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: 0; }
+
+  .mark { margin-top: 5px; color: var(--grade); }
+  .mark svg { display: block; }
+
+  .row .name {
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: -0.005em;
+  }
+  .row .what { color: var(--ink-dim); font-size: 0.96rem; }
+  .row .what code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--sunk);
+    color: var(--ink);
+  }
+
+  .better {
+    grid-column: 3;
+    margin-top: 10px;
+    padding: 10px 14px;
+    border-left: 2px solid var(--grade);
+    background: var(--raised);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.92rem;
+    color: var(--ink-dim);
+  }
+  .better b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ---- the ask ---------------------------------------------------------- */
+
+  .ask {
+    margin-top: 40px;
+    padding: 32px;
+    border: 1px solid var(--line-firm);
+    border-radius: 16px;
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  .ask h3 {
+    font-size: 1.45rem;
+    margin-bottom: 12px;
+  }
+  .ask p { color: var(--ink-dim); }
+  .ask .addr {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    background: var(--accent-wash);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  .steps {
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 14px;
+  }
+  .steps li {
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 14px;
+    align-items: start;
+    font-size: 0.98rem;
+    color: var(--ink-dim);
+  }
+  .steps li b { color: var(--ink); font-weight: 600; }
+  .steps .n {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 22px;
+    text-align: center;
+    border-radius: 999px;
+    border: 1px solid var(--line-firm);
+    color: var(--ink-faint);
+    height: 22px;
+    margin-top: 3px;
+  }
+
+  /* ---- decisions -------------------------------------------------------- */
+
+  .decisions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-top: 36px;
+  }
+  .decision {
+    background: var(--raised);
+    padding: 24px;
+  }
+  .decision h3 { font-size: 1.05rem; margin-bottom: 8px; }
+  .decision p { font-size: 0.94rem; color: var(--ink-dim); margin: 0; }
+
+  /* ---- footer ----------------------------------------------------------- */
+
+  footer {
+    margin-top: 80px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    align-items: baseline;
+  }
+  footer .mono { font-family: var(--mono); font-size: 12px; }
+
+  /* ---- narrow ----------------------------------------------------------- */
+
+  @media (max-width: 700px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 18px 72px; }
+    .eyebrow { flex-wrap: wrap; gap: 6px 10px; letter-spacing: 0.10em; }
+    header.hero { padding: 56px 0 40px; }
+    section { padding-top: 56px; }
+    .row {
+      grid-template-columns: 20px minmax(0, 1fr);
+      gap: 6px 14px;
+    }
+    .row .what, .better { grid-column: 2; }
+    .band-head { flex-wrap: wrap; }
+    .band-head .gloss { margin-left: 0; width: 100%; text-align: left; }
+    .ask { padding: 24px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">
+      <svg class="moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M20.7 15.6A8.5 8.5 0 0 1 9.2 4.1a0.6 0.6 0 0 0-0.8-0.8 9.7 9.7 0 1 0 13.1 13.1 0.6 0.6 0 0 0-0.8-0.8z"/>
+      </svg>
+      <span>Nox by Limbo</span>
+      <span class="sep">/</span>
+      <span>State of play</span>
+      <span class="sep">/</span>
+      <span>22 August 2026</span>
+    </div>
+
+    <h1>Half of every status change was already made by a <em>machine</em>.</h1>
+
+    <p class="standfirst">
+      We were paying Jira to watch us do the other half by hand. Nox is the
+      replacement, and it is finished enough that the next thing it needs is
+      not a feature &mdash; <strong>it is a second person using it.</strong>
+    </p>
+
+    <div class="figures">
+      <div class="fig"><b>41</b><span>tables</span></div>
+      <div class="fig"><b>49</b><span>commits</span></div>
+      <div class="fig"><b>16</b><span>migrations</span></div>
+      <div class="fig"><b>39</b><span>tests</span></div>
+      <div class="fig"><b>4</b><span>gates, in CI</span></div>
+      <div class="fig nil"><b>1</b><span>human users</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>What it is</h2>
+    <div class="prose">
+      <p>
+        An issue tracker for one team of about twenty people. Projects,
+        workflows that actually refuse a transition, boards whose columns are
+        containers of statuses, releases that span projects, automations, and a
+        GitHub App that does the half of the work nobody should be clicking.
+      </p>
+      <p>
+        None of it was reasoned from taste. We measured what Jira was doing for
+        us and found that <em>Utility Points</em> was five different custom
+        field ids, that the field recording who tested something kept no
+        history at all, and that half the status changes on the board were
+        already automation. Every decision below traces to one of those.
+      </p>
+      <p>
+        It runs today, on the office network, with four projects and a
+        workflow captured from our real Jira. What it does not have is anyone
+        in it.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Where every part of it actually stands</h2>
+    <p class="lede prose">
+      Three grades, and the middle one is the interesting one. <b>Solid</b>
+      means built, checked, and it would survive somebody leaning on it.
+      <b>Thin</b> means it exists and nothing has ever tested whether it is any
+      good. <b>Missing</b> means it is not there and we know it.
+    </p>
+
+    <!-- SOLID -->
+    <div class="band is-solid">
+      <div class="band-head">
+        <h3>Solid</h3>
+        <span class="count">11</span>
+        <span class="gloss">Built, verified, and safe to lean on</span>
+      </div>
+      <div class="rows">
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">Boards and workflow</span>
+          <span class="what">A column is a container of <em>statuses</em>, not a status &mdash; so two can share a column, and a status in no column stays off the board. Transitions refuse, and name what <em>is</em> available.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">Issues and the event log</span>
+          <span class="what">Append-only: every field change is a row, 855 of them so far. This is the thing Jira could not do, and most of what is worth knowing reads history rather than current state.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">Git</span>
+          <span class="what">A GitHub App &mdash; one authorisation by an org owner, no tokens pasted anywhere. Pull requests, branches, builds through the Checks API, and branch-name linking. 58 refs attached to issues &mdash; and, since this morning, the first three builds it has ever seen that were not seeded: its own CI.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">Accounts and permissions</span>
+          <span class="what">Register, an admin approves, an admin grants project access. Argon2id, rate-limited, sessions in the database. A restricted issue answers <em>&ldquo;no issue CD-3&rdquo;</em> rather than <em>&ldquo;forbidden&rdquo;</em> &mdash; the second answer is itself information.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">The admin audit</span>
+          <span class="what">Who changed a role, a status, or who can see a project &mdash; with the <em>before</em> as well as the after, because &ldquo;changed a role&rdquo; is not an answer and &ldquo;member to admin&rdquo; is.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">The text editor</span>
+          <span class="what">Type <code>##</code> and it becomes a heading; paste Markdown and it just works. It renders to elements rather than HTML, so nothing anybody writes can become markup &mdash; and a round-trip check runs on every build.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">Labels</span>
+          <span class="what">Created by using them, not by an admin, and folded on the way in &mdash; so <code>Flaky</code> and <code>flaky</code> are one label rather than two.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">Saved views</span>
+          <span class="what">A whole arrangement &mdash; the filters <em>and</em> the layout. Yours unless you share it.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">Search</span>
+          <span class="what">Summary, description <em>and comments</em>. The comments are what make it work: half of what anybody remembers about an issue was said underneath it, not in its title.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">It works on a phone</span>
+          <span class="what">From 320px up. The navigation becomes a sheet, the filters go to two columns, the issue view becomes a full-screen sheet. The list layout is the one that suits a phone and it is two taps away.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="5" fill="currentColor"/></svg></span>
+          <span class="name">The gates run themselves</span>
+          <span class="what">GitHub Actions, on every push: the build, the round-trip check, the design-system audit, the dead-CSS report, and 39 tests against a real Postgres. Green in 46 seconds. Until this morning they only passed because somebody remembered to run them.</span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- THIN -->
+    <div class="band is-thin">
+      <div class="band-head">
+        <h3>Thin</h3>
+        <span class="count">7</span>
+        <span class="gloss">Built, and nothing has ever tested whether it is good</span>
+      </div>
+      <div class="rows">
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0a5 5 0 0 1 0 10z" fill="currentColor"/><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">Asks and notifications</span>
+          <span class="what">Four kinds &mdash; confirm, explain, discuss, present &mdash; plus a bell, a count in the tab title and a redrawn favicon. All six asks in there are seeded.</span>
+          <div class="better"><b>Better looks like:</b> it reaches you when Nox is <em>not</em> open. Real push needs HTTPS, which needs a deployment; Discord is the answer in the meantime, and was always the plan for after it is live.</div>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0a5 5 0 0 1 0 10z" fill="currentColor"/><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">Insights</span>
+          <span class="what">Flow, waiting time, and how much of the movement is automation. The charts are right; 66 issues is not enough for a median to mean anything, and the ratio it reports is a ratio of seeded data.</span>
+          <div class="better"><b>Better looks like:</b> nothing to build. A month of real work in it, and then read the numbers.</div>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0a5 5 0 0 1 0 10z" fill="currentColor"/><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">Automations</span>
+          <span class="what">The engine is real &mdash; blocks, a job queue, a worker, an audit trail, 31 runs. But all five rules came from the seed, and nobody has ever written one.</span>
+          <div class="better"><b>Better looks like:</b> somebody who is not the person who built it writes a rule without asking for help. If that is hard, the editor is the thing to fix.</div>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0a5 5 0 0 1 0 10z" fill="currentColor"/><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">Releases</span>
+          <span class="what">Cross-project and first-class, with artifacts that ship independently and a state machine that follows them both ways. Fourteen of them. The timeline is dense at fourteen and there is no phone-shaped version of it.</span>
+          <div class="better"><b>Better looks like:</b> one real release run end to end &mdash; planned, shipped, and the dates disagreeing &mdash; before deciding whether the timeline needs anything.</div>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0a5 5 0 0 1 0 10z" fill="currentColor"/><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">My work and the team queue</span>
+          <span class="what">The screens most people would live in. They order work by three levers &mdash; the product owner&rsquo;s, the lead&rsquo;s and the developer&rsquo;s &mdash; and no actual product owner or lead has ever pulled one.</span>
+          <div class="better"><b>Better looks like:</b> a lead reorders their team&rsquo;s week in it and the result is what they meant.</div>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0a5 5 0 0 1 0 10z" fill="currentColor"/><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">Tables on a phone</span>
+          <span class="what">They scroll sideways rather than becoming a list of cards. Honest and consistent &mdash; nothing is hidden any more &mdash; but nobody would call it good.</span>
+          <div class="better"><b>Better looks like:</b> the accounts and views tables become cards under 600px. A day of work, and only worth it if anybody administers Nox from a phone.</div>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0a5 5 0 0 1 0 10z" fill="currentColor"/><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">All of the data</span>
+          <span class="what">Nineteen accounts exist. One human has ever signed in. Every issue, comment, ask and release you can see was written by a seed script.</span>
+          <div class="better"><b>Better looks like:</b> the section below. This is the one that unlocks the other six.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MISSING -->
+    <div class="band is-absent">
+      <div class="band-head">
+        <h3>Missing</h3>
+        <span class="count">3</span>
+        <span class="gloss">Not there, and we know it</span>
+      </div>
+      <div class="rows">
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">No deployment</span>
+          <span class="what">No domain, no certificate. Deliberate so far &mdash; a PoC that nobody uses does not need infrastructure &mdash; but it is now the thing blocking real notifications, because the browser will not do push without a secure origin.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">Backups are not scheduled</span>
+          <span class="what">The flow exists and has actually been restored end to end, with a marker in the data to prove it replaced rather than quietly did nothing. Nothing runs it on a timer.</span>
+        </div>
+
+        <div class="row">
+          <span class="mark"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4.5" fill="none" stroke="currentColor"/></svg></span>
+          <span class="name">The field audit</span>
+          <span class="what">Which custom fields does anyone actually fill in? We have the machinery and have not run it. The same sweep for statuses and workflows is already done &mdash; that is where the captured workflow came from.</span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What we are asking for</h2>
+    <div class="ask">
+      <h3>One of you, for one week.</h3>
+      <p>
+        Nox answers on the office network right now. No deployment, no VPN,
+        nothing to install &mdash; and an account takes about thirty seconds.
+      </p>
+      <span class="addr">http://192.168.0.46:8090</span>
+      <ol class="steps">
+        <li><span class="n">1</span><span><b>Register.</b> Pick a username and a password. You will land on a page saying you are waiting.</span></li>
+        <li><span class="n">2</span><span><b>Say so.</b> An admin approves you and grants you the projects you should see &mdash; that is deliberate, and it is the whole permission model.</span></li>
+        <li><span class="n">3</span><span><b>Use it for real work.</b> Not a tour. Put a genuine ticket in it, ask somebody a question on one, and reorder your week in <em>My work</em>.</span></li>
+        <li><span class="n">4</span><span><b>Tell us what was annoying.</b> Especially the small things. Everything in the Thin list above is a guess until somebody who did not build it disagrees.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>The decisions the rest hangs off</h2>
+    <p class="lede prose">
+      Five of ten. The others, with their reasoning, are in the repository&rsquo;s
+      own documentation.
+    </p>
+    <div class="decisions">
+
+      <div class="decision">
+        <h3>History is first-class</h3>
+        <p>Almost everything worth knowing reads history rather than current state, so every write goes through an append-only log. The whole data model hangs off this one.</p>
+      </div>
+
+      <div class="decision">
+        <h3>One database, and it is Postgres</h3>
+        <p>Accounts lived in a separate SQLite file until this month. Twenty-six columns held a user id and not one could declare a foreign key, because you cannot declare one across two engines &mdash; so deleting an account silently orphaned everything it owned. There are twenty-seven now.</p>
+      </div>
+
+      <div class="decision">
+        <h3>Permissions live in the query builder</h3>
+        <p>They were written correctly on four screens and wrongly on two, and nothing could tell the difference. A plain member could read a project they had been kept out of by asking for a colleague&rsquo;s queue. It is one filter now, and three regression tests that were proved to fail against the old code.</p>
+      </div>
+
+      <div class="decision">
+        <h3>The design system is a script</h3>
+        <p>Material 3 is not a preference somebody remembers. Radius, elevation, motion, type, colour, hit area and undefined tokens are checked mechanically, and the check exits non-zero. It once passed for the wrong reason and had to be re-proved against five deliberate violations.</p>
+      </div>
+
+      <div class="decision">
+        <h3>Git drives the tracker</h3>
+        <p>Not the other way round, and not a two-way sync with Jira &mdash; that would make Nox a second place to look, which is the problem we started with.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <span>Nox by Limbo &mdash; an in-house issue tracker.</span>
+    <span class="mono">FastAPI &middot; Postgres &middot; React &middot; 22 August 2026</span>
+  </footer>
+
+</div>

@@ -1393,8 +1393,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-card {
   /* The tallest case measured, plus a little slack for a font that renders a
      hair taller: key row + two lines of title + two of description + the badge
-     row along the bottom. */
-  --tk-card-h: 166px;
+     row along the bottom.
+     Twelve taller than it was, which is exactly what the top row gained when
+     the parent pill and the priority were given room to breathe — that space
+     had to come from somewhere and the card is where. It also now really is
+     every case: labels used to sit in the flow and were *not* in the figure
+     above, so a card with two of them overflowed its own height and had the
+     bottom of its badge row quietly cut off. They are on the edge now. */
+  --tk-card-h: 178px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--m3-shape-m);
@@ -1446,23 +1452,50 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* The band sits in the card's own corner — outside its padding, clipped by the
    radius the card already has (it sets overflow: hidden). Rounded on the inner
    corner only, so it reads as a band laid into the corner rather than a square
-   stuck on top of it. */
+   stuck on top of it.
+
+   **In the flow, not absolute.** It was pinned with `position: absolute` and
+   the row beside it cleared it with a fixed 22px margin — which worked only
+   while the band was a fixed 30px of glyph. It now carries the key too, so its
+   width depends on how long the key is: `CD-3` and `QAB-117` are not the same
+   band. As the row's first child it simply takes the width it needs, and the
+   row's negative left margin is what puts it back on the card's own edge. */
 .tk-card-corner {
-  position: absolute;
-  top: 0;
-  left: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 24px;
+  gap: 6px;
+  flex: 0 0 auto;
+  /* The row is taller than the band on purpose (see `.tk-card-top`); the band
+     stays at the top of it, because a corner that has come away from the
+     corner is not one. */
+  align-self: flex-start;
+  height: 26px;
+  padding: 0 10px 0 8px;
   border-radius: var(--m3-shape-m) 0 var(--m3-shape-m) 0;
   color: var(--m3-on-accent);
   font-size: var(--m3-font-label-medium);
   line-height: 1;
-  /* It labels the card; it is not a second thing to click. */
+  /* It labels the card; it is not a second thing to click. The key inside it
+     is, and takes its own events back. */
   pointer-events: none;
 }
+/* On the band rather than beside it, so it is one label with the glyph instead
+   of two marks that happen to be adjacent — and a size up from the 11px it was,
+   which is what it is for.
+
+   Written as a descendant of the band rather than as `.tk-corner-key` alone:
+   the element carries `.tk-key` too, that rule is declared further down this
+   file, and at equal specificity the later one wins. The first version of this
+   lost both the colour and the size to it, which painted the key in
+   `--text-faint` on a saturated band — present, and unreadable. */
+.tk-card-corner .tk-key {
+  pointer-events: auto;
+  color: inherit;
+  font-size: var(--m3-font-label-medium);
+  letter-spacing: 0.4px;
+  text-decoration: none;
+}
+.tk-card-corner .tk-key:hover { text-decoration: underline; }
 
 /* The key row starts clear of the band. Only this row — the summary and the
    description below it use the card's full width. */
@@ -1472,9 +1505,14 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 8px;
   flex: 0 0 auto;
   min-width: 0;
-  /* Exactly the corner band's height, so the two share a centre line. */
-  min-height: 24px;
-  margin-left: 22px;
+  /* Taller than the band it holds. The band stays pinned to the top and
+     everything else centres in what is left, which is where the air above the
+     parent pill and the priority comes from — they used to sit three pixels
+     from the card's edge and read as if they had been pushed off it. */
+  min-height: 36px;
+  /* Back out through the card's own padding, so the band starts at the card's
+     edge. The card has no top padding for the same reason. */
+  margin-left: -12px;
 }
 /* Only the parent pill gives up width on this row. The type, the key and the
    face are how a card is identified at a glance and must not be squeezed. */
@@ -5254,10 +5292,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-label-new { color: var(--text-dim); }
 .tk-label-new strong { color: var(--text); }
 
-/* On a board card the chips sit between the summary and the description: same
-   left edge, and the summary's own bottom margin is the whole gap so the space
-   above them matches the space below. */
-.tk-card-sum + .tk-labels { margin-top: 0; }
 
 /* --- @mentions -----------------------------------------------------------
    An M3 menu, anchored at the caret rather than at the field: the thing being
@@ -6050,3 +6084,100 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    not left behind the scrim. It is not a control, so it does not draw the
    focus ring it would otherwise inherit from `.tk-page :focus-visible`. */
 .tk-rail:focus { outline: none; }
+
+/* --- labels, down the card's edge ----------------------------------------
+   They used to take a row of their own between the summary and the
+   description — a row of a fixed-height card that neither of those two were
+   getting, and one the card's own height had never accounted for, so a card
+   with two labels clipped its badge row. A label is a qualifier, not a
+   headline.
+
+   They live against the right edge now, over the tail of the description,
+   which is already cut off with an ellipsis and so costs nothing.
+
+   **Where there is a pointer, they collapse to colour.** Enough to see that a
+   card is tagged, and that two cards are tagged alike, without spending a line
+   on the words; hovering slides them back out, one after another. That is the
+   enhancement, and it is the part behind the media query — because on a touch
+   screen there is no hover to discover it in, and a label nobody can ever read
+   is worse than one taking up room.
+   ------------------------------------------------------------------------- */
+
+.tk-card-tags {
+  position: absolute;
+  /* Clear of the badge row, and anchored to the bottom rather than the top:
+     expanded, these sit over whatever is behind them, and the summary is the
+     one line on a card that has to stay readable. */
+  bottom: 46px;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  min-width: 0;
+}
+.tk-card-tags .tk-label {
+  max-width: 168px;
+  /* Flush to the card's edge and rounded only on the inside, so it reads as
+     something tucked under the edge rather than a chip that happens to be
+     there. */
+  border-radius: var(--m3-shape-full) 0 0 var(--m3-shape-full);
+  /* Opaque, unlike the in-flow chips: there is description text behind these. */
+  background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, var(--bg-card));
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .tk-card-tags .tk-label {
+    max-width: 7px;
+    height: 15px;
+    padding: 0;
+    border-radius: var(--m3-shape-s) 0 0 var(--m3-shape-s);
+    border-color: transparent;
+    background: var(--label, var(--border-strong));
+    /* Not `visibility` or `opacity`: the text has to still be there, so that
+       the chip's own width is what it grows back to. */
+    color: transparent;
+    overflow: hidden;
+    transition:
+      max-width var(--m3-dur-medium) var(--m3-ease-decel),
+      padding var(--m3-dur-medium) var(--m3-ease-decel),
+      height var(--m3-dur-short) var(--m3-ease-standard),
+      border-radius var(--m3-dur-short) var(--m3-ease-standard),
+      color var(--m3-dur-short) var(--m3-ease-standard),
+      background var(--m3-dur-short) var(--m3-ease-standard),
+      border-color var(--m3-dur-short) var(--m3-ease-standard);
+  }
+
+  /* `:focus-within` as well as `:hover`, so a keyboard reaching the key inside
+     the card gets the same answer a pointer does. */
+  .tk-card:hover .tk-card-tags .tk-label,
+  .tk-card:focus-within .tk-card-tags .tk-label {
+    max-width: 168px;
+    height: 19px;
+    padding: 1px 8px;
+    border-radius: var(--m3-shape-full) 0 0 var(--m3-shape-full);
+    border-color: color-mix(in srgb, var(--label, var(--border-strong)) 45%, transparent);
+    background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, var(--bg-card));
+    color: color-mix(in srgb, var(--label, var(--text-dim)) 78%, var(--text));
+  }
+
+  /* One after another rather than all at once — three chips arriving together
+     reads as the card changing shape, and staggered it reads as them coming
+     out from under it. Leaving is not staggered: a thing being dismissed
+     should not make you wait for it. */
+  .tk-card:hover .tk-card-tags .tk-label:nth-child(2),
+  .tk-card:focus-within .tk-card-tags .tk-label:nth-child(2) { transition-delay: 45ms; }
+  .tk-card:hover .tk-card-tags .tk-label:nth-child(3),
+  .tk-card:focus-within .tk-card-tags .tk-label:nth-child(3) { transition-delay: 90ms; }
+  .tk-card:hover .tk-card-tags .tk-label:nth-child(4),
+  .tk-card:focus-within .tk-card-tags .tk-label:nth-child(4) { transition-delay: 135ms; }
+}
+
+/* Asked for less movement: the words still arrive, they just do not slide. */
+@media (prefers-reduced-motion: reduce) {
+  .tk-card-tags .tk-label { transition-property: color, background, border-color; }
+  .tk-card:hover .tk-card-tags .tk-label,
+  .tk-card:focus-within .tk-card-tags .tk-label { transition-delay: 0s; }
+}
