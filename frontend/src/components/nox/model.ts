@@ -589,10 +589,11 @@ export interface QueueIssue {
 export interface MyWorkData {
   who: string | null;
   avatar: string | null;
-  urgent: QueueIssue[];
+  /** Urgent is not a band: it sorts to the top of whichever of these it is
+   *  really in, and something put down stays where it is and wears a layer
+   *  saying so. Lifting either one out made these two lie about the day. */
   inProgress: QueueIssue[];
   next: QueueIssue[];
-  paused: QueueIssue[];
   /** Finished in the last fortnight — recent and capped on the server. */
   done: QueueIssue[];
   /** Open asks directed at you — what other people need, oldest first. */

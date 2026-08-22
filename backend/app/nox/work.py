@@ -27,6 +27,8 @@ presses the button rather than the system inferring it.
 """
 from __future__ import annotations
 
+import logging
+
 from typing import Any
 
 from sqlalchemy import Connection, and_, delete, func, or_, select, text
@@ -42,6 +44,8 @@ from .schema import (
 # Highest first. `urgent` is above the five and carries the stop-everything
 # meaning; the rest are the ordinary grading.
 PRIORITY_ORDER = ["urgent", "highest", "high", "medium", "low", "lowest"]
+log = logging.getLogger("nox.work")
+
 PRIORITY_RANK = {p: i for i, p in enumerate(PRIORITY_ORDER)}
 
 # Only these may be set to urgent by, and only these may pull free-for-all work.
@@ -258,6 +262,66 @@ def pause(conn: Connection, actor: Actor, issue_id: int, *,
                               "reason": reason})
     return dict(conn.execute(
         select(issue_pauses).where(issue_pauses.c.id == pause_id)).mappings().one())
+
+
+def follow_move(conn: Connection, actor: Actor, issue_id: int,
+                was: str | None, now: str | None) -> None:
+    """Pauses and resumes, derived from the move that caused them.
+
+    **Nobody presses a button for this.** Being pulled off something is not a
+    decision somebody makes separately from the work — it *is* the work: you
+    start the urgent thing, and what you were on is down. Asking for it in a
+    dialog measured whether people clear modals, and cost them five clicks at
+    the one moment they were in a hurry.
+
+    Two rules, and the second one is why the 95%-done case needs no special
+    handling at all:
+
+    * something reaches done -> whatever was put down for it picks itself up.
+    * something starts, and it outranks what you already had open -> that gets
+      put down, for this.
+
+    "Outranks" rather than "is different": switching between two mediums is not
+    an interruption, it is working badly, and the number this feeds is defined
+    as *time work spent paused because something else came first*. Finish, then
+    start the next thing, and no pause is written — because there was not one.
+
+    Never raises. A pause that could fail a transition would make the workflow
+    hostage to bookkeeping.
+    """
+    try:
+        if now == "done" and was != "done":
+            for (other,) in conn.execute(
+                select(issue_pauses.c.issue_id)
+                .where(issue_pauses.c.paused_for_issue_id == issue_id)
+                .where(issue_pauses.c.resumed_at.is_(None))).all():
+                resume(conn, actor, other)
+            return
+
+        if now != "in_progress" or was == "in_progress":
+            return
+
+        started = conn.execute(
+            select(issues.c.assignee_id, issues.c.priority, issues.c.key)
+            .where(issues.c.id == issue_id)).mappings().first()
+        if not started or not started["assignee_id"]:
+            return
+        rank = PRIORITY_RANK.get(started["priority"], 9)
+
+        for row in conn.execute(
+            select(issues.c.id, issues.c.priority)
+            .select_from(issues.join(statuses, issues.c.status_id == statuses.c.id))
+            .where(issues.c.assignee_id == started["assignee_id"])
+            .where(issues.c.id != issue_id)
+            .where(issues.c.archived_at.is_(None))
+            .where(statuses.c.category == "in_progress")).mappings():
+            if rank >= PRIORITY_RANK.get(row["priority"], 9):
+                continue
+            if open_pause(conn, row["id"]):
+                continue
+            pause(conn, actor, row["id"], for_issue_id=issue_id)
+    except Exception:  # noqa: BLE001 - see the docstring
+        log.exception("could not follow the move on issue %s", issue_id)
 
 
 def resume(conn: Connection, actor: Actor, issue_id: int) -> dict | None:
@@ -497,12 +561,16 @@ def my_work(conn: Connection, user_id: int,
         .order_by(issues.c.resolved_at.desc())
         .limit(12)).mappings()])
 
-    urgent = [r for r in rows if r["priority"] == "urgent"]
-    rest = [r for r in rows if r["priority"] != "urgent"]
-    # Parked things are shown apart from the queue: they are not what to do
-    # next, they are what was put down and needs picking back up.
-    parked = [r for r in rest if r["paused"]]
-    live = [r for r in rest if not r["paused"]]
+    # Urgent is not a band of its own any more, and neither is paused.
+    #
+    # Both used to be lifted out of the queue, which meant the two lanes that
+    # are supposed to describe somebody's day were quietly lying about it: an
+    # urgent thing you were already working on vanished from In progress, and
+    # so did anything you had put down. A card says what is true about itself —
+    # urgent sorts to the top of whichever lane it is really in, and something
+    # parked stays where it is and wears it.
+    #
+    # `_sorted` already puts urgent first, so nothing here has to.
 
     person = conn.execute(
         select(users.c.display_name, users.c.avatar)
@@ -518,10 +586,8 @@ def my_work(conn: Connection, user_id: int,
         "asks": _attach_cards(conn, asks_mod.waiting_on(conn, user_id), allowed),
         "asked": asks_mod.asked_by(conn, user_id),
         "done": done,
-        "urgent": urgent,
-        "inProgress": [r for r in live if r["status_category"] == "in_progress"],
-        "next": [r for r in live if r["status_category"] != "in_progress"],
-        "paused": parked,
+        "inProgress": [r for r in rows if r["status_category"] == "in_progress"],
+        "next": [r for r in rows if r["status_category"] != "in_progress"],
         "team": team_of(conn, user_id),
         "leads": leads(conn, user_id),
     }

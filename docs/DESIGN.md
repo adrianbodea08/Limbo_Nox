@@ -667,4 +667,5 @@ later migrates everyone the same way.
 | 2026-08-06 | Two priorities: PO's plan order for teams, lead's order for one developer |
 | 2026-08-06 | Order is owned, never computed — a score is arguable, a lead's list is not |
 | 2026-08-06 | `urgent` above the five *is* the interrupt; no second escalation concept |
-| 2026-08-06 | Parking is a person's click, not automatic, or the interruption figure is meaningless |
+| 2026-08-06 | ~~Parking is a person's click, not automatic, or the interruption figure is meaningless~~ |
+| 2026-08-23 | **Reversed.** Parking is derived from the move that caused it — see ANALYTICS.md §"What does an interruption cost?" |

@@ -3088,32 +3088,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkw-head h1 { margin: 0; font-size: var(--m3-font-headline-small); font-weight: 600; }
 .tkw-head p { margin: 4px 0 0; font-size: var(--m3-font-body-medium); }
 
-/* Urgent has to be the loudest thing on the page or it does not work. */
-.tkw-urgent {
-  border: 2px solid var(--err);
-  border-radius: var(--m3-shape-l);
-  background: color-mix(in srgb, var(--err) 7%, transparent);
-  padding: 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.tkw-urgent-head { display: flex; align-items: center; gap: 14px; }
-.tkw-urgent-head h2 { margin: 0; font-size: var(--m3-font-title-large); font-weight: 700; color: var(--err); }
-.tkw-urgent-head p { margin: 2px 0 0; font-size: var(--m3-font-body-medium); color: var(--text-dim); }
-.tkw-siren {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  border-radius: var(--m3-shape-full);
-  background: var(--err);
-  color: var(--m3-on-accent);
-  font-size: var(--m3-font-title-large);
-  font-weight: 800;
-}
 
 .tkw-band { display: flex; flex-direction: column; gap: 8px; }
 .tkw-band > header { display: flex; align-items: baseline; gap: 12px; }
@@ -6449,19 +6423,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   color: var(--text-faint);
 }
 
-/* Urgent, as cards rather than as one banner-wide card.
-   There can be more than one, and a card stretched to nineteen hundred pixels
-   is not the card this app draws — its three top bands end up a screen apart
-   and its two-line summary becomes one line with a metre of space after it.
-   Same width as everywhere else, side by side, wrapping when there are more
-   than fit. */
-.tkw-urgent-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: flex-start;
-}
-.tkw-urgent-row > .tkw-card { flex: 0 0 320px; }
 
 /* An ask in the queue, under its card. Same shape as the other lanes: the card
    says which issue, and what is particular to this lane sits beneath it. */
@@ -6502,3 +6463,56 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* Everything under the heading is the app's own ink again — the kind's colour
    belongs to the heading and its rule, not to the card beneath them. */
 .tka-queued-title ~ * { color: var(--text); }
+
+/* Put down, said on the card rather than by moving it somewhere else.
+   A layer over the top: the work is still the work you have, and lifting it
+   into a lane of its own made the lane it left describe a day that was not
+   happening. Nothing here takes the pointer — this does not block, it says. */
+.tk-card-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--bg-card) 74%, transparent);
+  pointer-events: none;
+}
+.tk-card-veil-word {
+  padding: 4px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-full);
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  font-size: var(--m3-font-label-medium);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* Why the queue was stopped, attached to the card it was stopped for.
+   Under it rather than on it — the card is what the work is, this is what
+   happened to it — and joined to it, so the two read as one object. */
+.tkw-urgent-note {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -8px;
+  padding: 10px 12px;
+  border: 1px solid var(--err);
+  border-top: 0;
+  border-radius: 0 0 var(--m3-shape-m) var(--m3-shape-m);
+  background: color-mix(in srgb, var(--err) 10%, var(--bg-card));
+  font-size: var(--m3-font-label-medium);
+  line-height: 1.5;
+}
+.tkw-urgent-word {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--err);
+}
+.tkw-urgent-note strong { color: var(--text); }
+/* The card above it loses the corner they share, so the join is a join. */
+.tkw-card-urgent .tk-card { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }

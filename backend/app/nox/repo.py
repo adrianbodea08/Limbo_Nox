@@ -253,14 +253,30 @@ def update_issue(
             entity_type="issue", entity_id=issue_id, batch_id=batch,
             kind="field_changed", field=field, from_value=old, to_value=new,
         )
+
+    # Being pulled off something is a consequence of a move, not a separate
+    # decision — so it is derived here, next to `resolved_at`, and for the same
+    # reason: a caller cannot be trusted to remember, and every path that moves
+    # an issue comes through this one function. Imported late because `work`
+    # is built on this module.
+    if "status_id" in changes:
+        from . import work
+        work.follow_move(conn, actor, issue_id,
+                         _category(conn, before["status_id"]),
+                         _category(conn, changes["status_id"]))
     return _issue_row(conn, issue_id)
 
 
-def _resolved_at(conn: Connection, status_id: int) -> Any:
-    category = conn.execute(
+def _category(conn: Connection, status_id: int | None) -> str | None:
+    if status_id is None:
+        return None
+    return conn.execute(
         text("SELECT category FROM statuses WHERE id = :id"), {"id": status_id}
     ).scalar()
-    return text("now()") if category == "done" else None
+
+
+def _resolved_at(conn: Connection, status_id: int) -> Any:
+    return text("now()") if _category(conn, status_id) == "done" else None
 
 
 # ------------------------------------------------------------------- comments

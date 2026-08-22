@@ -113,6 +113,29 @@ off something at all. Two numbers: hours lost to interruption in the period, and
 the count of distinct pieces of work that were put down. Plus the pairs: what
 keeps interrupting what.
 
+**Nobody types any of it.** Until 2026-08-23 a pause was a person's click: an
+urgent item raised a banner, the banner offered a dialog, and the dialog asked
+which of your open work you were putting down. The decision log said parking had
+to be manual "or the interruption figure is meaningless" — the worry being that
+an automatic pause measures a flag flip rather than somebody genuinely putting
+something down.
+
+That worry was about pausing on *escalation*, which is indeed a flag flip.
+Deriving it from a **status move** is not: starting something else is the person
+actually doing the thing the number is about, and it is a better signal than a
+checkbox ticked to make a modal go away. Two rules, in `work.follow_move`:
+
+* something reaches done → whatever was put down for it picks itself up;
+* something starts and **outranks** what you already had open → that gets put
+  down, for this.
+
+"Outranks" is doing real work there. Switching between two mediums is not an
+interruption, it is working badly, and counting it would bury the real ones.
+And the case the dialog handled worst — you are an hour from finishing, so you
+finish, *then* pick up the urgent one — now records nothing at all, because
+nothing was interrupted. It needs no special handling; it is what the rule
+already says.
+
 ---
 
 ## 3. What you see

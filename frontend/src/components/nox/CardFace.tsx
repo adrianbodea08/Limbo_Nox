@@ -211,11 +211,16 @@ export interface CardFaceProps {
   className?: string;
   /** Anything the screen wants inside the card, after the badges. */
   children?: ReactNode;
+  /** Put down, and what for. A layer over the card rather than a lane of its
+   *  own: parked work is still the work you have, and moving it somewhere else
+   *  made the lane it left lie about your day. Visual only — everything on the
+   *  card underneath still answers. */
+  parkedFor?: string | null;
 }
 
 export function CardFace({
   issue, onOpen, note, status, tagStyle = "bar",
-  selected, dragging, wrapper, className = "", children,
+  selected, dragging, wrapper, className = "", children, parkedFor,
 }: CardFaceProps) {
   const under = note ?? preview(issue);
   return (
@@ -268,6 +273,13 @@ export function CardFace({
       )}
       {under && <p className="tk-card-desc">{under}</p>}
       <Badges issue={issue} status={status} />
+      {parkedFor !== undefined && (
+        <span className="tk-card-veil" aria-hidden>
+          <span className="tk-card-veil-word">
+            {parkedFor ? `Paused until ${parkedFor} is done` : "Paused"}
+          </span>
+        </span>
+      )}
       {children}
     </article>
   );

@@ -58,7 +58,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
   const [people, setPeople] = useState<TrackerUser[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [parking, setParking] = useState<QueueIssue | null>(null);
   const issueDialog = useIssueDialog(() => load());
 
   const load = useCallback(async () => {
@@ -118,11 +117,9 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
     reorder(list[index].priority, ids);
   }
 
-  const urgent = data?.urgent ?? [];
   const running = data?.inProgress ?? [];
   const empty = !!data
-    && !urgent.length && !running.length && !data.next.length
-    && !data.paused.length && !data.done.length;
+    && !running.length && !data.next.length && !data.done.length;
 
   return (
     <div className="tk-page">
@@ -195,42 +192,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
               </div>
             )}
 
-            {/* Urgent is not a band with a heading, it is an interruption. It
-                gets the loudest thing on the page or it does not work. */}
-            {urgent.length > 0 && (
-              <section className="tkw-urgent">
-                <div className="tkw-urgent-head">
-                  <span className="tkw-siren">!</span>
-                  <div>
-                    <h2>{urgent.length === 1 ? "Stop — this first" : `Stop — ${urgent.length} urgent`}</h2>
-                    <p>Everything else waits until this is done.</p>
-                  </div>
-                </div>
-                <div className="tkw-urgent-row">
-                  {urgent.map((issue) => (
-                    <article key={issue.id} className="tkw-card">
-                      <CardFace
-                        issue={issue}
-                        status
-                        onOpen={() => issueDialog.open(issue.key)}
-                      />
-                      <div className="tkw-why tkw-why-urgent">
-                        {issue.urgent_by_name && <strong>{issue.urgent_by_name}</strong>}
-                        {" "}{issue.urgent_reason}
-                        {issue.urgent_at && <span className="tk-dim"> · {ago(issue.urgent_at)}</span>}
-                      </div>
-                      {running.length > 0 && (
-                        <button type="button" className="tk-btn tk-layer" disabled={busy}
-                                onClick={() => setParking(issue)}>
-                          Pause what I was doing ({running.length})
-                        </button>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
-
             <div className={layout === "columns" ? "tkw-cols" : "tkw-stack"}>
               {/* What other people need from you, before anything you had
                   planned for yourself — somebody is held up until you answer,
@@ -253,12 +214,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 issues={running}
                 empty="Nothing started."
                 onOpen={(i) => issueDialog.open(i.key)}
-                action={(issue) => (
-                  <button type="button" className="tk-btn tk-layer" disabled={busy}
-                          onClick={() => act(() => trackerApi.pauseIssue(issue.id, {}))}>
-                    Pause
-                  </button>
-                )}
               />
 
 
@@ -289,25 +244,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 }}
               />
 
-              {/* Paused keeps its column even when empty, so the four do not
-                  reflow underneath you the moment something is picked back up. */}
-              <Band
-                layout={layout}
-                band={band}
-                title="Paused"
-                hint="Put down for something else."
-                issues={data.paused}
-                empty="Nothing paused."
-                hideWhenEmpty={layout === "list"}
-                onOpen={(i) => issueDialog.open(i.key)}
-                action={(issue) => (
-                  <button type="button" className="tk-btn tk-layer tk-btn-primary" disabled={busy}
-                          onClick={() => act(() => trackerApi.resumeIssue(issue.id))}>
-                    Pick back up
-                  </button>
-                )}
-              />
-
               <Band
                 layout={layout}
                 title="Done"
@@ -325,20 +261,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
 
       {issueDialog.dialog}
 
-      {parking && data && (
-        <ParkDialog
-          urgent={parking}
-          running={running}
-          onCancel={() => setParking(null)}
-          onDone={async (ids) => {
-            setParking(null);
-            await act(async () => {
-              for (const id of ids) await trackerApi.pauseIssue(id, { for_issue_id: parking.id });
-              return trackerApi.myWork();
-            });
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -402,6 +324,7 @@ function Band({
           <DropSlot slot={band?.slotAt(title, index) ?? null} />
           <article
             className={`${column ? "tkw-card tkw-card-col" : "tkw-card"}${
+              issue.priority === "urgent" ? " tkw-card-urgent" : ""}${
               band?.dragging?.id === issue.id ? " tk-card-dragging" : ""}`}
             {...(band?.rowProps(issue, title, issues, index) ?? {})}
           >
@@ -410,8 +333,23 @@ function Band({
               issue={issue}
               status
               note={stillWorthSaying(issue)}
+              parkedFor={issue.paused
+                ? (issue.paused.for_key ?? null)
+                : undefined}
               onOpen={() => onOpen(issue)}
             />
+            {/* Why somebody stopped the queue, attached to the card it is
+                about rather than announced above the whole screen. Under it,
+                not on it: the card is what the work *is*, and this is what
+                happened to it. */}
+            {issue.priority === "urgent" && issue.urgent_reason && (
+              <div className="tkw-urgent-note">
+                <span className="tkw-urgent-word">Urgent</span>
+                {issue.urgent_by_name && <strong>{issue.urgent_by_name}</strong>}
+                <span>{issue.urgent_reason}</span>
+                {issue.urgent_at && <span className="tk-dim">· {ago(issue.urgent_at)}</span>}
+              </div>
+            )}
             {action?.(issue, index)}
           </article>
         </Fragment>
@@ -428,60 +366,5 @@ function Band({
  *  pressing the button, not the system deciding. Pausing automatically would
  *  make the interruption figure measure a flag flip instead of somebody
  *  genuinely putting something down. */
-function ParkDialog({
-  urgent, running, onCancel, onDone,
-}: {
-  urgent: QueueIssue;
-  running: QueueIssue[];
-  onCancel: () => void;
-  onDone: (ids: number[]) => void;
-}) {
-  const [picked, setPicked] = useState<Set<number>>(new Set(running.map((r) => r.id)));
-
-  return (
-    <div className="tkc-scrim" onClick={onCancel}>
-      <div className="tkc tkw-park" onClick={(e) => e.stopPropagation()}>
-        <header className="tkc-head">
-          <div className="tkc-head-l">
-            <div className="tkc-crumb">TAKING {urgent.key}</div>
-            <h2 className="tkc-title">What are you putting down?</h2>
-          </div>
-        </header>
-        <div className="tks-body">
-          <p className="tk-dim">
-            Paused work is timed, so we can see what interruptions actually cost. Untick anything
-            that genuinely keeps going.
-          </p>
-          {running.map((issue) => (
-            <label key={issue.id} className="tks-radio tk-layer">
-              <input
-                type="checkbox"
-                checked={picked.has(issue.id)}
-                onChange={(e) => {
-                  const next = new Set(picked);
-                  e.target.checked ? next.add(issue.id) : next.delete(issue.id);
-                  setPicked(next);
-                }}
-              />
-              <span>
-                <strong>{issue.key}</strong> — {issue.summary}
-              </span>
-            </label>
-          ))}
-        </div>
-        <footer className="tkc-foot">
-          <span />
-          <div className="tkc-foot-r">
-            <button type="button" className="tk-btn tk-layer" onClick={onCancel}>Cancel</button>
-            <button type="button" className="tk-btn tk-layer tk-btn-primary"
-                    onClick={() => onDone([...picked])}>
-              Pause {picked.size} and start {urgent.key}
-            </button>
-          </div>
-        </footer>
-      </div>
-    </div>
-  );
-}
 
 
