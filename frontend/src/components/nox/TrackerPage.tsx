@@ -11,7 +11,7 @@ import { morph } from "../../morph";
 import { M3MultiSelect } from "../M3MultiSelect";
 import { TopBar, type ShellProps } from "../TopBar";
 import { TrackerSearch } from "./TrackerSearch";
-import { ColumnsBoard, ListBoard, TableBoard, type Renderer } from "./BoardViews";
+import { ColumnsBoard, ListBoard, TableBoard, readTagStyle, type Renderer } from "./BoardViews";
 import { IssueCard } from "./IssueCard";
 import { Automations } from "./Automations";
 import { GitSettings } from "./GitSettings";
@@ -80,6 +80,16 @@ interface Props {
   shell: ShellProps;
 }
 
+/* The label experiment's own switch — see the note in BoardViews.tsx. Here
+ * rather than in the URL bar because comparing three of these means flipping
+ * between them twenty times, and typing a query parameter twenty times is not
+ * comparing them, it is remembering how to. Goes when one of them wins. */
+const TAG_STYLES = [
+  { value: "bar" as const, label: "Bar" },
+  { value: "edge" as const, label: "Edge" },
+  { value: "out" as const, label: "Out" },
+];
+
 const RENDERERS: { id: Renderer; label: string; hint: string }[] = [
   { id: "columns", label: "Columns", hint: "A column per status — the working board" },
   { id: "table", label: "Table", hint: "One dense row per issue, sortable" },
@@ -127,6 +137,10 @@ export function TrackerPage({ shell }: Props) {
       ? sectionParam : "issues";
   const releaseId = params.get("release") ? Number(params.get("release")) : null;
   const renderer = (params.get("view") as Renderer) || "columns";
+  // Which of the three label treatments the board is drawing. The board reads
+  // this from the URL itself; this copy is only so the switch can show which
+  // one is on.
+  const tagStyle = readTagStyle(params.get("tags"));
   // Not a control any more: a project's board columns decide what the columns
   // are, which is a better answer than a dropdown. The parameter is still read
   // so older links keep working.
@@ -530,6 +544,20 @@ export function TrackerPage({ shell }: Props) {
                 options={RENDERERS.map((r) => ({ value: r.id, label: r.label }))}
                 onChange={(next) => morph(() => setParam({ view: next }))}
               />
+              {/* Only on the board: labels are drawn on cards, and the table
+                  and the list do not have any. Temporary — it comes out with
+                  the two treatments that lose. */}
+              {renderer === "columns" && (
+                <span className="tk-try" title="Where a card's labels go — an experiment">
+                  <span className="tk-try-tag">Labels</span>
+                  <M3Segmented
+                    label="Where a card's labels go"
+                    value={tagStyle}
+                    options={TAG_STYLES}
+                    onChange={(next) => morph(() => setParam({ tags: next }))}
+                  />
+                </span>
+              )}
               <M3MultiSelect
                 values={who}
                 width={190}

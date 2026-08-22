@@ -6047,6 +6047,12 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
     width: 100%;
   }
   .tk-bar-right .m3seg-btn { flex: 1; }
+  /* Four segments and a label do not fit in half a phone: it takes the row,
+     the way the layout switch above it does. */
+  .tk-bar-right .tk-try { grid-column: 1 / -1; }
+  .tk-bar-right .tk-try .m3seg { display: flex; flex: 1; min-width: 0; }
+  .tk-bar-right .tk-try .m3seg-btn { flex: 1; }
+
   /* The actions end the bar together, on their own row. */
   .tk-bar-right .tk-link { justify-self: start; align-self: center; }
   .tk-bar-right .tk-btn-primary { grid-column: 2; justify-self: end; }
@@ -6323,4 +6329,24 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
     background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, var(--bg-card));
     color: color-mix(in srgb, var(--label, var(--text-dim)) 78%, var(--text));
   }
+}
+
+/* The label experiment's switch, on the board bar. Marked as an experiment
+   rather than dropped in among the filters looking permanent: it is a thing
+   being tried, and the row it sits on is otherwise all controls that mean
+   something. It goes when one treatment wins. */
+.tk-try {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 3px 3px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--m3-shape-full);
+}
+.tk-try-tag {
+  font-size: var(--m3-font-label-small);
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }

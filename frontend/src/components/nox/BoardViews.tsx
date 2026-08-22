@@ -190,10 +190,17 @@ function Priority({ value }: { value: string }) {
 export type TagStyle = "edge" | "out" | "bar";
 const TAG_SLOTS: Record<TagStyle, number> = { edge: 3, out: 3, bar: 5 };
 
+/** The board reads this from the URL rather than from a prop, so the switch on
+ *  the bar above only has to set a parameter. Both sides fall back to `bar`
+ *  and they have to agree: a default that differed would light the switch up
+ *  on one treatment while the board drew another. */
+export function readTagStyle(asked: string | null): TagStyle {
+  return asked === "out" || asked === "edge" ? asked : "bar";
+}
+
 function useTagStyle(): TagStyle {
   const [params] = useSearchParams();
-  const asked = params.get("tags");
-  return asked === "out" || asked === "bar" ? asked : "edge";
+  return readTagStyle(params.get("tags"));
 }
 
 interface ColumnsProps {
