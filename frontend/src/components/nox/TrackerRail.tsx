@@ -122,6 +122,7 @@ export function TrackerRail({
           type="button"
           className={`tk-nav-item tk-layer${inProjects ? " on" : ""}`}
           aria-current={inProjects || undefined}
+          title="Projects"
           onClick={() => nav("/")}
         >
           <FolderKanban size={20} strokeWidth={2} aria-hidden />
@@ -185,6 +186,8 @@ export function TrackerRail({
             type="button"
             className={`tk-nav-item tk-layer${on ? " on" : ""}`}
             aria-current={on || undefined}
+            // Collapsed there is no label, so the name has to be somewhere.
+            title={d.label}
             onClick={() => nav(d.to)}
           >
             <d.Icon size={20} strokeWidth={2} aria-hidden />

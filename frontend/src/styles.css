@@ -5904,7 +5904,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    than mounted conditionally: a component that appears on resize has to be
    re-created, and this way the browser changes the layout in one frame. */
 .topbar-menu {
-  display: none;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 40px;
@@ -5922,8 +5922,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-rail-scrim { display: none; }
 
 @media (max-width: 839px) {
-  .topbar-menu { display: inline-flex; }
-
   /* One column: the rail is no longer in the flow, so nothing should be
      reserved for it. Without this the main column keeps its `1fr` of a grid
      whose first track is still 248px, which at 375px leaves 127px — and the
@@ -6595,3 +6593,49 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tkq-pick-why { display: flex; flex-direction: column; gap: 8px; padding: 6px; }
 .tkq-pick-why p { margin: 0; font-size: var(--m3-font-label-medium); }
 .tkq-pick-why-foot { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* --- the navigation, collapsed to its icons -------------------------------
+   Above 840 the hamburger does not show and hide the rail — it narrows it.
+   Closed is the icons, open is the icons with their names, and both are part
+   of the page rather than over it. A person who wants the board wider gets it
+   without losing the ability to go anywhere, which a sheet takes away.
+
+   `:has()` rather than a class on the shell, because the flag lives on the
+   rail and the thing that has to resize is its parent's grid track. Threading
+   a second copy of one boolean through seven pages to say what is already in
+   the DOM would be two states to keep agreeing.
+   ------------------------------------------------------------------------- */
+
+@media (min-width: 840px) {
+  .tk-shell { grid-template-columns: 72px 1fr; }
+  .tk-shell:has(.tk-rail-open) { grid-template-columns: 248px 1fr; }
+  .tk-shell {
+    transition: grid-template-columns var(--m3-dur-medium) var(--m3-ease-standard);
+  }
+
+  /* Collapsed: one column of icons, each still a 44px target. */
+  .tk-rail:not(.tk-rail-open) { padding: 12px 8px; }
+  .tk-rail:not(.tk-rail-open) .tk-nav-item {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+  }
+  .tk-rail:not(.tk-rail-open) .tk-nav-label { display: none; }
+  /* The disclosure has nothing to disclose at this width, and the projects
+     under it are keys without their names — a three-letter badge is a legible
+     icon, which is the whole reason projects have one. */
+  .tk-rail:not(.tk-rail-open) .tk-rail-twist,
+  .tk-rail:not(.tk-rail-open) .tk-rail-name,
+  .tk-rail:not(.tk-rail-open) .tk-rail-cog,
+  .tk-rail:not(.tk-rail-open) .tk-rail-none { display: none; }
+  .tk-rail:not(.tk-rail-open) .tk-rail-line .tk-rail-item {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+  }
+  .tk-rail:not(.tk-rail-open) .tk-rail-sub { padding-left: 0; border-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tk-shell { transition: none; }
+}

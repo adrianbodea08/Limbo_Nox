@@ -46,10 +46,9 @@ export function TopBar({
   onOpenSettings,
   onLogout,
 }: TopBarProps) {
-  // Only ever seen below 840px, where the rail is a sheet rather than a column.
-  // Rendered always and hidden in CSS rather than measured in JavaScript: a
-  // window that is resized past the breakpoint has to change the layout
-  // anyway, and the media query does that in the same frame as everything else.
+  // At every width now. Below 840 it shows and hides a sheet; above it, it
+  // collapses the navigation to its icons and back — two readings of one flag,
+  // which is why there is one button rather than two.
   const drawer = useNavDrawer();
 
   const brand = (
@@ -64,7 +63,7 @@ export function TopBar({
       <button
         type="button"
         className="topbar-menu tk-layer"
-        aria-label={drawer.open ? "Hide the navigation" : "Show the navigation"}
+        aria-label={drawer.open ? "Collapse the navigation" : "Expand the navigation"}
         aria-expanded={drawer.open}
         onClick={drawer.toggle}
       >

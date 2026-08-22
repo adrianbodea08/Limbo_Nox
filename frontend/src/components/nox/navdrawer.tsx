@@ -32,23 +32,55 @@ interface NavDrawer {
 // throwing.
 const Ctx = createContext<NavDrawer>({ open: false, toggle: () => {}, close: () => {} });
 
+/** Whether a media query holds, and keeps holding. */
+function useMedia(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const on = () => setMatches(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, [query]);
+  return matches;
+}
+
 export function useNavDrawer() {
   return useContext(Ctx);
 }
 
+/** Below this the navigation is a sheet over the page; above it, part of it.
+ *  M3's own boundary, and the same one the stylesheet uses. */
+const MODAL = "(max-width: 839px)";
+const REMEMBER = "nox-nav-open";
+
 export function NavDrawerProvider({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  // Two different things wear the same flag, which is the point rather than a
+  // compromise: closed is *icons only* where there is room for a rail, and
+  // *gone* where there is not. Open is the same drawer either way.
+  const [open, setOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem(REMEMBER);
+      return saved === null ? true : saved === "1";
+    } catch { return true; }
+  });
   const { pathname, search } = useLocation();
+  const modal = useMedia(MODAL);
   // Whatever had the keyboard when the sheet went up. Somebody who opened it
   // from the menu button and then dismissed it should be back on that button,
   // not at the top of the document with their place lost.
   const cameFrom = useRef<HTMLElement | null>(null);
 
-  const close = useCallback(() => setOpen(false), []);
+  const remember = (v: boolean) => {
+    try { localStorage.setItem(REMEMBER, v ? "1" : "0"); } catch { /* private mode */ }
+    return v;
+  };
+  const close = useCallback(() => setOpen(() => remember(false)), []);
   const toggle = useCallback(() => {
     setOpen((v) => {
       if (!v) cameFrom.current = document.activeElement as HTMLElement | null;
-      return !v;
+      return remember(!v);
     });
   }, []);
 
@@ -63,24 +95,42 @@ export function NavDrawerProvider({ children }: { children: ReactNode }) {
   // Both parts of the address: the rooms are paths (/my-work, /teams) but the
   // board's sections are query parameters (?section=releases), so watching the
   // path alone would leave the drawer open over four of the seven destinations.
-  useEffect(() => { setOpen(false); }, [pathname, search]);
+  //
+  // Only while it is a sheet. Where the drawer is part of the page, closing it
+  // on every navigation would collapse the navigation each time somebody used
+  // it — which is a preference they set, not a state to be reset.
+  useEffect(() => { if (modal) setOpen(false); }, [pathname, search, modal]);
 
-  // Escape closes it, the same key that closes every other layer in the app.
+  // Crossing the boundary is not a decision, so it must not overwrite one.
+  // Narrowing puts the sheet away without saving that; widening again asks
+  // what was set the last time somebody actually chose. Without the second
+  // half, resizing a window down and back up quietly collapsed a navigation
+  // that had been left open on purpose.
   useEffect(() => {
-    if (!open) return;
+    if (modal) return;
+    try {
+      const saved = localStorage.getItem(REMEMBER);
+      setOpen(saved === null ? true : saved === "1");
+    } catch { setOpen(true); }
+  }, [modal]);
+
+  // Escape closes it, the same key that closes every other layer in the app —
+  // and only while it is one. Escape should not collapse a rail.
+  useEffect(() => {
+    if (!open || !modal) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, modal]);
 
   // Nothing underneath should scroll while a sheet is over it — on a phone that
   // is the difference between dismissing the drawer and losing your place.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !modal) return;
     const was = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = was; };
-  }, [open]);
+  }, [open, modal]);
 
   const value = useMemo(() => ({ open, toggle, close }), [open, toggle, close]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
