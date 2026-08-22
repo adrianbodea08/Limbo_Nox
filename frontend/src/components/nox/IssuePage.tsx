@@ -52,8 +52,6 @@ export function IssuePage({ shell }: { shell: ShellProps }) {
         title={issueKey.toUpperCase()}
         user={shell.user}
         isAdmin={shell.isAdmin}
-        onBack={back}
-        backTitle="Tracker"
         onOpenSettings={shell.onOpenSettings}
         onOpenAdmin={shell.onOpenAdmin}
         onLogout={shell.onLogout}

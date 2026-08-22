@@ -50,8 +50,6 @@ export function SettingsPage({ shell }: { shell: ShellProps }) {
         title="Settings"
         user={shell.user}
         isAdmin={shell.isAdmin}
-        onBack={() => history.back()}
-        backTitle="Back"
         onOpenAdmin={shell.onOpenAdmin}
         onOpenSettings={shell.onOpenSettings}
         onLogout={shell.onLogout}

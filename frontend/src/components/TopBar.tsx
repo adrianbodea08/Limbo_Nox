@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 import type { User } from "../types";
 import { AccountMenu } from "./AccountMenu";
 import LogoMark from "./LogoMark";
-import { ArrowLeft, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { NotificationBell } from "./nox/Notifications";
 import { useNavDrawer } from "./nox/navdrawer";
 
@@ -27,9 +27,6 @@ export interface TopBarProps {
   title: string;
   user: User;
   isAdmin?: boolean;
-  /** Clicking the logo goes back here — set on pages that are inside another. */
-  onBack?: () => void;
-  backTitle?: string;
   /** The centre slot: search, tabs, whatever the page needs. */
   children?: ReactNode;
   /** Extra controls immediately left of the account menu. */
@@ -43,8 +40,6 @@ export function TopBar({
   title,
   user,
   isAdmin = false,
-  onBack,
-  backTitle,
   children,
   rightExtra,
   onOpenAdmin,
@@ -76,14 +71,7 @@ export function TopBar({
         <Menu size={20} aria-hidden />
       </button>
 
-      {onBack ? (
-        <button className="brand-back" onClick={onBack} title={backTitle ?? "Back"}>
-          <span className="brand-back-arrow"><ArrowLeft size={18} aria-hidden /></span>
-          {brand}
-        </button>
-      ) : (
-        brand
-      )}
+      {brand}
 
       {children}
 

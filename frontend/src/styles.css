@@ -783,12 +783,6 @@ svg {
 /* Test-status composition bar. */
 
 /* Secondary pages: the logo doubles as "back to the parent page". */
-.brand-back { display: inline-flex; align-items: center; gap: 4px; background: none; border: none;
-  padding: 0; margin: 0; color: inherit; font: inherit; cursor: pointer; border-radius: var(--m3-shape-full);; }
-.brand-back .brand { pointer-events: none; }
-.brand-back-arrow { color: var(--text-faint); font-size: var(--m3-font-title-medium); transition: transform var(--m3-dur-short) var(--m3-ease-standard), color var(--m3-dur-short) var(--m3-ease-standard); }
-.brand-back:hover .brand-back-arrow { color: var(--text); transform: translateX(-2px); }
-.brand-back:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
 
 /* ===== Issue tracker — people layouts ===== */
 
@@ -6036,7 +6030,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
      The title gives way instead: it is the one thing here that can be read at
      any length, and the page it names is the page you are looking at. */
   .brand { flex: 1 1 auto; min-width: 0; }
-  .brand-back { flex: 1 1 auto; min-width: 0; }
   .brand-text {
     min-width: 0;
     overflow: hidden;
@@ -6146,7 +6139,12 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    card's flow — a label nobody can ever read is worse than one taking up room.
    ------------------------------------------------------------------------- */
 
-.tk-card-tags {
+/* The wrapper holds two drawings of the same list — see CardFace. With no
+   pointer to hover with there is only ever one of them, so it steps out of the
+   layout and the chips are the card's own child, exactly as they were. */
+.tk-card-tags { display: contents; }
+.tk-card-tags-bar { display: none; }
+.tk-card-tags-chips {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -6158,8 +6156,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
   /* ---- the margin, shared -------------------------------------------- */
 
-  .tk-tags-in .tk-card-tags,
-  .tk-tags-out .tk-card-tags {
+  .tk-tags-in .tk-card-tags-chips,
+  .tk-tags-out .tk-card-tags-chips {
     --tk-pip: 7px;
     --tk-chip: 168px;
     position: absolute;
@@ -6172,8 +6170,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
     gap: 5px;
   }
 
-  .tk-tags-in .tk-card-tags .tk-label,
-  .tk-tags-out .tk-card-tags .tk-label {
+  .tk-tags-in .tk-card-tags-chips .tk-label,
+  .tk-tags-out .tk-card-tags-chips .tk-label {
     max-width: var(--tk-pip);
     height: 15px;
     padding: 0;
@@ -6196,10 +6194,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
   /* Open. `:focus-within` as well as `:hover`, so a keyboard reaching the key
      inside the card gets the same answer a pointer does. */
-  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label,
-  .tk-tags-in .tk-card:focus-within .tk-card-tags .tk-label,
-  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
-  .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
+  .tk-tags-in .tk-card:hover .tk-card-tags-chips .tk-label,
+  .tk-tags-in .tk-card:focus-within .tk-card-tags-chips .tk-label,
+  .tk-tags-out .tk-card:hover .tk-card-tags-chips .tk-label,
+  .tk-tags-out .tk-card:focus-within .tk-card-tags-chips .tk-label {
     max-width: var(--tk-chip);
     height: 19px;
     padding: 1px 8px;
@@ -6216,12 +6214,12 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   /* `+5` has no colour to mix, so as a filled pill it was the grey one in a
      row of coloured ones — which reads as a label named grey rather than as a
      count. It is the count and nothing else. */
-  .tk-tags-in .tk-card-tags .tk-label-more,
-  .tk-tags-out .tk-card-tags .tk-label-more { opacity: 0.5; height: 9px; }
-  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label-more,
-  .tk-tags-in .tk-card:focus-within .tk-card-tags .tk-label-more,
-  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label-more,
-  .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label-more {
+  .tk-tags-in .tk-card-tags-chips .tk-label-more,
+  .tk-tags-out .tk-card-tags-chips .tk-label-more { opacity: 0.5; height: 9px; }
+  .tk-tags-in .tk-card:hover .tk-card-tags-chips .tk-label-more,
+  .tk-tags-in .tk-card:focus-within .tk-card-tags-chips .tk-label-more,
+  .tk-tags-out .tk-card:hover .tk-card-tags-chips .tk-label-more,
+  .tk-tags-out .tk-card:focus-within .tk-card-tags-chips .tk-label-more {
     opacity: 1;
     background: transparent;
     border-color: transparent;
@@ -6233,24 +6231,24 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
      reads as the card changing shape, and staggered it reads as them opening.
      Leaving is not staggered: a thing being dismissed should not make you wait
      for it. */
-  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label:nth-child(2),
-  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label:nth-child(2) { transition-delay: 45ms; }
-  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label:nth-child(3),
-  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label:nth-child(3) { transition-delay: 90ms; }
-  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label:nth-child(4),
-  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label:nth-child(4) { transition-delay: 135ms; }
+  .tk-tags-in .tk-card:hover .tk-card-tags-chips .tk-label:nth-child(2),
+  .tk-tags-out .tk-card:hover .tk-card-tags-chips .tk-label:nth-child(2) { transition-delay: 45ms; }
+  .tk-tags-in .tk-card:hover .tk-card-tags-chips .tk-label:nth-child(3),
+  .tk-tags-out .tk-card:hover .tk-card-tags-chips .tk-label:nth-child(3) { transition-delay: 90ms; }
+  .tk-tags-in .tk-card:hover .tk-card-tags-chips .tk-label:nth-child(4),
+  .tk-tags-out .tk-card:hover .tk-card-tags-chips .tk-label:nth-child(4) { transition-delay: 135ms; }
 
   /* ---- `in`: opens over the card ------------------------------------- */
   /* Right-aligned, so growing a width carries the chip leftwards across the
      card's own content. Everything stays inside the card, which means nothing
      here has to stop clipping and the columns keep scrolling independently —
      the quiet advantage of this one over `out`. */
-  .tk-tags-in .tk-card-tags { align-items: flex-end; }
+  .tk-tags-in .tk-card-tags-chips { align-items: flex-end; }
   .tk-tags-in .tk-card-tags .tk-label {
     border-radius: var(--m3-shape-s) 0 0 var(--m3-shape-s);
   }
-  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label,
-  .tk-tags-in .tk-card:focus-within .tk-card-tags .tk-label {
+  .tk-tags-in .tk-card:hover .tk-card-tags-chips .tk-label,
+  .tk-tags-in .tk-card:focus-within .tk-card-tags-chips .tk-label {
     /* Round on the leading edge, square where it meets the margin it came
        from: the shape says which way it opened. */
     border-radius: var(--m3-shape-full) 0 0 var(--m3-shape-full);
@@ -6260,15 +6258,15 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   /* Every chip's left edge is fixed a pip's width inside the card, so growing
      a width carries it out past the edge — and they all leave together instead
      of arriving from three different distances. */
-  .tk-tags-out .tk-card-tags {
+  .tk-tags-out .tk-card-tags-chips {
     align-items: flex-start;
     padding-left: calc(100% - var(--tk-pip));
   }
   .tk-tags-out .tk-card-tags .tk-label {
     border-radius: 0 var(--m3-shape-s) var(--m3-shape-s) 0;
   }
-  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
-  .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
+  .tk-tags-out .tk-card:hover .tk-card-tags-chips .tk-label,
+  .tk-tags-out .tk-card:focus-within .tk-card-tags-chips .tk-label {
     border-radius: 0 var(--m3-shape-full) var(--m3-shape-full) 0;
   }
 
@@ -6294,8 +6292,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 /* Asked for less movement: the words still arrive, they just do not slide. */
 @media (prefers-reduced-motion: reduce) {
   .tk-card-tags .tk-label { transition-property: color, background, border-color; }
-  .tk-card:hover .tk-card-tags .tk-label,
-  .tk-card:focus-within .tk-card-tags .tk-label { transition-delay: 0s; }
+  .tk-card:hover .tk-card-tags-chips .tk-label,
+  .tk-card:focus-within .tk-card-tags-chips .tk-label { transition-delay: 0s; }
 }
 
 /* --- `bar`: a signature along the bottom edge ---------------------------- */
@@ -6305,85 +6303,125 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
    **The bar opens itself, not the card.** Hovering anywhere on a card is a
    thing that happens by accident — moving the pointer across a board sets off
-   every card it crosses — and labels are something you go and look at. So the
-   trigger is the bar.
+   every card it crosses — and labels are something you go and look at.
 
-   Which makes the geometry the whole problem: a hover target that moves out
-   from under the pointer the instant it is hovered flickers open and shut for
-   ever. So the strip never moves. It stays pinned to the card's bottom edge
-   and grows *upwards* by padding, and the pointer sits in the bottom few
-   pixels of it throughout — the same box before and after.
+   **Nothing morphs.** The first version asked one element to be both the
+   segment and the chip, which meant animating a change of flex sizing:
+   `flex: 1 1 0` to `flex: 0 0 auto` is not interpolable, so every width
+   snapped to its final value on the first frame while the height, the padding,
+   the radius and the colour all eased over a quarter of a second. That is what
+   made it look wrong — not the timing, the fact that half of it did not
+   animate at all.
+   So there are two drawings of the list. The bar stays exactly where it is and
+   does not move; the chips are their own layer above it, and they fade up.
+   Nothing is being asked to become something else.
 
-   It wraps sideways rather than stacking, so it cannot climb toward the
-   summary however many labels there are, which is the failure the seven-label
-   test found in the edge versions. */
-.tk-tags-bar .tk-card-tags {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  align-content: flex-end;
-  gap: 1px;
-  z-index: 1;
-  /* Transparent room above the bar so there is something to aim at. Six pixels
-     of colour is a thin target; fourteen of box is a reasonable one, and the
-     eight that are not painted cost nothing. */
-  padding: 8px 0 0;
-}
-.tk-tags-bar .tk-card-tags .tk-label {
-  flex: 1 1 0;
-  min-width: 0;
-  height: 6px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: var(--label, var(--border-strong));
-  color: transparent;
-  overflow: hidden;
-  white-space: nowrap;
-}
+   The hover region grows upward by transparent padding to cover the chips, so
+   the pointer can travel from the bar onto them without leaving. That is not
+   animated: it is invisible, and animating it would make the region lag behind
+   the thing it is meant to be under. */
 
 @media (hover: hover) {
+  .tk-card-tags-bar {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 1px;
+  }
+  .tk-card-tags-bar .tk-label {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: var(--label, var(--border-strong));
+    color: transparent;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
   .tk-tags-bar .tk-card-tags {
-    transition: padding var(--m3-dur-medium) var(--m3-ease-decel);
+    /* A real box again. The wrapper is `display: contents` by default so that
+       a touch screen sees the chip list as the card's own child — but a box
+       that generates none cannot be positioned, and cannot be hovered. */
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Something to aim at: six pixels of colour is thin, fourteen of box is
+       not, and the eight that are not painted cost nothing. */
+    padding-top: 8px;
   }
-  .tk-tags-bar .tk-card-tags .tk-label {
-    transition:
-      height var(--m3-dur-medium) var(--m3-ease-decel),
-      padding var(--m3-dur-short) var(--m3-ease-standard),
-      border-radius var(--m3-dur-short) var(--m3-ease-standard),
-      color var(--m3-dur-short) var(--m3-ease-standard),
-      background var(--m3-dur-short) var(--m3-ease-standard);
-  }
-
-  /* Open. Padding rather than `bottom`, so the box keeps its bottom edge and
-     the pointer keeps its footing: 46px of it clears the badge row, and the
-     12px either side is the card's own gutter. `:focus-within` as well, so the
-     keyboard gets there too. */
+  /* Open, the region reaches up over the chips so the pointer can follow them
+     — instantly, because it is transparent and nobody can see it move. */
   .tk-tags-bar .tk-card-tags:hover,
-  .tk-tags-bar .tk-card-tags:focus-within {
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 8px 12px 46px;
+  .tk-tags-bar .tk-card-tags:focus-within { padding-top: 96px; }
+
+  .tk-tags-bar .tk-card-tags-bar {
+    transition: opacity var(--m3-dur-short) var(--m3-ease-standard);
   }
-  .tk-tags-bar .tk-card-tags:hover .tk-label,
-  .tk-tags-bar .tk-card-tags:focus-within .tk-label {
-    flex: 0 0 auto;
-    height: 19px;
-    padding: 1px 8px;
-    border-radius: var(--m3-shape-full);
-    background: color-mix(in srgb, var(--label, var(--border-strong)) 26%, var(--bg-elev));
-    color: color-mix(in srgb, var(--label, var(--text-dim)) 88%, var(--text));
+  /* The bar steps back while its own contents are up, so the two are not both
+     shouting the same four colours at once. */
+  .tk-tags-bar .tk-card-tags:hover .tk-card-tags-bar,
+  .tk-tags-bar .tk-card-tags:focus-within .tk-card-tags-bar { opacity: 0.35; }
+
+  .tk-tags-bar .tk-card-tags-chips {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    /* Clear of the badge row, and fixed: the chips do not travel, they arrive.
+       A card is 178px, its badge row starts at 137, and two rows of chips end
+       here at 130. */
+    bottom: 48px;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-end;
+    gap: 4px;
+    pointer-events: none;
+  }
+  .tk-tags-bar .tk-card-tags:hover .tk-card-tags-chips,
+  .tk-tags-bar .tk-card-tags:focus-within .tk-card-tags-chips {
+    pointer-events: auto;
   }
 
-  /* What is being traded away, saying so. A 178px card with a two-line
-     summary, a two-line description and a badge row has no free space at all,
-     so this covers the description deliberately rather than sliding over
-     whatever happens to be underneath. The tags come before it in the card, so
-     a sibling selector reaches it. */
+  .tk-tags-bar .tk-card-tags-chips .tk-label {
+    opacity: 0;
+    /* Up out of the bar, a chip's height and no more. Far enough to read as
+       coming from somewhere, short enough not to be a journey. */
+    transform: translateY(10px);
+    background: color-mix(in srgb, var(--label, var(--border-strong)) 26%, var(--bg-elev));
+    border-color: color-mix(in srgb, var(--label, var(--border-strong)) 70%, transparent);
+    color: color-mix(in srgb, var(--label, var(--text-dim)) 88%, var(--text));
+    white-space: nowrap;
+    transition:
+      opacity var(--m3-dur-short) var(--m3-ease-standard),
+      transform var(--m3-dur-medium) var(--m3-ease-decel);
+  }
+  .tk-tags-bar .tk-card-tags:hover .tk-card-tags-chips .tk-label,
+  .tk-tags-bar .tk-card-tags:focus-within .tk-card-tags-chips .tk-label {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* One after another, and only on the way in. Three chips arriving together
+     reads as a block appearing; staggered it reads as them coming up out of
+     the bar. Leaving is not staggered — a thing being dismissed should not
+     make you wait for it. */
+  .tk-tags-bar .tk-card-tags:hover .tk-card-tags-chips .tk-label:nth-child(2),
+  .tk-tags-bar .tk-card-tags:focus-within .tk-card-tags-chips .tk-label:nth-child(2) { transition-delay: 30ms; }
+  .tk-tags-bar .tk-card-tags:hover .tk-card-tags-chips .tk-label:nth-child(3),
+  .tk-tags-bar .tk-card-tags:focus-within .tk-card-tags-chips .tk-label:nth-child(3) { transition-delay: 60ms; }
+  .tk-tags-bar .tk-card-tags:hover .tk-card-tags-chips .tk-label:nth-child(4),
+  .tk-tags-bar .tk-card-tags:focus-within .tk-card-tags-chips .tk-label:nth-child(4) { transition-delay: 90ms; }
+  .tk-tags-bar .tk-card-tags:hover .tk-card-tags-chips .tk-label:nth-child(5),
+  .tk-tags-bar .tk-card-tags:focus-within .tk-card-tags-chips .tk-label:nth-child(5) { transition-delay: 120ms; }
+
+  /* What is being traded away, saying so. A 178px card with a two-line summary,
+     a two-line description and a badge row has no free space at all, so this
+     covers the description deliberately rather than sliding over whatever
+     happens to be underneath. */
   .tk-tags-bar .tk-card-desc {
     transition: opacity var(--m3-dur-short) var(--m3-ease-standard);
   }

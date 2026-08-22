@@ -16,7 +16,7 @@
 // able to see what the other is carrying.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { M3MultiSelect } from "../M3MultiSelect";
 import { M3Select } from "../M3Select";
 import { TopBar, type ShellProps } from "../TopBar";
@@ -51,7 +51,6 @@ const UNASSIGNED = "none";
 // while the other team's do not.
 export function TeamQueuePage({ shell }: { shell: ShellProps }) {
   const [params, setParams] = useSearchParams();
-  const nav = useNavigate();
   const tab = (params.get("tab") ?? "all").toUpperCase();
   const [teams, setTeams] = useState<TrackerTeam[]>([]);
   const [data, setData] = useState<TeamQueueData | null>(null);
@@ -154,8 +153,6 @@ export function TeamQueuePage({ shell }: { shell: ShellProps }) {
         title="Team Management"
         user={shell.user}
         isAdmin={shell.isAdmin}
-        onBack={() => nav("/")}
-        backTitle="Tracker"
         onOpenSettings={shell.onOpenSettings}
         onOpenAdmin={shell.onOpenAdmin}
         onLogout={shell.onLogout}

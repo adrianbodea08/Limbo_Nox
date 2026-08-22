@@ -130,8 +130,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
         title="My work"
         user={shell.user}
         isAdmin={shell.isAdmin}
-        onBack={() => nav("/")}
-        backTitle="Tracker"
         onOpenSettings={shell.onOpenSettings}
         onOpenAdmin={shell.onOpenAdmin}
         onLogout={shell.onLogout}

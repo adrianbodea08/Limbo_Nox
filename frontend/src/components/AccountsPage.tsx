@@ -65,8 +65,6 @@ export function AccountsPage({ shell }: { shell: ShellProps }) {
         title="Accounts"
         user={shell.user}
         isAdmin={shell.isAdmin}
-        onBack={() => history.back()}
-        backTitle="Back"
         onOpenAdmin={shell.onOpenAdmin}
         onOpenSettings={shell.onOpenSettings}
         onLogout={shell.onLogout}

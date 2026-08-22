@@ -253,7 +253,19 @@ export function CardFace({
         <Priority value={issue.priority} />
       </div>
       <p className="tk-card-sum">{issue.summary}</p>
-      <LabelChips labels={issue.labels ?? []} slots={TAG_SLOTS[tagStyle]} className="tk-card-tags" />
+      {/* Twice, on purpose. The bar and the chips are two drawings of one list,
+          and asking one element to be both meant morphing an equal-width
+          segment into a content-width chip — a change of flex sizing, which
+          CSS cannot interpolate, so the width snapped while everything else
+          eased. Two elements cross-fade instead, and nothing has to morph. */}
+      {!!issue.labels?.length && (
+        <span className="tk-card-tags">
+          <LabelChips labels={issue.labels} slots={TAG_SLOTS[tagStyle]}
+                      className="tk-card-tags-bar" />
+          <LabelChips labels={issue.labels} slots={TAG_SLOTS[tagStyle]}
+                      className="tk-card-tags-chips" />
+        </span>
+      )}
       {under && <p className="tk-card-desc">{under}</p>}
       <Badges issue={issue} status={status} />
       {children}

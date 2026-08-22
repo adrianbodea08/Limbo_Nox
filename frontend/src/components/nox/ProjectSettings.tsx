@@ -72,8 +72,6 @@ export function ProjectSettingsPage({ shell }: { shell: ShellProps }) {
         title={`${projectKey.toUpperCase()} settings`}
         user={shell.user}
         isAdmin={shell.isAdmin}
-        onBack={back}
-        backTitle="Tracker"
         onOpenSettings={shell.onOpenSettings}
         onOpenAdmin={shell.onOpenAdmin}
         onLogout={shell.onLogout}
