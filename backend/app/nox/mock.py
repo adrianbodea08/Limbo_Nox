@@ -668,6 +668,15 @@ def _interruptions(conn, rng, people, made, now) -> tuple[int, int]:
          WHERE s.category <> 'done' AND i.archived_at IS NULL
            AND i.assignee_id IS NOT NULL AND i.team_id IS NOT NULL
     """)).all()}
+    # You cannot put down something you never picked up. A victim has to be
+    # *underway* — `open_ids` is only "not finished", which includes everything
+    # sitting in a to-do status, and pausing one of those seeded a state that
+    # cannot happen and a card that could not explain itself.
+    running_ids = {r[0] for r in conn.execute(text("""
+        SELECT i.id FROM issues i JOIN statuses s ON s.id = i.status_id
+         WHERE s.category = 'in_progress' AND i.archived_at IS NULL
+           AND i.assignee_id IS NOT NULL
+    """)).all()}
     bugs = [i for i in made if i["id"] in open_ids]
     rng.shuffle(bugs)
 
@@ -689,7 +698,7 @@ def _interruptions(conn, rng, people, made, now) -> tuple[int, int]:
         # interruption number is built from.
         theirs = [i for i in made
                   if i["assignee_id"] == bug["assignee_id"]
-                  and i["id"] != bug["id"] and i["id"] in open_ids]
+                  and i["id"] != bug["id"] and i["id"] in running_ids]
         for victim in theirs[:2]:
             started = now - timedelta(hours=rng.randint(2, 26))
             pause_id = conn.execute(text("""

@@ -305,6 +305,10 @@ function stillWorthSaying(issue: QueueIssue): string | undefined {
  */
 function veilFor(issue: QueueIssue, supersededBy?: string | null): string | undefined {
   if (issue.priority === "urgent") return undefined;
+  // A veil is about work that is *underway*. Nothing in Next has been picked
+  // up, so nothing there can have been put down — and a to-do card reading
+  // "paused" is a card that cannot explain itself.
+  if (issue.status_category !== "in_progress") return undefined;
   if (supersededBy) return `${supersededBy} comes first`;
   if (!issue.paused) return undefined;
   return issue.paused.for_key
