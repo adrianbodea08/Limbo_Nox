@@ -5,6 +5,7 @@
 // scanning many at once, List for reading one while keeping your place.
 
 import { Fragment, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { CSSProperties, DragEvent } from "react";
 import { DropSlot, useBandReorder } from "./useBandReorder";
 import { Face as PersonFace } from "./Face";
@@ -171,6 +172,30 @@ function Priority({ value }: { value: string }) {
 
 // ------------------------------------------------------------------ columns --
 
+/* ---- an experiment, on `?tags=` -------------------------------------------
+ * Three answers to "where do a card's labels go", switchable so they can be
+ * compared on a real board with real labels rather than argued about. The
+ * losers come out once one is picked; this is not meant to ship as a choice.
+ *
+ *   edge  colour bars down the right edge; hover slides the words out inwards
+ *   out   the same, but the words leave the card entirely on the way out
+ *   bar   a segmented colour bar along the bottom edge; hover raises chips
+ *
+ * The slot budget differs because the room does. The edge variants stack
+ * upwards from above the badge row and reach the summary at four rows — which
+ * is how the first version of this covered the one line on a card that has to
+ * stay readable, with seven labels on it. The bottom bar wraps sideways
+ * instead, so it can afford more.
+ */
+export type TagStyle = "edge" | "out" | "bar";
+const TAG_SLOTS: Record<TagStyle, number> = { edge: 3, out: 3, bar: 5 };
+
+function useTagStyle(): TagStyle {
+  const [params] = useSearchParams();
+  const asked = params.get("tags");
+  return asked === "out" || asked === "bar" ? asked : "edge";
+}
+
 interface ColumnsProps {
   board: BoardData;
   selectedId: number | null;
@@ -185,6 +210,7 @@ interface ColumnsProps {
 export function ColumnsBoard({
   board, selectedId, onOpen, allowedFor, onMove, onReorder,
 }: ColumnsProps) {
+  const tagStyle = useTagStyle();
   // While a card is in the air we know exactly where it is allowed to land, so
   // the board says so. Jira lets you drop anywhere and explains afterwards;
   // showing the rule during the drag is the point of having strict transitions.
@@ -234,7 +260,7 @@ export function ColumnsBoard({
   }
 
   return (
-    <div className="tk-cols">
+    <div className={`tk-cols tk-tags-${tagStyle}`}>
       {board.columns.map((col) => {
         const dropping = dragging !== null && board.groupBy === "status";
         const landing = dropping ? targetStatus(col) : null;
@@ -303,7 +329,11 @@ export function ColumnsBoard({
                       row it used to take was a row the summary and the
                       description were not getting — see the note on
                       `.tk-card-tags`. */}
-                  <LabelChips labels={issue.labels ?? []} max={3} className="tk-card-tags" />
+                  <LabelChips
+                    labels={issue.labels ?? []}
+                    slots={TAG_SLOTS[tagStyle]}
+                    className="tk-card-tags"
+                  />
                   {preview(issue) && <p className="tk-card-desc">{preview(issue)}</p>}
                   <Badges issue={issue} />
                 </article>

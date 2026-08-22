@@ -6103,7 +6103,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    is worse than one taking up room.
    ------------------------------------------------------------------------- */
 
-.tk-card-tags {
+.tk-tags-edge .tk-card-tags,
+.tk-tags-out .tk-card-tags {
   position: absolute;
   /* Clear of the badge row, and anchored to the bottom rather than the top:
      expanded, these sit over whatever is behind them, and the summary is the
@@ -6117,7 +6118,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 5px;
   min-width: 0;
 }
-.tk-card-tags .tk-label {
+.tk-tags-edge .tk-card-tags .tk-label,
+.tk-tags-out .tk-card-tags .tk-label {
   max-width: 168px;
   /* Flush to the card's edge and rounded only on the inside, so it reads as
      something tucked under the edge rather than a chip that happens to be
@@ -6129,7 +6131,8 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 
 @media (hover: hover) {
-  .tk-card-tags .tk-label {
+  .tk-tags-edge .tk-card-tags .tk-label,
+  .tk-tags-out .tk-card-tags .tk-label {
     max-width: 7px;
     height: 15px;
     padding: 0;
@@ -6152,8 +6155,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 
   /* `:focus-within` as well as `:hover`, so a keyboard reaching the key inside
      the card gets the same answer a pointer does. */
-  .tk-card:hover .tk-card-tags .tk-label,
-  .tk-card:focus-within .tk-card-tags .tk-label {
+  .tk-tags-edge .tk-card:hover .tk-card-tags .tk-label,
+  .tk-tags-edge .tk-card:focus-within .tk-card-tags .tk-label,
+  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
+  .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
     max-width: 168px;
     height: 19px;
     padding: 1px 8px;
@@ -6180,4 +6185,142 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   .tk-card-tags .tk-label { transition-property: color, background, border-color; }
   .tk-card:hover .tk-card-tags .tk-label,
   .tk-card:focus-within .tk-card-tags .tk-label { transition-delay: 0s; }
+}
+
+/* `+3` is not a label, and as a plain bar in the label colours' own shape it
+   read as one — four bars on a card carrying seven of them, saying nothing
+   about the three it was standing in for. Dimmer and shorter, so it reads as
+   "and more" rather than as another colour. */
+@media (hover: hover) {
+  .tk-card-tags .tk-label-more { opacity: 0.5; }
+  .tk-tags-edge .tk-card-tags .tk-label-more,
+  .tk-tags-out .tk-card-tags .tk-label-more { height: 9px; }
+  .tk-tags-bar .tk-card-tags .tk-label-more { flex: 0 0 14px; }
+  .tk-card:hover .tk-card-tags .tk-label-more,
+  .tk-card:focus-within .tk-card-tags .tk-label-more { opacity: 1; }
+}
+
+/* ==========================================================================
+   TAG PLACEMENT — an experiment on `?tags=`
+   ==========================================================================
+   Three answers to "where do a card's labels go", side by side on a real
+   board. Switched by `?tags=edge|out|bar`; the losers come out once one is
+   picked. See the note in BoardViews.tsx.
+   -------------------------------------------------------------------------- */
+
+/* --- `out`: the words leave the card ------------------------------------- */
+/* Same pips at rest. On hover they travel *outwards* rather than growing
+   inwards, so nothing on the card is covered at all — the words end up in the
+   gutter beside it, over whatever is in the next column.
+
+   The price is real and is the whole point of comparing: three things clip a
+   card's children, and all three have to stop. The card's own `overflow:
+   hidden` was what shaped the type band into the corner, so the band takes
+   its own radius instead; and the column body was a scroller of its own, so
+   each column no longer scrolls independently — the whole board does. That is
+   a change to how a long column behaves, in exchange for a hover state. */
+.tk-tags-out .tk-card { overflow: visible; }
+.tk-tags-out .tk-card-corner {
+  border-top-left-radius: calc(var(--m3-shape-m) - 1px);
+  overflow: hidden;
+}
+.tk-tags-out .tk-col-body,
+.tk-tags-out .tk-col { overflow: visible; }
+
+@media (hover: hover) {
+  .tk-tags-out .tk-card:hover,
+  .tk-tags-out .tk-card:focus-within { z-index: 2; }
+  .tk-tags-out .tk-card:hover .tk-card-tags,
+  .tk-tags-out .tk-card:focus-within .tk-card-tags {
+    /* Out past the card's own edge. Far enough that the words start clear of
+       it rather than straddling it. */
+    transform: translateX(100%);
+    transition: transform var(--m3-dur-medium) var(--m3-ease-decel);
+  }
+  .tk-tags-out .tk-card-tags {
+    transition: transform var(--m3-dur-medium) var(--m3-ease-standard);
+  }
+  /* Rounded on the *outer* edge once it is outside: it is no longer something
+     tucked under the card, it is a thing standing beside it. */
+  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
+  .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
+    border-radius: 0 var(--m3-shape-full) var(--m3-shape-full) 0;
+    background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, var(--bg-elev));
+    box-shadow: var(--m3-elev-2);
+  }
+}
+
+/* --- `bar`: a signature along the bottom edge ---------------------------- */
+/* At rest every label is a segment of one bar across the card's foot — no
+   `+N`, because nothing is hidden: seven labels is seven segments. A column of
+   cards then reads as a column of colour signatures, which is a stronger
+   at-a-glance signal than four pips on an edge, and it costs no width.
+
+   On hover the bar becomes a row of chips that wraps *sideways* above the
+   badge row, so it cannot climb toward the summary however many there are —
+   which is the failure the seven-label test found in the edge version. */
+.tk-tags-bar .tk-card-tags {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 1px;
+  z-index: 1;
+}
+.tk-tags-bar .tk-card-tags .tk-label {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--label, var(--border-strong));
+  color: transparent;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .tk-tags-bar .tk-card-tags .tk-label {
+    transition:
+      height var(--m3-dur-medium) var(--m3-ease-decel),
+      padding var(--m3-dur-short) var(--m3-ease-standard),
+      border-radius var(--m3-dur-short) var(--m3-ease-standard),
+      color var(--m3-dur-short) var(--m3-ease-standard),
+      background var(--m3-dur-short) var(--m3-ease-standard);
+  }
+  .tk-tags-bar .tk-card:hover .tk-card-tags,
+  .tk-tags-bar .tk-card:focus-within .tk-card-tags {
+    left: 12px;
+    right: 12px;
+    bottom: 46px;
+    flex-wrap: wrap;
+    align-content: flex-end;
+    gap: 4px;
+    /* Two rows, and the budget above is what keeps it to two. A 178px card
+       with a two-line summary, a two-line description and a badge row has no
+       free space at all — anything revealed on hover covers something — so
+       this covers the description *deliberately* and fades it out to say so,
+       rather than sliding over whatever happens to be underneath. Two rows
+       from the bottom stops 90px down; a two-line summary ends at 84. */
+    max-height: 42px;
+  }
+  /* What is being traded away, saying so. */
+  .tk-tags-bar .tk-card-desc {
+    transition: opacity var(--m3-dur-short) var(--m3-ease-standard);
+  }
+  .tk-tags-bar .tk-card:hover .tk-card-desc,
+  .tk-tags-bar .tk-card:focus-within .tk-card-desc { opacity: 0.12; }
+  .tk-tags-bar .tk-card:hover .tk-card-tags .tk-label,
+  .tk-tags-bar .tk-card:focus-within .tk-card-tags .tk-label {
+    flex: 0 0 auto;
+    height: 19px;
+    padding: 1px 8px;
+    border-radius: var(--m3-shape-full);
+    background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, var(--bg-card));
+    color: color-mix(in srgb, var(--label, var(--text-dim)) 78%, var(--text));
+  }
 }

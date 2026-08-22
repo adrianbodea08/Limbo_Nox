@@ -21,14 +21,20 @@ import type { Label } from "./model";
  *  rather than a row in its flow — and inheriting `.tk-labels`' flex row would
  *  mean overriding half of it back. The chips inside are the same either way. */
 export function LabelChips({
-  labels, max, className = "tk-labels",
+  labels, slots, className = "tk-labels",
 }: {
   labels: Label[];
-  max?: number;
+  /** The most chips to draw, **counting the `+N`**. Three slots and four
+   *  labels is two labels and a `+2`, not three and a `+1` — the caller is
+   *  bounding how much room this takes, and a `+N` takes exactly as much room
+   *  as a label does. `max` used to mean "labels before the +N", which made
+   *  the total one more than whatever was asked for. */
+  slots?: number;
   className?: string;
 }) {
   if (!labels?.length) return null;
-  const shown = max ? labels.slice(0, max) : labels;
+  const over = slots !== undefined && labels.length > slots;
+  const shown = over ? labels.slice(0, slots - 1) : labels;
   const hidden = labels.length - shown.length;
   return (
     <span className={className}>
