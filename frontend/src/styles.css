@@ -3150,24 +3150,6 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   align-items: stretch;
 }
 .tkw-card-urgent > .tk-btn { align-self: flex-start; }
-.tkw-card-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px;
-  margin: -6px -8px;
-  border: 0;
-  border-radius: var(--m3-shape-s);
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.tkw-card-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.tkw-summary { font-size: var(--m3-font-title-medium); font-weight: 600; letter-spacing: 0.15px; }
 /* Every card says why it is here — the line that makes the order followable. */
 .tkw-why { font-size: var(--m3-font-label-medium); color: var(--text-faint); letter-spacing: 0.4px; }
 .tkw-why-urgent { color: var(--err); font-size: var(--m3-font-body-medium); }
@@ -3534,13 +3516,11 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 10px;
   padding: 12px;
 }
-.tkw-card-col .tkw-card-main { margin: 0; padding: 0; }
 .tkw-card-col .tk-btn { width: 100%; }
 .tkw-card-col .tkw-order { justify-content: flex-end; }
 /* The position badge sits with the key rather than in front of a wide row. */
 .tkw-card-col .tkw-num { position: absolute; top: 10px; right: 10px; }
 .tkw-card-col { position: relative; }
-.tkw-card-col .tkw-summary { font-size: var(--m3-font-body-medium); line-height: 1.35; }
 
 @media (max-width: 1500px) { .tkw-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 900px) { .tkw-cols { grid-template-columns: minmax(0, 1fr); } }

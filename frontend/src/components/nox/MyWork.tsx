@@ -28,15 +28,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { TopBar, type ShellProps } from "../TopBar";
 import { TrackerSearch } from "./TrackerSearch";
 import { Face } from "./Face";
-import { IssueKey } from "./IssueKey";
 import { useIssueDialog } from "./useIssueDialog";
 import { DropSlot, useBandReorder } from "./useBandReorder";
 import { TrackerRail } from "./TrackerRail";
-import { PRIORITY_COLOUR, ago, trackerApi } from "./model";
+import { ago, trackerApi } from "./model";
 import type { MyWorkData, QueueIssue, TrackerUser } from "./model";
 import { M3Segmented } from "../M3Segmented";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
-import { TypeGlyph } from "./TypeGlyph";
+import { CardFace } from "./CardFace";
 import { AsksBand } from "./Asks";
 
 export function MyWorkPage({ shell }: { shell: ShellProps }) {
@@ -212,7 +211,11 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 {urgent.map((issue) => (
                   <article key={issue.id} className="tkw-card tkw-card-urgent">
                     {/* The reason lives below in full, so the card does not repeat it. */}
-                    <Card issue={issue} hideWhy onOpen={() => issueDialog.open(issue.key)} />
+                    <CardFace
+                      issue={issue}
+                      status
+                      onOpen={() => issueDialog.open(issue.key)}
+                    />
                     <div className="tkw-why tkw-why-urgent">
                       {issue.urgent_by_name && <strong>{issue.urgent_by_name}</strong>}
                       {" "}{issue.urgent_reason}
@@ -349,6 +352,28 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
 
 // ------------------------------------------------------------------ pieces --
 
+/** The ranking sentence, when it is still worth printing.
+ *
+ *  `why` was written for a card that showed neither the status nor the
+ *  priority, so it says them itself: an in-progress item's reason *is* its
+ *  status name, and an ordinary one's is "High priority". The card carries
+ *  both as bands now, and a card that says "In Review" twice is a card
+ *  somebody has to read twice to find out it said nothing.
+ *
+ *  The branches that survive are the ones that tell you something the bands
+ *  cannot: what is blocking it, what it was put down for, that it is broken in
+ *  production, that it is finished. */
+function stillWorthSaying(issue: QueueIssue): string | undefined {
+  const why = (issue.why ?? "").trim();
+  if (!why) return undefined;
+  const status = (issue.status_name ?? "").trim();
+  const saysTheStatus = why === status || why === `In ${status}`;
+  const saysThePriority = why.toLowerCase() === `${issue.priority} priority`;
+  // The urgent band prints the reason underneath, in full and in red.
+  const saysItIsUrgent = why.startsWith("Urgent");
+  return saysTheStatus || saysThePriority || saysItIsUrgent ? undefined : why;
+}
+
 function Band({
   layout, band, title, hint, issues, empty, numbered, hideWhenEmpty, onOpen, action,
 }: {
@@ -388,7 +413,12 @@ function Band({
             {...(band?.rowProps(issue, title, issues, index) ?? {})}
           >
             {numbered && <span className="tkw-num">{index + 1}</span>}
-            <Card issue={issue} onOpen={() => onOpen(issue)} />
+            <CardFace
+              issue={issue}
+              status
+              note={stillWorthSaying(issue)}
+              onOpen={() => onOpen(issue)}
+            />
             {action?.(issue, index)}
           </article>
         </Fragment>
@@ -398,26 +428,6 @@ function Band({
   );
 }
 
-function Card({ issue, onOpen, hideWhy }: { issue: QueueIssue; onOpen: () => void; hideWhy?: boolean }) {
-  return (
-    <button type="button" className="tkw-card-main tk-layer" onClick={onOpen}>
-      <span className="tkw-card-top">
-        <TypeGlyph icon={issue.type_icon} colour={issue.type_colour} />
-        <IssueKey issueKey={issue.key} />
-        <span className="tk-chip" style={{ borderColor: issue.status_colour, color: issue.status_colour }}>
-          {issue.status_name}
-        </span>
-        <span className="tkw-prio" style={{ background: PRIORITY_COLOUR[issue.priority] }}>
-          {issue.priority}
-        </span>
-      </span>
-      <span className="tkw-summary">{issue.summary}</span>
-      {/* Every card says why it is here. A ranked list nobody understands is a
-          ranked list nobody follows. */}
-      {!hideWhy && <span className="tkw-why">{issue.why}</span>}
-    </button>
-  );
-}
 
 /** Which of the running tasks actually stop.
  *
