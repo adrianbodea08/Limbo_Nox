@@ -6522,3 +6522,76 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
+
+/* --- changing a card from its own edge ------------------------------------
+   The type and the priority are buttons in the bands that already show them,
+   so the two things people change most often stop being a round trip through
+   the dialog. The band itself still does not take the pointer — only these
+   do, and they take it back from the card underneath.
+   ------------------------------------------------------------------------- */
+
+.tk-card-type-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--m3-shape-xs);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.tk-card-top button.tk-card-prio {
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+/* A card's parent is a different issue, so it reads as somewhere to go. */
+.tk-card-top a.tk-card-parent { text-decoration: none; pointer-events: auto; }
+.tk-card-top a.tk-card-parent:hover { text-decoration: underline; }
+
+.tkq-pick {
+  z-index: 251;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--m3-shape-l);
+  background: var(--bg-elev);
+  box-shadow: var(--m3-elev-3);
+}
+.tkq-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--m3-shape-s);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--m3-font-body-medium);
+  text-align: left;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+.tkq-pick-row.on { background: var(--accent-soft); color: var(--accent); }
+.tkq-pick-glyph { display: inline-flex; flex: 0 0 auto; }
+.tkq-pick-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--m3-shape-full);
+}
+/* Set apart, because it is not the top of the list — it is a different act. */
+.tkq-pick-urgent { margin-top: 4px; border-top: 1px solid var(--border); border-radius: 0 0 var(--m3-shape-s) var(--m3-shape-s); }
+.tkq-pick-empty { margin: 0; padding: 8px 12px; font-size: var(--m3-font-body-medium); }
+
+.tkq-pick-why { display: flex; flex-direction: column; gap: 8px; padding: 6px; }
+.tkq-pick-why p { margin: 0; font-size: var(--m3-font-label-medium); }
+.tkq-pick-why-foot { display: flex; justify-content: flex-end; gap: 8px; }

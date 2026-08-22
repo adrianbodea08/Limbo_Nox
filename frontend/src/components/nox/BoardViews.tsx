@@ -58,10 +58,12 @@ interface ColumnsProps {
   onMove: (issue: TrackerIssue, statusId: number) => void;
   /** The new order of one priority band of one column. */
   onReorder: (column: BoardColumn, priority: string, issueIds: number[]) => void;
+  /** Something was changed from a card's own edge — read it back. */
+  onChanged: () => void;
 }
 
 export function ColumnsBoard({
-  board, selectedId, onOpen, allowedFor, onMove, onReorder,
+  board, selectedId, onOpen, allowedFor, onMove, onReorder, onChanged,
 }: ColumnsProps) {
   const tagStyle = useTagStyle();
   // While a card is in the air we know exactly where it is allowed to land, so
@@ -153,6 +155,7 @@ export function ColumnsBoard({
                 <CardFace
                   issue={issue}
                   onOpen={() => onOpen(issue)}
+                  onChanged={onChanged}
                   selected={selectedId === issue.id}
                   dragging={dragging?.id === issue.id}
                   tagStyle={tagStyle}

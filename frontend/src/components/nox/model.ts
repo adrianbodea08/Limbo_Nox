@@ -575,6 +575,7 @@ export interface QueueIssue {
   type_key: string;
   type_icon: string;
   type_colour: string;
+  issue_type_id: number;
   project_key: string;
   team_name: string | null;
   updated_at: string;
@@ -733,6 +734,9 @@ export interface CardIssue {
   type_name: string;
   type_icon: string;
   type_colour: string;
+  /** Which type it *is*, so the corner can offer to change it. Optional
+   *  because a card only needs the three above to draw one. */
+  issue_type_id?: number;
   assignee_name: string | null;
   assignee_avatar: string | null;
   parent_key?: string | null;

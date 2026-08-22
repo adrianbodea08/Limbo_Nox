@@ -209,6 +209,7 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 empty="Nothing started."
                 supersededBy={urgentKey}
                 onOpen={(i) => issueDialog.open(i.key)}
+                onChanged={load}
               />
 
 
@@ -222,6 +223,7 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 empty="Nothing queued — ask your lead."
                 numbered
                 onOpen={(i) => issueDialog.open(i.key)}
+                onChanged={load}
               />
 
               <Band
@@ -232,6 +234,7 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 empty="Nothing finished yet."
                 hideWhenEmpty={layout === "list"}
                 onOpen={(i) => issueDialog.open(i.key)}
+                onChanged={load}
               />
             </div>
           </>
@@ -290,7 +293,7 @@ function veilFor(issue: QueueIssue, supersededBy?: string | null): string | unde
 
 function Band({
   layout, band, title, hint, issues, empty, numbered, hideWhenEmpty, onOpen, action,
-  supersededBy,
+  supersededBy, onChanged,
 }: {
   layout: "columns" | "list";
   /** Drag-to-reorder, shared with every other ranked list in the tracker. */
@@ -302,6 +305,7 @@ function Band({
   numbered?: boolean;
   hideWhenEmpty?: boolean;
   onOpen: (i: QueueIssue) => void;
+  onChanged: () => void;
   action?: (i: QueueIssue, index: number) => React.ReactNode;
   /** The key of an urgent issue that is in front of everything here.
    *
@@ -342,6 +346,7 @@ function Band({
               status
               note={stillWorthSaying(issue)}
               veil={veilFor(issue, supersededBy)}
+              onChanged={onChanged}
               onOpen={() => onOpen(issue)}
             />
             {/* Why somebody stopped the queue, attached to the card it is

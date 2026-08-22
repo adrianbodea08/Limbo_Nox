@@ -648,6 +648,7 @@ export function TrackerPage({ shell }: Props) {
                   allowedFor={allowedFor}
                   onMove={move}
                   onReorder={reorder}
+                  onChanged={load}
                 />
               )}
               {renderer === "table" && (

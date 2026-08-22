@@ -19,14 +19,17 @@
 // Pause button and the urgent reason belong to My work. What is shared is the
 // face.
 
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CSSProperties, ReactNode } from "react";
 import { Face as PersonFace } from "./Face";
 import { LabelChips } from "./Labels";
 import { plain } from "./Markdown";
 import { TypeGlyph } from "./TypeGlyph";
 import { IssueKey } from "./IssueKey";
-import { PRIORITY_COLOUR, parentColour } from "./model";
-import type { CardIssue } from "./model";
+import { placeMenu } from "../menupos";
+import { PRIORITY_COLOUR, parentColour, trackerApi } from "./model";
+import type { CardIssue, TrackerType } from "./model";
 export type { CardIssue } from "./model";
 
 
@@ -44,6 +47,212 @@ export const TAG_SLOTS: Record<TagStyle, number> = { in: 3, out: 3, bar: 5 };
 
 export function readTagStyle(asked: string | null): TagStyle {
   return asked === "in" || asked === "out" ? asked : "bar";
+}
+
+/* ---- changing a card without opening it ---------------------------------
+ *
+ * Three of the bands along a card's top edge are the three things people
+ * change most and read least: what kind of thing it is, how urgent it is, and
+ * what it belongs to. Each of those was a round trip through the issue dialog
+ * — open, find the field, change it, save, close — to alter one word that was
+ * already on screen.
+ *
+ * So the bands do it themselves. The parent is a link because it is not an
+ * edit at all: it is a different issue, and you want to look at it.
+ *
+ * The types are fetched once for the whole session rather than threaded
+ * through every screen that draws a card — the same argument the navigation
+ * rail makes for fetching its own projects. A card is drawn on the board, on
+ * My work and in a queue, and none of those should have to know that a card
+ * has a type menu in it.
+ */
+
+let typesOnce: Promise<TrackerType[]> | null = null;
+function issueTypes(): Promise<TrackerType[]> {
+  typesOnce ??= trackerApi.meta().then((m) => m.issueTypes).catch(() => []);
+  return typesOnce;
+}
+
+/** The five, plus the one that is not a priority.
+ *
+ *  `urgent` is last and set apart because it is not "very important" — it
+ *  stops the queue, and the server will not take it without a reason. */
+const PRIORITIES = ["lowest", "low", "medium", "high", "highest"] as const;
+
+function BandMenu({
+  at, onClose, children,
+}: {
+  at: CSSProperties;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return createPortal(
+    <>
+      <div className="m3sel-backdrop" onClick={onClose} />
+      <div className="tkq-pick" style={at} role="menu"
+           onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </>,
+    document.body,
+  );
+}
+
+/** What kind of thing this is, changed from the corner it is drawn in. */
+function TypePicker({ issue, onChanged }: { issue: CardIssue; onChanged: () => void }) {
+  const [at, setAt] = useState<CSSProperties | null>(null);
+  const [types, setTypes] = useState<TrackerType[]>([]);
+  const [busy, setBusy] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+
+  function open(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (at) { setAt(null); return; }
+    if (types.length === 0) issueTypes().then(setTypes);
+    if (button.current) setAt(placeMenu(button.current, { width: 200, tallest: 320 }));
+  }
+
+  async function pick(typeId: number) {
+    if (busy || typeId === issue.issue_type_id) { setAt(null); return; }
+    setBusy(true);
+    try {
+      await trackerApi.update(issue.id, { issue_type_id: typeId });
+      onChanged();
+    } finally {
+      setBusy(false);
+      setAt(null);
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        className="tk-card-type-pick"
+        title={`${issue.type_name} — change`}
+        onClick={open}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <TypeGlyph icon={issue.type_icon} size={13} />
+      </button>
+      {at && (
+        <BandMenu at={at} onClose={() => setAt(null)}>
+          {types.map((t) => (
+            <button key={t.id} type="button" role="menuitem"
+                    className={`tkq-pick-row tk-layer${t.id === issue.issue_type_id ? " on" : ""}`}
+                    onClick={() => pick(t.id)}>
+              <span className="tkq-pick-glyph" style={{ color: t.colour }}>
+                <TypeGlyph icon={t.icon} size={14} />
+              </span>
+              {t.name}
+            </button>
+          ))}
+          {types.length === 0 && <p className="tk-dim tkq-pick-empty">Loading…</p>}
+        </BandMenu>
+      )}
+    </>
+  );
+}
+
+/** How urgent, changed from the corner it is drawn in.
+ *
+ *  Urgent is the odd one and stays odd: it is not the top of this list, it is
+ *  a different act, and the server refuses it without a reason. So choosing it
+ *  turns the menu into the one question that has to be answered — which is the
+ *  whole reason everything is not urgent by the end of the quarter. */
+function PriorityPicker({ issue, onChanged }: { issue: CardIssue; onChanged: () => void }) {
+  const [at, setAt] = useState<CSSProperties | null>(null);
+  const [why, setWhy] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const colour = PRIORITY_COLOUR[issue.priority] ?? PRIORITY_COLOUR.medium;
+
+  function open(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (at) { close(); return; }
+    if (button.current) setAt(placeMenu(button.current, { width: 210, tallest: 340 }));
+  }
+  function close() { setAt(null); setWhy(null); }
+
+  async function pick(value: string) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (value === "urgent") {
+        await trackerApi.setUrgent(issue.id, (why ?? "").trim(), true);
+      } else if (issue.priority === "urgent") {
+        // Taking it back is its own act, not a field edit: the name, the time
+        // and the reason all have to be cleared with it.
+        await trackerApi.setUrgent(issue.id, "", false);
+        await trackerApi.update(issue.id, { priority: value });
+      } else {
+        await trackerApi.update(issue.id, { priority: value });
+      }
+      onChanged();
+      close();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        className={`tk-card-prio tk-prio-${issue.priority}`}
+        title={`Priority: ${issue.priority} — change`}
+        style={{ "--prio": colour } as CSSProperties}
+        onClick={open}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {issue.priority}
+      </button>
+      {at && (
+        <BandMenu at={at} onClose={close}>
+          {why === null ? (
+            <>
+              {PRIORITIES.map((p) => (
+                <button key={p} type="button" role="menuitem"
+                        className={`tkq-pick-row tk-layer${p === issue.priority ? " on" : ""}`}
+                        onClick={() => pick(p)}>
+                  <span className="tkq-pick-dot" style={{ background: PRIORITY_COLOUR[p] }} />
+                  {p}
+                </button>
+              ))}
+              <button type="button" role="menuitem"
+                      className={`tkq-pick-row tkq-pick-urgent tk-layer${
+                        issue.priority === "urgent" ? " on" : ""}`}
+                      onClick={() => setWhy("")}>
+                <span className="tkq-pick-dot" style={{ background: PRIORITY_COLOUR.urgent }} />
+                urgent
+              </button>
+            </>
+          ) : (
+            <div className="tkq-pick-why">
+              <p className="tk-dim">Why does this stop the queue?</p>
+              <input
+                className="tk-input"
+                autoFocus
+                value={why}
+                placeholder="The invoice PDF is blank since the deploy"
+                onChange={(e) => setWhy(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && why.trim()) pick("urgent"); }}
+              />
+              <div className="tkq-pick-why-foot">
+                <button type="button" className="tk-btn tk-layer" onClick={close}>Cancel</button>
+                <button type="button" className="tk-btn tk-layer tk-btn-primary"
+                        disabled={busy || !why.trim()} onClick={() => pick("urgent")}>
+                  Make it urgent
+                </button>
+              </div>
+            </div>
+          )}
+        </BandMenu>
+      )}
+    </>
+  );
 }
 
 const many = (n: number, one: string, rest = `${one}s`) => `${n} ${n === 1 ? one : rest}`;
@@ -74,7 +283,7 @@ function preview(issue: CardIssue): string {
  *  The band does not take clicks; the key inside it does, and takes them back.
  *  A band that swallowed the pointer would lose the one affordance on a card
  *  that opens an issue in its own window. */
-function TypeBand({ issue }: { issue: CardIssue }) {
+function TypeBand({ issue, onChanged }: { issue: CardIssue; onChanged?: () => void }) {
   return (
     <span
       className="tk-card-corner"
@@ -84,7 +293,9 @@ function TypeBand({ issue }: { issue: CardIssue }) {
       style={{ "--band": issue.type_colour } as CSSProperties}
       title={issue.type_name}
     >
-      <TypeGlyph icon={issue.type_icon} size={13} />
+      {onChanged
+        ? <TypePicker issue={issue} onChanged={onChanged} />
+        : <TypeGlyph icon={issue.type_icon} size={13} />}
       <IssueKey issueKey={issue.key} className="tk-key tk-corner-key" />
     </span>
   );
@@ -211,6 +422,12 @@ export interface CardFaceProps {
   className?: string;
   /** Anything the screen wants inside the card, after the badges. */
   children?: ReactNode;
+  /** Something changed on the card without the issue being opened — reload.
+   *
+   *  It is also the gate: a card whose page cannot refresh does not offer the
+   *  edits at all, because a band that changes something and then keeps
+   *  showing the old word is worse than one that does nothing. */
+  onChanged?: () => void;
   /** Words for a layer over the card: this is not what you should be on.
    *
    *  A layer rather than a lane of its own, because set-aside work is still
@@ -226,7 +443,7 @@ export interface CardFaceProps {
 
 export function CardFace({
   issue, onOpen, note, status, tagStyle = "bar",
-  selected, dragging, wrapper, className = "", children, veil,
+  selected, dragging, wrapper, className = "", children, veil, onChanged,
 }: CardFaceProps) {
   const under = note ?? preview(issue);
   return (
@@ -248,20 +465,27 @@ export function CardFace({
       {...wrapper}
     >
       <div className="tk-card-top">
-        <TypeBand issue={issue} />
+        <TypeBand issue={issue} onChanged={onChanged} />
         {/* What this is part of, alongside what it is called. It gives up its
             width first — the type and the priority either side of it are fixed
             points a board is read by. */}
         {issue.parent_key && (
-          <span
+          <a
             className="tk-card-parent"
-            title={`Part of ${issue.parent_key} — ${issue.parent_summary}`}
+            href={`/issue/${issue.parent_key}`}
+            target="_blank"
+            rel="noopener"
+            title={`Part of ${issue.parent_key} — ${issue.parent_summary}. Opens in a new window.`}
             style={{ "--pill": parentColour(issue.parent_key) } as CSSProperties}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             {issue.parent_summary || issue.parent_key}
-          </span>
+          </a>
         )}
-        <Priority value={issue.priority} />
+        {onChanged
+          ? <PriorityPicker issue={issue} onChanged={onChanged} />
+          : <Priority value={issue.priority} />}
       </div>
       <p className="tk-card-sum">{issue.summary}</p>
       {/* Twice, on purpose. The bar and the chips are two drawings of one list,

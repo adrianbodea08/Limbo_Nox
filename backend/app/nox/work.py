@@ -395,7 +395,7 @@ def _queue_select(allowed: set[int] | None = None):
             # what a board row carries. Without these the same issue looked
             # like a different object on the two screens somebody moves
             # between all day: no parent, no description, no labels.
-            issues.c.description,
+            issues.c.description, issues.c.issue_type_id,
             _parent.c.key.label("parent_key"),
             _parent.c.summary.label("parent_summary"),
             issues.c.plan_priority, issues.c.rank, issues.c.team_id,
