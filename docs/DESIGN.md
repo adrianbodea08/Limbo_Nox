@@ -41,6 +41,13 @@ history is a first-class citizen here, not an afterthought.
 
 ### Two databases, on purpose
 
+> **Superseded on 2026-08-22.** There is one database now, and it is Postgres.
+> Accounts and sessions moved into it, the projection table below was deleted,
+> and the seam this section describes no longer exists — twenty-seven foreign
+> keys stand where it was. Kept because the reasoning is still the reasoning
+> for *why the split was made*, and the note in `auth_store.py` explains what
+> stopped being true. See [STATE.md](STATE.md) §6, decision 2.
+
 - **SQLite (`notes.db`)** keeps everything that exists today — accounts, tags,
   My Board, timesheet, stats snapshots. It suits that work and it is not a
   stepping stone to anything.
@@ -553,6 +560,9 @@ database. Nothing here touches `notes.db`.
 | Text editor | done — Markdown rendered at last, to elements rather than HTML | `Markdown.tsx`, [docs](EDITOR.md) |
 | Insights | done — flow, waiting, automation share | `nox/insights.py`, [docs](ANALYTICS.md) |
 | Saved views as first-class UI | done — private by default, shareable, whole arrangement | `nox/views.py`, [docs](VIEWS.md) |
+| Accounts, approval and the admin audit | done — in Postgres, rate-limited, before-and-after | `auth_store.py`, `nox/audit.py`, [docs](SECURITY.md) |
+| Tests | done — 39, against a real Postgres built by the real migrations | `backend/tests/` |
+| Narrow windows | done — works from 320px; navigation is a sheet under 840px | `styles.css`, [docs](LAYOUT.md) |
 
 Verified end to end rather than assumed: issue keys allocate per project from 1;
 a refused transition names what *is* available; only real changes become events;
@@ -590,6 +600,12 @@ applied looked exactly like one that had.
 ---
 
 ## Accounts and passwords
+
+> **Superseded on 2026-08-22.** Accounts and sessions are in Postgres, in the
+> same `users` table as the people directory. A dump of the database *does*
+> now contain password hashes — Argon2id, which is what a hash is for. The
+> paragraph below describes the arrangement before that, and is left because
+> the argument for the split is what the move had to answer.
 
 Accounts live in SQLite beside the app — `users` and `sessions` — not in
 Postgres. Postgres has a `users` table, but it is the tracker's people
