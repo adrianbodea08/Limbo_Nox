@@ -177,25 +177,25 @@ function Priority({ value }: { value: string }) {
  * compared on a real board with real labels rather than argued about. The
  * losers come out once one is picked; this is not meant to ship as a choice.
  *
- *   edge  colour bars down the right edge; hover slides the words out inwards
- *   out   the same, but the words leave the card entirely on the way out
+ *   in    colour bars on the right margin; hover opens them over the card
+ *   out   the same bars; hover opens them out of the card, from under its edge
  *   bar   a segmented colour bar along the bottom edge; hover raises chips
  *
- * The slot budget differs because the room does. The edge variants stack
+ * The slot budget differs because the room does. The margin variants stack
  * upwards from above the badge row and reach the summary at four rows — which
  * is how the first version of this covered the one line on a card that has to
  * stay readable, with seven labels on it. The bottom bar wraps sideways
  * instead, so it can afford more.
  */
-export type TagStyle = "edge" | "out" | "bar";
-const TAG_SLOTS: Record<TagStyle, number> = { edge: 3, out: 3, bar: 5 };
+export type TagStyle = "in" | "out" | "bar";
+const TAG_SLOTS: Record<TagStyle, number> = { in: 3, out: 3, bar: 5 };
 
 /** The board reads this from the URL rather than from a prop, so the switch on
  *  the bar above only has to set a parameter. Both sides fall back to `bar`
  *  and they have to agree: a default that differed would light the switch up
  *  on one treatment while the board drew another. */
 export function readTagStyle(asked: string | null): TagStyle {
-  return asked === "out" || asked === "edge" ? asked : "bar";
+  return asked === "in" || asked === "bar" ? asked : "out";
 }
 
 function useTagStyle(): TagStyle {

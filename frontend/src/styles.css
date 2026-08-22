@@ -6098,21 +6098,22 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
    with two labels clipped its badge row. A label is a qualifier, not a
    headline.
 
-   **At rest they are colour on the edge; hovering grows them out sideways,
-   away from the card.** Not inwards: the first version grew them leftwards
-   over the card's own text, which is the one place they must never go. Every
-   chip shares one left edge — the pip's — so growing a width is the whole
-   animation, and they leave together rather than arriving from three
-   different distances.
+   **At rest they are colour on the margin.** A stack of small bars against the
+   card's right edge: enough to see that a card is tagged, and that two cards
+   are tagged alike, without spending a line on the words. Hovering opens them,
+   one after another.
 
-   Two variants, differing only in what is showing before you hover:
-     `edge`  the pips, so a card can say it is tagged
-     `out`   nothing at all — the strip is *behind* the card until it comes out
+   Two variants, and the only difference is which way they open:
 
-   The words end up outside the card either way, which is why three ancestors
-   have to stop clipping (below), and why on a touch screen — no hover, no
-   reveal — the labels stay a plain row of chips in the card's flow. A label
-   nobody can ever read is worse than one taking up room.
+     `in`   inwards, over the card's own content
+     `out`  outwards, out of the card, starting from under its edge
+
+   Both keep the same pips at the same margin, so the two are genuinely the
+   same idea pointing opposite ways.
+
+   Only where there is a pointer to hover with. On a touch screen there is no
+   hover to discover this in, so the labels stay a plain row of chips in the
+   card's flow — a label nobody can ever read is worse than one taking up room.
    ------------------------------------------------------------------------- */
 
 .tk-card-tags {
@@ -6124,59 +6125,28 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 
 @media (hover: hover) {
-  /* Nothing between the chips and the outside. The card's own `overflow:
-     hidden` was what shaped the type band into the corner, so the band takes
-     its own radius instead; and the column body was each column's scroller, so
-     columns stop scrolling independently and the board scrolls as one. That
-     second one is a real trade, and it is the reason `bar` exists. */
-  .tk-tags-edge .tk-card,
-  .tk-tags-out .tk-card { overflow: visible; }
-  .tk-tags-edge .tk-card-corner,
-  .tk-tags-out .tk-card-corner {
-    border-top-left-radius: calc(var(--m3-shape-m) - 1px);
-    overflow: hidden;
-  }
-  .tk-tags-edge .tk-col-body,
-  .tk-tags-out .tk-col-body,
-  .tk-tags-edge .tk-col,
-  .tk-tags-out .tk-col { overflow: visible; }
 
-  /* The *column* rises on hover, never the card. It has to clear the next
-     column for the chips to be seen at all — and `out` needs the card to stay
-     a non-stacking-context so its strip can hide behind the card's own
-     background. A card with a z-index of its own puts the chips in front of
-     it instead of under it, which is exactly what "lying across the card"
-     looks like. */
-  .tk-tags-edge .tk-col,
-  .tk-tags-out .tk-col { position: relative; }
-  .tk-tags-edge .tk-col:hover,
-  .tk-tags-out .tk-col:hover { z-index: 2; }
+  /* ---- the margin, shared -------------------------------------------- */
 
-  .tk-tags-edge .tk-card-tags,
+  .tk-tags-in .tk-card-tags,
   .tk-tags-out .tk-card-tags {
     --tk-pip: 7px;
     --tk-chip: 168px;
     position: absolute;
-    /* Clear of the badge row. Nothing here ever reaches the summary, because
-       nothing here grows leftwards any more. */
+    /* Clear of the badge row. */
     bottom: 46px;
     left: 0;
     right: 0;
     flex-wrap: nowrap;
     flex-direction: column;
-    /* One left edge for every chip, a pip's width inside the card. Growing the
-       width is what carries each of them out past that edge. */
-    align-items: flex-start;
-    padding-left: calc(100% - var(--tk-pip));
     gap: 5px;
   }
 
-  .tk-tags-edge .tk-card-tags .tk-label,
+  .tk-tags-in .tk-card-tags .tk-label,
   .tk-tags-out .tk-card-tags .tk-label {
     max-width: var(--tk-pip);
     height: 15px;
     padding: 0;
-    border-radius: var(--m3-shape-s) 0 0 var(--m3-shape-s);
     border-color: transparent;
     background: var(--label, var(--border-strong));
     /* Not `visibility` or `opacity`: the text has to still be there, so the
@@ -6194,18 +6164,15 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
       border-color var(--m3-dur-short) var(--m3-ease-standard);
   }
 
-  /* `:focus-within` as well as `:hover`, so a keyboard reaching the key inside
-     the card gets the same answer a pointer does. */
-  .tk-tags-edge .tk-card:hover .tk-card-tags .tk-label,
-  .tk-tags-edge .tk-card:focus-within .tk-card-tags .tk-label,
+  /* Open. `:focus-within` as well as `:hover`, so a keyboard reaching the key
+     inside the card gets the same answer a pointer does. */
+  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label,
+  .tk-tags-in .tk-card:focus-within .tk-card-tags .tk-label,
   .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
   .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
     max-width: var(--tk-chip);
     height: 19px;
     padding: 1px 8px;
-    /* Square where it leaves the card, round at the far end: the shape says
-       which way it came out. */
-    border-radius: 0 var(--m3-shape-full) var(--m3-shape-full) 0;
     /* The label's own colour, not a wash of the card's grey. At the 13% the
        in-flow chips use, the hue does not survive a dark card and every chip
        reads as the same grey pill — while the pip it grew out of was
@@ -6219,10 +6186,10 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   /* `+5` has no colour to mix, so as a filled pill it was the grey one in a
      row of coloured ones — which reads as a label named grey rather than as a
      count. It is the count and nothing else. */
-  .tk-tags-edge .tk-card-tags .tk-label-more,
+  .tk-tags-in .tk-card-tags .tk-label-more,
   .tk-tags-out .tk-card-tags .tk-label-more { opacity: 0.5; height: 9px; }
-  .tk-tags-edge .tk-card:hover .tk-card-tags .tk-label-more,
-  .tk-tags-edge .tk-card:focus-within .tk-card-tags .tk-label-more,
+  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label-more,
+  .tk-tags-in .tk-card:focus-within .tk-card-tags .tk-label-more,
   .tk-tags-out .tk-card:hover .tk-card-tags .tk-label-more,
   .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label-more {
     opacity: 1;
@@ -6233,37 +6200,65 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   }
 
   /* One after another rather than all at once — three chips arriving together
-     reads as the card changing shape, and staggered it reads as them coming
-     out from under it. Leaving is not staggered: a thing being dismissed
-     should not make you wait for it. */
-  .tk-tags-edge .tk-card:hover .tk-card-tags .tk-label:nth-child(2),
+     reads as the card changing shape, and staggered it reads as them opening.
+     Leaving is not staggered: a thing being dismissed should not make you wait
+     for it. */
+  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label:nth-child(2),
   .tk-tags-out .tk-card:hover .tk-card-tags .tk-label:nth-child(2) { transition-delay: 45ms; }
-  .tk-tags-edge .tk-card:hover .tk-card-tags .tk-label:nth-child(3),
+  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label:nth-child(3),
   .tk-tags-out .tk-card:hover .tk-card-tags .tk-label:nth-child(3) { transition-delay: 90ms; }
-  .tk-tags-edge .tk-card:hover .tk-card-tags .tk-label:nth-child(4),
+  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label:nth-child(4),
   .tk-tags-out .tk-card:hover .tk-card-tags .tk-label:nth-child(4) { transition-delay: 135ms; }
 
-  /* --- `out`: nothing showing until it comes out ------------------------- */
-  /* The one difference. Behind the card's background rather than on it, and
-     tucked a whole chip's width in, so at rest there is nothing to see. A card
-     with labels looks exactly like a card without one — the cost of a clean
-     card, and the thing to weigh against `edge`. */
+  /* ---- `in`: opens over the card ------------------------------------- */
+  /* Right-aligned, so growing a width carries the chip leftwards across the
+     card's own content. Everything stays inside the card, which means nothing
+     here has to stop clipping and the columns keep scrolling independently —
+     the quiet advantage of this one over `out`. */
+  .tk-tags-in .tk-card-tags { align-items: flex-end; }
+  .tk-tags-in .tk-card-tags .tk-label {
+    border-radius: var(--m3-shape-s) 0 0 var(--m3-shape-s);
+  }
+  .tk-tags-in .tk-card:hover .tk-card-tags .tk-label,
+  .tk-tags-in .tk-card:focus-within .tk-card-tags .tk-label {
+    /* Round on the leading edge, square where it meets the margin it came
+       from: the shape says which way it opened. */
+    border-radius: var(--m3-shape-full) 0 0 var(--m3-shape-full);
+  }
+
+  /* ---- `out`: opens out of the card, from under its edge -------------- */
+  /* Every chip's left edge is fixed a pip's width inside the card, so growing
+     a width carries it out past the edge — and they all leave together instead
+     of arriving from three different distances. */
   .tk-tags-out .tk-card-tags {
-    z-index: -1;
-    padding-left: calc(100% - var(--tk-chip));
+    align-items: flex-start;
+    padding-left: calc(100% - var(--tk-pip));
   }
   .tk-tags-out .tk-card-tags .tk-label {
-    max-width: var(--tk-chip);
-    height: 19px;
-    padding: 1px 8px;
-    transform: translateX(calc(var(--tk-chip) - var(--tk-pip)));
-    transition: transform var(--m3-dur-medium) var(--m3-ease-standard);
+    border-radius: 0 var(--m3-shape-s) var(--m3-shape-s) 0;
   }
   .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
   .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
-    transform: translateX(var(--tk-chip));
-    transition: transform var(--m3-dur-medium) var(--m3-ease-decel);
+    border-radius: 0 var(--m3-shape-full) var(--m3-shape-full) 0;
   }
+
+  /* Nothing between the chips and the outside. The card's own `overflow:
+     hidden` was what shaped the type band into the corner, so the band takes
+     its own radius instead; and the column body was each column's scroller, so
+     columns stop scrolling independently and the board scrolls as one. That
+     last one is a real trade, and it is the price `out` pays that `in` does
+     not. */
+  .tk-tags-out .tk-card { overflow: visible; }
+  .tk-tags-out .tk-card-corner {
+    border-top-left-radius: calc(var(--m3-shape-m) - 1px);
+    overflow: hidden;
+  }
+  .tk-tags-out .tk-col-body,
+  .tk-tags-out .tk-col { overflow: visible; }
+  /* The *column* rises on hover, never the card: it has to clear the next
+     column for the chips to be seen at all. */
+  .tk-tags-out .tk-col { position: relative; }
+  .tk-tags-out .tk-col:hover { z-index: 2; }
 }
 
 /* Asked for less movement: the words still arrive, they just do not slide. */

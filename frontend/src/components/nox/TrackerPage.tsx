@@ -85,9 +85,9 @@ interface Props {
  * between them twenty times, and typing a query parameter twenty times is not
  * comparing them, it is remembering how to. Goes when one of them wins. */
 const TAG_STYLES = [
-  { value: "bar" as const, label: "Bar" },
-  { value: "edge" as const, label: "Edge" },
+  { value: "in" as const, label: "In" },
   { value: "out" as const, label: "Out" },
+  { value: "bar" as const, label: "Bar" },
 ];
 
 const RENDERERS: { id: Renderer; label: string; hint: string }[] = [
