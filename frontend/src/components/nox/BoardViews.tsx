@@ -198,7 +198,7 @@ const TAG_SLOTS: Record<TagStyle, number> = { in: 3, out: 3, bar: 5 };
  *  and they have to agree: a default that differed would light the switch up
  *  on one treatment while the board drew another. */
 export function readTagStyle(asked: string | null): TagStyle {
-  return asked === "in" || asked === "bar" ? asked : "out";
+  return asked === "in" || asked === "out" ? asked : "bar";
 }
 
 function useTagStyle(): TagStyle {

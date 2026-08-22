@@ -6338,14 +6338,24 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 
 /* --- `bar`: a signature along the bottom edge ---------------------------- */
-/* At rest every label is a segment of one bar across the card's foot — no
-   `+N`, because nothing is hidden: seven labels is seven segments. A column of
-   cards then reads as a column of colour signatures, which is a stronger
-   at-a-glance signal than four pips on an edge, and it costs no width.
+/* At rest every label is a segment of one bar across the card's foot. A column
+   of cards then reads as a column of colour signatures, which is a stronger
+   at-a-glance signal than pips on an edge, and it costs no width at all.
 
-   On hover the bar becomes a row of chips that wraps *sideways* above the
-   badge row, so it cannot climb toward the summary however many there are —
-   which is the failure the seven-label test found in the edge version. */
+   **The bar opens itself, not the card.** Hovering anywhere on a card is a
+   thing that happens by accident — moving the pointer across a board sets off
+   every card it crosses — and labels are something you go and look at. So the
+   trigger is the bar.
+
+   Which makes the geometry the whole problem: a hover target that moves out
+   from under the pointer the instant it is hovered flickers open and shut for
+   ever. So the strip never moves. It stays pinned to the card's bottom edge
+   and grows *upwards* by padding, and the pointer sits in the bottom few
+   pixels of it throughout — the same box before and after.
+
+   It wraps sideways rather than stacking, so it cannot climb toward the
+   summary however many labels there are, which is the failure the seven-label
+   test found in the edge versions. */
 .tk-tags-bar .tk-card-tags {
   position: absolute;
   left: 0;
@@ -6353,14 +6363,19 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   bottom: 0;
   display: flex;
   flex-direction: row;
-  align-items: stretch;
+  align-items: flex-end;
+  align-content: flex-end;
   gap: 1px;
   z-index: 1;
+  /* Transparent room above the bar so there is something to aim at. Six pixels
+     of colour is a thin target; fourteen of box is a reasonable one, and the
+     eight that are not painted cost nothing. */
+  padding: 8px 0 0;
 }
 .tk-tags-bar .tk-card-tags .tk-label {
   flex: 1 1 0;
   min-width: 0;
-  height: 4px;
+  height: 6px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -6371,6 +6386,9 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 }
 
 @media (hover: hover) {
+  .tk-tags-bar .tk-card-tags {
+    transition: padding var(--m3-dur-medium) var(--m3-ease-decel);
+  }
   .tk-tags-bar .tk-card-tags .tk-label {
     transition:
       height var(--m3-dur-medium) var(--m3-ease-decel),
@@ -6379,37 +6397,37 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
       color var(--m3-dur-short) var(--m3-ease-standard),
       background var(--m3-dur-short) var(--m3-ease-standard);
   }
-  .tk-tags-bar .tk-card:hover .tk-card-tags,
-  .tk-tags-bar .tk-card:focus-within .tk-card-tags {
-    left: 12px;
-    right: 12px;
-    bottom: 46px;
+
+  /* Open. Padding rather than `bottom`, so the box keeps its bottom edge and
+     the pointer keeps its footing: 46px of it clears the badge row, and the
+     12px either side is the card's own gutter. `:focus-within` as well, so the
+     keyboard gets there too. */
+  .tk-tags-bar .tk-card-tags:hover,
+  .tk-tags-bar .tk-card-tags:focus-within {
     flex-wrap: wrap;
-    align-content: flex-end;
     gap: 4px;
-    /* Two rows, and the budget above is what keeps it to two. A 178px card
-       with a two-line summary, a two-line description and a badge row has no
-       free space at all — anything revealed on hover covers something — so
-       this covers the description *deliberately* and fades it out to say so,
-       rather than sliding over whatever happens to be underneath. Two rows
-       from the bottom stops 90px down; a two-line summary ends at 84. */
-    max-height: 42px;
+    padding: 8px 12px 46px;
   }
-  /* What is being traded away, saying so. */
-  .tk-tags-bar .tk-card-desc {
-    transition: opacity var(--m3-dur-short) var(--m3-ease-standard);
-  }
-  .tk-tags-bar .tk-card:hover .tk-card-desc,
-  .tk-tags-bar .tk-card:focus-within .tk-card-desc { opacity: 0.12; }
-  .tk-tags-bar .tk-card:hover .tk-card-tags .tk-label,
-  .tk-tags-bar .tk-card:focus-within .tk-card-tags .tk-label {
+  .tk-tags-bar .tk-card-tags:hover .tk-label,
+  .tk-tags-bar .tk-card-tags:focus-within .tk-label {
     flex: 0 0 auto;
     height: 19px;
     padding: 1px 8px;
     border-radius: var(--m3-shape-full);
-    background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, var(--bg-card));
-    color: color-mix(in srgb, var(--label, var(--text-dim)) 78%, var(--text));
+    background: color-mix(in srgb, var(--label, var(--border-strong)) 26%, var(--bg-elev));
+    color: color-mix(in srgb, var(--label, var(--text-dim)) 88%, var(--text));
   }
+
+  /* What is being traded away, saying so. A 178px card with a two-line
+     summary, a two-line description and a badge row has no free space at all,
+     so this covers the description deliberately rather than sliding over
+     whatever happens to be underneath. The tags come before it in the card, so
+     a sibling selector reaches it. */
+  .tk-tags-bar .tk-card-desc {
+    transition: opacity var(--m3-dur-short) var(--m3-ease-standard);
+  }
+  .tk-tags-bar .tk-card-tags:hover ~ .tk-card-desc,
+  .tk-tags-bar .tk-card-tags:focus-within ~ .tk-card-desc { opacity: 0.12; }
 }
 
 /* The label experiment's switch, on the board bar. Marked as an experiment
