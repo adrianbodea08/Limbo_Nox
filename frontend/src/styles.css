@@ -6131,14 +6131,37 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
      something tucked under the edge rather than a chip that happens to be
      there. */
   border-radius: var(--m3-shape-full) 0 0 var(--m3-shape-full);
-  /* Opaque, unlike the in-flow chips: there is description text behind these. */
-  background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, var(--bg-card));
   white-space: nowrap;
 }
 
+/* The colour, rather than a wash of the card's own grey.
+ *
+ * These carried the in-flow chips' 13% tint, which is right for a chip sitting
+ * quietly in a row of text and wrong for one that is the *only* colour in the
+ * thing it belongs to: at 13% over a dark card the label's own hue barely
+ * survives and every chip reads as the same grey pill. The pips at rest are
+ * full-strength colour, so the expanded chip looking grey also made the two
+ * states look like two different objects. Opaque, because there is text
+ * behind them. */
+.tk-tags-edge .tk-card-tags .tk-label,
+.tk-tags-out .tk-card-tags .tk-label {
+  background: color-mix(in srgb, var(--label, var(--border-strong)) 26%, var(--bg-elev));
+  border-color: color-mix(in srgb, var(--label, var(--border-strong)) 70%, transparent);
+  color: color-mix(in srgb, var(--label, var(--text-dim)) 88%, var(--text));
+}
+
+/* `+5` has no colour of its own, so as a filled pill it was the grey one in a
+   row of coloured ones — which reads as a label named grey rather than as a
+   count. It is the count and nothing else. */
+.tk-tags-edge .tk-card-tags .tk-label-more,
+.tk-tags-out .tk-card-tags .tk-label-more {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-faint);
+}
+
 @media (hover: hover) {
-  .tk-tags-edge .tk-card-tags .tk-label,
-  .tk-tags-out .tk-card-tags .tk-label {
+  .tk-tags-edge .tk-card-tags .tk-label {
     max-width: 7px;
     height: 15px;
     padding: 0;
@@ -6162,9 +6185,7 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   /* `:focus-within` as well as `:hover`, so a keyboard reaching the key inside
      the card gets the same answer a pointer does. */
   .tk-tags-edge .tk-card:hover .tk-card-tags .tk-label,
-  .tk-tags-edge .tk-card:focus-within .tk-card-tags .tk-label,
-  .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
-  .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
+  .tk-tags-edge .tk-card:focus-within .tk-card-tags .tk-label {
     max-width: 168px;
     height: 19px;
     padding: 1px 8px;
@@ -6233,37 +6254,50 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
 .tk-tags-out .tk-col-body,
 .tk-tags-out .tk-col { overflow: visible; }
 
-/* Every chip starts at the same place — the card's own right edge — and grows
-   outward from it, so they come out from under the card together rather than
-   arriving from three different distances.
+/* Underneath, and it slides out from there.
  *
- * The first version translated the *container* by 100% of its own width, and
- * its width is the widest chip in it. So a 114px chip moved 114px and a 42px
- * chip moved 114px too — and since they were right-aligned to begin with, the
- * narrow ones ended up flying further out than the wide ones. Ragged left
- * edges, and nothing to suggest they had come from anywhere.
+ * `z-index: -1` puts the strip behind the card's own background, so at rest it
+ * is not dimmed or clipped or drawn at seven pixels — it is *behind the card*,
+ * whole, and completely invisible. Hovering slides it right by its own width
+ * and what has cleared the card's edge is what you see.
  *
- * Instead the strip is the card's full width with a padding-left that leaves
- * exactly a pip showing at the right edge. Nothing has to move at all: every
- * chip already shares that left edge, and growing its width is what carries it
- * out past the card. */
+ * Which makes the stacking the whole trick, and it has one rule: **the card
+ * must not become a stacking context.** A negative-z child paints behind its
+ * ancestor's background only while that ancestor has `z-index: auto`; the
+ * moment the card takes one, the strip pops in front of the card's own
+ * background and the chips appear lying across the card instead of under it.
+ * That is why the hover lift is on the *column* rather than on the card — the
+ * column has to rise above the next one for the chips to clear it, and the
+ * card has to stay flat for them to hide behind it. */
 .tk-tags-out .tk-card-tags {
   left: 0;
   right: 0;
   align-items: flex-start;
-  padding-left: calc(100% - 7px);
+  /* Every chip's left edge, one card's-width-minus-the-travel from the left.
+     Fixed rather than per-chip, so they all move the same distance and arrive
+     sharing an edge. */
+  padding-left: calc(100% - var(--tk-out-travel));
+  z-index: -1;
 }
+.tk-tags-out { --tk-out-travel: 168px; }
+.tk-tags-out .tk-col { position: relative; }
 
 @media (hover: hover) {
-  /* Over the next column on the way out, rather than under it. */
-  .tk-tags-out .tk-card:hover,
-  .tk-tags-out .tk-card:focus-within { z-index: 2; }
-  /* Square where it meets the card and round at the far end, so it reads as
-     something coming out from underneath rather than a pill parked beside it. */
+  /* The column rises, not the card. See above. */
+  .tk-tags-out .tk-col:hover,
+  .tk-tags-out .tk-col:focus-within { z-index: 2; }
+
+  .tk-tags-out .tk-card-tags .tk-label {
+    transform: translateX(0);
+    transition: transform var(--m3-dur-medium) var(--m3-ease-standard);
+  }
   .tk-tags-out .tk-card:hover .tk-card-tags .tk-label,
   .tk-tags-out .tk-card:focus-within .tk-card-tags .tk-label {
+    transform: translateX(var(--tk-out-travel));
+    transition: transform var(--m3-dur-medium) var(--m3-ease-decel);
+    /* Square where it leaves the card and round at the far end, so the shape
+       says which way it came out. */
     border-radius: 0 var(--m3-shape-full) var(--m3-shape-full) 0;
-    background: color-mix(in srgb, var(--label, var(--border-strong)) 13%, var(--bg-elev));
     box-shadow: var(--m3-elev-2);
   }
 }
