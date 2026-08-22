@@ -530,6 +530,44 @@ def _attach_cards(conn: Connection, asks: list[dict],
     return asks
 
 
+# What counts as something being broken.
+#
+# A key list rather than a flag, because nothing on `issue_types` says what a
+# type *is* — only what it is called, what colour it is, and where it sits in
+# the hierarchy. The cost is real and worth writing down: a project that
+# defines its own "Regression" will not be caught by this until the list
+# learns the word. A boolean on the type is the durable answer.
+BUG_TYPES = frozenset({"bug", "defect", "live_bug", "hotfix"})
+
+
+def _next_order(rows: list[dict]) -> list[dict]:
+    """What to pick up, in the order to pick it up.
+
+    Broken things first, then everything else, and priority decides inside
+    each group. A medium bug is still a thing that is broken for somebody; a
+    highest story is work that has not started being wrong yet.
+
+    Priority alone could not say this. It is one axis, and "how bad is it" and
+    "what kind of thing is it" are two — so a bug and a story could only ever
+    be compared by turning the bug's priority up, which is how everything ends
+    up highest by the end of the quarter.
+
+    **Urgent is still above the bugs, and that is not a hedge.** `urgent` is
+    not the top of the priority scale in this product, it is a different thing
+    that sits outside it: somebody stopped the queue by name, at a time, with
+    a reason the server refuses to do without. Sorting a medium bug above it
+    would put the list in direct contradiction with the screen it is on, which
+    veils everything else with "QAB-3 comes first" the moment that happens.
+    """
+    return sorted(rows, key=lambda r: (
+        0 if r["priority"] == "urgent" else 1,
+        0 if (r.get("type_key") or "") in BUG_TYPES else 1,
+        PRIORITY_RANK.get(r["priority"], 9),
+        r["rank"] or "",
+        r["id"],
+    ))
+
+
 def _sorted(rows: list[dict]) -> list[dict]:
     return sorted(rows, key=lambda r: (PRIORITY_RANK.get(r["priority"], 9),
                                        r["rank"] or "", r["id"]))
@@ -587,7 +625,7 @@ def my_work(conn: Connection, user_id: int,
         "asked": asks_mod.asked_by(conn, user_id),
         "done": done,
         "inProgress": [r for r in rows if r["status_category"] == "in_progress"],
-        "next": [r for r in rows if r["status_category"] != "in_progress"],
+        "next": _next_order([r for r in rows if r["status_category"] != "in_progress"]),
         "team": team_of(conn, user_id),
         "leads": leads(conn, user_id),
     }

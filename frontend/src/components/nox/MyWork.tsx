@@ -34,7 +34,7 @@ import { TrackerRail } from "./TrackerRail";
 import { ago, trackerApi } from "./model";
 import type { MyWorkData, QueueIssue, TrackerUser } from "./model";
 import { M3Segmented } from "../M3Segmented";
-import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { X } from "lucide-react";
 import { CardFace } from "./CardFace";
 import { AsksBand } from "./Asks";
 
@@ -103,19 +103,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
     enabled: !busy,
   });
 
-  // Reordering is only ever within one band, so the move is always between
-  // neighbours that share a priority — there is no way to express "above the
-  // highest" and therefore no way to try.
-  function move(list: QueueIssue[], index: number, by: number) {
-    const target = index + by;
-    if (target < 0 || target >= list.length) return;
-    if (list[index].priority !== list[target].priority) return;
-    const ids = list.filter((i) => i.priority === list[index].priority).map((i) => i.id);
-    const from = ids.indexOf(list[index].id);
-    const to = ids.indexOf(list[target].id);
-    [ids[from], ids[to]] = [ids[to], ids[from]];
-    reorder(list[index].priority, ids);
-  }
 
   const running = data?.inProgress ?? [];
   // What is in front of everything else, wherever it happens to sit. The
@@ -235,21 +222,6 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                 empty="Nothing queued — ask your lead."
                 numbered
                 onOpen={(i) => issueDialog.open(i.key)}
-                action={(issue, index) => {
-                  const list = data.next;
-                  const up = index > 0 && list[index - 1].priority === issue.priority;
-                  const down = index < list.length - 1 && list[index + 1].priority === issue.priority;
-                  return (
-                    <span className="tkw-order">
-                      <button type="button" className="tks-mini tk-layer" disabled={busy || !up}
-                              title={up ? "Do this one sooner" : "Already first in its priority"}
-                              onClick={() => move(list, index, -1)}><ChevronUp size={16} aria-hidden /></button>
-                      <button type="button" className="tks-mini tk-layer" disabled={busy || !down}
-                              title={down ? "Do this one later" : "Already last in its priority"}
-                              onClick={() => move(list, index, 1)}><ChevronDown size={16} aria-hidden /></button>
-                    </span>
-                  );
-                }}
               />
 
               <Band
