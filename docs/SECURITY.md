@@ -155,3 +155,13 @@ oversight.
   push notifications impossible — see [ASKS.md](ASKS.md) §5.
 - **Backups are not scheduled.** The flow exists and has been restored end to
   end; nothing runs it on a timer yet.
+- **The GitHub App's private key has not been rotated.** It appeared in a chat
+  transcript on 2026-08-21. Raised, and the owner's decision on 2026-08-22 was
+  not now — it will be done when they say so. Written down rather than repeated,
+  because a risk somebody has decided to carry is a different thing from one
+  nobody has noticed.
+  What it covers, so the decision is an informed one: installation `155421350`
+  on the **user** account `adrianbodea08`, with `repo_selection = all` — so it
+  reaches every repository on that account, not only the two Nox syncs. The key
+  is mounted as a file at `/run/nox/github-app.pem` and has never been
+  committed; `secrets/` is ignored.

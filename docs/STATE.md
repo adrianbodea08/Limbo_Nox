@@ -95,17 +95,16 @@ In the order it makes sense to do them.
 1. **Somebody else uses it.** It answers on the LAN today, so a colleague can
    register and be approved without any deployment at all. Everything below is
    less valuable than this.
-2. **Rotate the GitHub App key.** It went into a chat transcript on
-   2026-08-21. Nothing is known to have used it; that is not a reason to keep
-   it.
-3. **A field audit.** Fill rate per field, last set, and who reads it — then
+2. **A field audit.** Fill rate per field, last set, and who reads it — then
    decide what survives. The machinery exists (`list_fields` plus a search
    sweep). The equivalent sweep for statuses and workflows is already done.
-4. **Deployment.** A domain, a certificate, and a scheduled backup. Everything
+3. **Deployment.** A domain, a certificate, and a scheduled backup. Everything
    in [§5](#5-what-is-deliberately-not-built) that is blocked on HTTPS unblocks
    here.
 
-*(CI was second on this list until 2026-08-22, when it started running.)*
+*(CI was on this list until 2026-08-22, when it started running. So was
+rotating the GitHub App key, until the owner decided it was not for now — it
+is in [SECURITY.md](SECURITY.md) §4 with what it covers.)*
 
 ---
 
