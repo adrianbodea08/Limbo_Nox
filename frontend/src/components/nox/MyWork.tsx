@@ -118,6 +118,13 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
   }
 
   const running = data?.inProgress ?? [];
+  // What is in front of everything else, wherever it happens to sit. The
+  // moment somebody escalates, the rest of what is open is not what to be on
+  // — and waiting for the pause to be *recorded* would mean saying so only
+  // after the person had already started the urgent one, which is after the
+  // only decision that mattered.
+  const urgentKey = [...running, ...(data?.next ?? [])]
+    .find((i) => i.priority === "urgent")?.key ?? null;
   const empty = !!data
     && !running.length && !data.next.length && !data.done.length;
 
@@ -213,6 +220,7 @@ export function MyWorkPage({ shell }: { shell: ShellProps }) {
                   : "What you have open."}
                 issues={running}
                 empty="Nothing started."
+                supersededBy={urgentKey}
                 onOpen={(i) => issueDialog.open(i.key)}
               />
 
@@ -289,8 +297,24 @@ function stillWorthSaying(issue: QueueIssue): string | undefined {
   return saysTheStatus || saysThePriority || saysItIsUrgent ? undefined : why;
 }
 
+/** What the layer over a card says, if anything.
+ *
+ *  Two ways to not be the thing you should be on, and the urgent one wins:
+ *  being got in front of by an escalation is the more useful thing to know,
+ *  and something can easily be both.
+ */
+function veilFor(issue: QueueIssue, supersededBy?: string | null): string | undefined {
+  if (issue.priority === "urgent") return undefined;
+  if (supersededBy) return `${supersededBy} comes first`;
+  if (!issue.paused) return undefined;
+  return issue.paused.for_key
+    ? `Paused until ${issue.paused.for_key} is done`
+    : "Paused";
+}
+
 function Band({
   layout, band, title, hint, issues, empty, numbered, hideWhenEmpty, onOpen, action,
+  supersededBy,
 }: {
   layout: "columns" | "list";
   /** Drag-to-reorder, shared with every other ranked list in the tracker. */
@@ -303,6 +327,14 @@ function Band({
   hideWhenEmpty?: boolean;
   onOpen: (i: QueueIssue) => void;
   action?: (i: QueueIssue, index: number) => React.ReactNode;
+  /** The key of an urgent issue that is in front of everything here.
+   *
+   *  It veils the lane the moment something is escalated, rather than waiting
+   *  for somebody to start the urgent one — which is the only moment a pause
+   *  gets *recorded*, and far too late to be told. Nothing here knows whether
+   *  you are five minutes from finishing, so nothing here stops you: the card
+   *  underneath still opens, still moves, still finishes. */
+  supersededBy?: string | null;
 }) {
   if (hideWhenEmpty && issues.length === 0) return null;
   const column = layout === "columns";
@@ -333,9 +365,7 @@ function Band({
               issue={issue}
               status
               note={stillWorthSaying(issue)}
-              parkedFor={issue.paused
-                ? (issue.paused.for_key ?? null)
-                : undefined}
+              veil={veilFor(issue, supersededBy)}
               onOpen={() => onOpen(issue)}
             />
             {/* Why somebody stopped the queue, attached to the card it is

@@ -6514,5 +6514,13 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   color: var(--err);
 }
 .tkw-urgent-note strong { color: var(--text); }
-/* The card above it loses the corner they share, so the join is a join. */
-.tkw-card-urgent .tk-card { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+
+/* Urgent takes the card's own edge, not just the strip under it.
+   The two are one object — what is on fire and who set it alight — and a red
+   note joined to a grey card read as a note that had landed on something
+   unrelated. The shared corners go, so the join is a join. */
+.tkw-card-urgent .tk-card {
+  border-color: var(--err);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
