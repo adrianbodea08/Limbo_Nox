@@ -396,24 +396,30 @@ function QueuedAsk({ ask, me, users, onOpen, onChanged }: {
   }
 
   return (
-    <article className="tkw-card">
-      <CardFace
-        issue={ask.issue}
-        status
-        note={plain(ask.question)}
-        onOpen={() => ask.issue_key && onOpen(ask.issue_key)}
-      />
-      <div className="tka-queued-meta">
-        <span className={`tka-kind tka-k-${ask.kind}`}>
-          <kind.Icon size={13} aria-hidden /> {kind.label}
-        </span>
+    <article className={`tkw-card tka-queued tka-k-${ask.kind}`}>
+      {/* What is being asked for, as the heading of the thing it is asked
+          about. Four kinds want four different shapes of answer, and which one
+          this is decides whether you can deal with it in a sentence or have to
+          book half an hour — so it is the first thing read, not a chip under
+          the card. It takes the kind's own colour, which is the only place on
+          this screen that colour means anything. */}
+      <header className="tka-queued-title">
+        <kind.Icon size={17} aria-hidden />
+        <h3>{kind.label}</h3>
         {ask.blocking && (
           <span className="tka-stops" title="The work waits until this is answered">
             stops the work
           </span>
         )}
         <Waited since={ask.asked_at} />
-      </div>
+      </header>
+      <CardFace
+        issue={ask.issue}
+        status
+        note={plain(ask.question)}
+        onOpen={() => ask.issue_key && onOpen(ask.issue_key)}
+      />
+
       <div className="tka-queued-who">
         <Person size={18} name={ask.asked_by_name ?? undefined}
                 avatar={ask.asked_by_avatar ?? undefined} />

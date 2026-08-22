@@ -6439,3 +6439,28 @@ textarea.tk-input { height: auto; padding: 12px 16px; line-height: 1.55; resize:
   gap: 8px;
   font-size: var(--m3-font-label-medium);
 }
+
+/* The ask's kind, as the heading of the card it is about.
+   It was a chip in a row underneath, which put the least ambiguous thing about
+   an ask — whether it wants a sentence or half an hour of your afternoon —
+   below the thing you have to read to find out. The colour is the kind's own;
+   it is the only place on this screen where a colour carries a meaning of its
+   own rather than an issue's. */
+.tka-queued-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 8px;
+  border-bottom: 2px solid currentColor;
+  margin-bottom: 2px;
+}
+.tka-queued-title h3 {
+  margin: 0;
+  font-size: var(--m3-font-title-medium);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+/* Everything under the heading is the app's own ink again — the kind's colour
+   belongs to the heading and its rule, not to the card beneath them. */
+.tka-queued-title ~ * { color: var(--text); }
