@@ -336,8 +336,9 @@ of `QA-*` summaries to bucket hours. Do not "tidy" the wording.
 
 ## 7. Git
 
-> **Deferred.** Designed, not built — everything else came first. The
-> section below stands as the plan for when it is picked up.
+> **Built**, and the plan below is what it was built to. Webhooks, a GitHub
+> App, branch-name linking and builds through the Checks API all shipped — see
+> [GIT.md](GIT.md). This header said "deferred" for some time after it was not.
 
 **Webhooks, not polling** — there are 92 repos in the org. One org-level webhook:
 `push`, `pull_request`, `workflow_run`, `deployment`, `release`.
